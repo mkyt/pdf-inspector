@@ -1,0 +1,2244 @@
+[
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "backend": null,
+        "filesystem": null,
+        "protocol": 1,
+        "type": "hello",
+        "version": "0.1.0"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "versionMismatch",
+        "message": "client speaks protocol 999, backend speaks 1"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 0,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 1,
+          "name": "base.pdf",
+          "path": null,
+          "size": 1407
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 7
+        },
+        "live_objects": 11,
+        "object_slots": 13,
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 13,
+            "index": 0,
+            "kind": "table",
+            "offset": 994,
+            "span": {
+              "end": 1386,
+              "start": 994
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 13
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 0,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 1,
+          "name": "base.pdf",
+          "path": null,
+          "size": 1407
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 7
+        },
+        "live_objects": 11,
+        "object_slots": 13,
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 13,
+            "index": 0,
+            "kind": "table",
+            "offset": 994,
+            "span": {
+              "end": 1386,
+              "start": 994
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 13
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "entry": {
+              "generation": 65535,
+              "kind": "free",
+              "next": 0
+            },
+            "error": null,
+            "kind": null,
+            "num": 0,
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 15
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 1,
+            "subtype": null,
+            "type_name": "Catalog"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 80
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 2,
+            "subtype": null,
+            "type_name": "Pages"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 212
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 3,
+            "subtype": null,
+            "type_name": "Page"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 276
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 4,
+            "subtype": null,
+            "type_name": "Page"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 340
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 5,
+            "subtype": null,
+            "type_name": "Page"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 404
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 6,
+            "subtype": "Type1",
+            "type_name": "Font"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 474
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 7,
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "free",
+              "next": 0
+            },
+            "error": null,
+            "kind": null,
+            "num": 8,
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 570
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 9,
+            "subtype": null,
+            "type_name": "Outlines"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 616
+            },
+            "error": null,
+            "kind": "stream",
+            "num": 10,
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 742
+            },
+            "error": null,
+            "kind": "stream",
+            "num": 11,
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 868
+            },
+            "error": null,
+            "kind": "stream",
+            "num": 12,
+            "subtype": null,
+            "type_name": null
+          }
+        ],
+        "offset": 0,
+        "total": 13,
+        "type": "objects"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 340
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 5,
+            "subtype": null,
+            "type_name": "Page"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 404
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 6,
+            "subtype": "Type1",
+            "type_name": "Font"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 474
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 7,
+            "subtype": null,
+            "type_name": null
+          }
+        ],
+        "offset": 5,
+        "total": 13,
+        "type": "objects"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [],
+        "offset": 13,
+        "total": 13,
+        "type": "objects"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "index": 0,
+            "key": "Size",
+            "span": {
+              "end": 1283,
+              "start": 1281
+            },
+            "value": {
+              "type": "integer",
+              "value": 13
+            }
+          },
+          {
+            "index": 1,
+            "key": "Root",
+            "span": {
+              "end": 1295,
+              "start": 1290
+            },
+            "value": {
+              "id": {
+                "generation": 0,
+                "num": 1
+              },
+              "type": "ref"
+            }
+          },
+          {
+            "index": 2,
+            "key": "Info",
+            "span": {
+              "end": 1307,
+              "start": 1302
+            },
+            "value": {
+              "id": {
+                "generation": 0,
+                "num": 7
+              },
+              "type": "ref"
+            }
+          },
+          {
+            "index": 3,
+            "key": "ID",
+            "span": {
+              "end": 1383,
+              "start": 1312
+            },
+            "value": {
+              "len": 2,
+              "type": "array"
+            }
+          }
+        ],
+        "offset": 0,
+        "total": 4,
+        "type": "children"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": [],
+        "id": {
+          "generation": 0,
+          "num": 2
+        },
+        "location": {
+          "kind": "file",
+          "span": {
+            "end": 211,
+            "start": 80
+          }
+        },
+        "span": {
+          "end": 204,
+          "start": 88
+        },
+        "stream": null,
+        "type": "object",
+        "value": {
+          "len": 5,
+          "type": "dict",
+          "type_name": "Pages"
+        }
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "index": 0,
+            "key": "Type",
+            "span": {
+              "end": 103,
+              "start": 97
+            },
+            "value": {
+              "name": "Pages",
+              "type": "name"
+            }
+          },
+          {
+            "index": 1,
+            "key": "Kids",
+            "span": {
+              "end": 129,
+              "start": 110
+            },
+            "value": {
+              "len": 3,
+              "type": "array"
+            }
+          },
+          {
+            "index": 2,
+            "key": "Count",
+            "span": {
+              "end": 138,
+              "start": 137
+            },
+            "value": {
+              "type": "integer",
+              "value": 3
+            }
+          },
+          {
+            "index": 3,
+            "key": "MediaBox",
+            "span": {
+              "end": 162,
+              "start": 149
+            },
+            "value": {
+              "len": 4,
+              "type": "array"
+            }
+          },
+          {
+            "index": 4,
+            "key": "Resources",
+            "span": {
+              "end": 201,
+              "start": 174
+            },
+            "value": {
+              "len": 1,
+              "type": "dict",
+              "type_name": null
+            }
+          }
+        ],
+        "offset": 0,
+        "total": 5,
+        "type": "children"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "index": 1,
+            "key": null,
+            "span": {
+              "end": 122,
+              "start": 117
+            },
+            "value": {
+              "id": {
+                "generation": 0,
+                "num": 4
+              },
+              "type": "ref"
+            }
+          },
+          {
+            "index": 2,
+            "key": null,
+            "span": {
+              "end": 128,
+              "start": 123
+            },
+            "value": {
+              "id": {
+                "generation": 0,
+                "num": 5
+              },
+              "type": "ref"
+            }
+          }
+        ],
+        "offset": 1,
+        "total": 3,
+        "type": "children"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "index": 0,
+            "key": "F1",
+            "span": {
+              "end": 195,
+              "start": 190
+            },
+            "value": {
+              "id": {
+                "generation": 0,
+                "num": 6
+              },
+              "type": "ref"
+            }
+          }
+        ],
+        "offset": 0,
+        "total": 1,
+        "type": "children"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "notFound",
+        "message": "no such node"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": [],
+        "id": {
+          "generation": 0,
+          "num": 10
+        },
+        "location": {
+          "kind": "file",
+          "span": {
+            "end": 741,
+            "start": 616
+          }
+        },
+        "span": {
+          "end": 734,
+          "start": 625
+        },
+        "stream": {
+          "data_span": {
+            "end": 724,
+            "start": 670
+          },
+          "encrypted": false,
+          "filters": [
+            "FlateDecode"
+          ],
+          "raw_len": 54
+        },
+        "type": "object",
+        "value": {
+          "len": 2,
+          "raw_len": 54,
+          "type": "stream",
+          "type_name": null
+        }
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "notFound",
+        "message": "object 8 0 not found"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "notFound",
+        "message": "object 77 0 not found"
+      }
+    }
+  },
+  {
+    "blobs": [
+      "4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a4254202f46312032342054662037322037303020546420285061676520312920546a2045540a"
+    ],
+    "response": {
+      "ok": {
+        "eof": true,
+        "errors": [],
+        "len": 760,
+        "offset": 0,
+        "part": 0,
+        "stopped_at": null,
+        "total": 760,
+        "type": "bytes"
+      }
+    }
+  },
+  {
+    "blobs": [
+      "5466203732203730"
+    ],
+    "response": {
+      "ok": {
+        "eof": false,
+        "errors": [],
+        "len": 8,
+        "offset": 10,
+        "part": 0,
+        "stopped_at": null,
+        "total": null,
+        "type": "bytes"
+      }
+    }
+  },
+  {
+    "blobs": [
+      "51d07733543032510849533037523037"
+    ],
+    "response": {
+      "ok": {
+        "eof": false,
+        "errors": [],
+        "len": 16,
+        "offset": 4,
+        "part": 0,
+        "stopped_at": null,
+        "total": 54,
+        "type": "bytes"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "badRequest",
+        "message": "object 1 0 is not a stream"
+      }
+    }
+  },
+  {
+    "blobs": [
+      "255044462d312e370a25e2e3cfd30a312030206f626a0a3c3c202f54797065202f436174616c6f67202f5061676573203220302052202f4f75746c696e657320"
+    ],
+    "response": {
+      "ok": {
+        "eof": false,
+        "errors": [],
+        "len": 64,
+        "offset": 0,
+        "part": 0,
+        "stopped_at": null,
+        "total": 1407,
+        "type": "bytes"
+      }
+    }
+  },
+  {
+    "blobs": [
+      "0a2525454f460a"
+    ],
+    "response": {
+      "ok": {
+        "eof": true,
+        "errors": [],
+        "len": 7,
+        "offset": 1400,
+        "part": 0,
+        "stopped_at": null,
+        "total": 1407,
+        "type": "bytes"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "tooLarge",
+        "message": "at most 4194304 bytes per request"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "entry": {
+              "generation": 65535,
+              "kind": "free",
+              "next": 0
+            },
+            "num": 0
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 15
+            },
+            "num": 1
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 80
+            },
+            "num": 2
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 212
+            },
+            "num": 3
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 276
+            },
+            "num": 4
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 340
+            },
+            "num": 5
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 404
+            },
+            "num": 6
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 474
+            },
+            "num": 7
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "free",
+              "next": 0
+            },
+            "num": 8
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 570
+            },
+            "num": 9
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 616
+            },
+            "num": 10
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 742
+            },
+            "num": 11
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 868
+            },
+            "num": 12
+          }
+        ],
+        "offset": 0,
+        "total": 13,
+        "type": "xref"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "notFound",
+        "message": "no such revision"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [],
+        "offset": 0,
+        "total": 0,
+        "type": "diagnostics"
+      }
+    }
+  },
+  {
+    "blobs": [
+      "255044462d312e37",
+      "0a25e2e3cfd30a31"
+    ],
+    "response": {
+      "ok": {
+        "responses": [
+          {
+            "ok": {
+              "eof": false,
+              "errors": [],
+              "len": 8,
+              "offset": 0,
+              "part": 0,
+              "stopped_at": null,
+              "total": 1407,
+              "type": "bytes"
+            }
+          },
+          {
+            "err": {
+              "code": "noSuchDoc",
+              "message": "no document 999"
+            }
+          },
+          {
+            "ok": {
+              "eof": false,
+              "errors": [],
+              "len": 8,
+              "offset": 8,
+              "part": 1,
+              "stopped_at": null,
+              "total": 1407,
+              "type": "bytes"
+            }
+          }
+        ],
+        "type": "batch"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "responses": [
+          {
+            "err": {
+              "code": "badRequest",
+              "message": "batches cannot be nested"
+            }
+          }
+        ],
+        "type": "batch"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "noSuchDoc",
+        "message": "no document 999"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 0,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 2,
+          "name": "objstm.pdf",
+          "path": null,
+          "size": 1080
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 8
+        },
+        "live_objects": 13,
+        "object_slots": 14,
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 14,
+            "index": 0,
+            "kind": "stream",
+            "offset": 773,
+            "span": {
+              "end": 1059,
+              "start": 773
+            },
+            "xref_stream": {
+              "generation": 0,
+              "num": 13
+            }
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 2
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 14
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "free",
+              "next": 0
+            },
+            "error": null,
+            "kind": null,
+            "num": 0,
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 15
+            },
+            "error": null,
+            "kind": "stream",
+            "num": 1,
+            "subtype": null,
+            "type_name": "ObjStm"
+          },
+          {
+            "entry": {
+              "index": 0,
+              "kind": "compressed",
+              "stream": 1
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 2,
+            "subtype": null,
+            "type_name": "Catalog"
+          },
+          {
+            "entry": {
+              "index": 1,
+              "kind": "compressed",
+              "stream": 1
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 3,
+            "subtype": null,
+            "type_name": "Pages"
+          },
+          {
+            "entry": {
+              "index": 2,
+              "kind": "compressed",
+              "stream": 1
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 4,
+            "subtype": null,
+            "type_name": "Page"
+          },
+          {
+            "entry": {
+              "index": 3,
+              "kind": "compressed",
+              "stream": 1
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 5,
+            "subtype": null,
+            "type_name": "Page"
+          },
+          {
+            "entry": {
+              "index": 4,
+              "kind": "compressed",
+              "stream": 1
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 6,
+            "subtype": null,
+            "type_name": "Page"
+          },
+          {
+            "entry": {
+              "index": 5,
+              "kind": "compressed",
+              "stream": 1
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 7,
+            "subtype": "Type1",
+            "type_name": "Font"
+          },
+          {
+            "entry": {
+              "index": 6,
+              "kind": "compressed",
+              "stream": 1
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 8,
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "index": 7,
+              "kind": "compressed",
+              "stream": 1
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 9,
+            "subtype": null,
+            "type_name": "Outlines"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 398
+            },
+            "error": null,
+            "kind": "stream",
+            "num": 10,
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 523
+            },
+            "error": null,
+            "kind": "stream",
+            "num": 11,
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 648
+            },
+            "error": null,
+            "kind": "stream",
+            "num": 12,
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 773
+            },
+            "error": null,
+            "kind": "stream",
+            "num": 13,
+            "subtype": null,
+            "type_name": "XRef"
+          }
+        ],
+        "offset": 0,
+        "total": 14,
+        "type": "objects"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": [],
+        "id": {
+          "generation": 0,
+          "num": 3
+        },
+        "location": {
+          "index": 1,
+          "kind": "objStm",
+          "stream": {
+            "generation": 0,
+            "num": 1
+          }
+        },
+        "span": null,
+        "stream": null,
+        "type": "object",
+        "value": {
+          "len": 5,
+          "type": "dict",
+          "type_name": "Pages"
+        }
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": [],
+        "id": {
+          "generation": 0,
+          "num": 1
+        },
+        "location": {
+          "kind": "file",
+          "span": {
+            "end": 397,
+            "start": 15
+          }
+        },
+        "span": {
+          "end": 390,
+          "start": 23
+        },
+        "stream": {
+          "data_span": {
+            "end": 381,
+            "start": 98
+          },
+          "encrypted": false,
+          "filters": [
+            "FlateDecode"
+          ],
+          "raw_len": 283
+        },
+        "type": "object",
+        "value": {
+          "len": 5,
+          "raw_len": 283,
+          "type": "stream",
+          "type_name": "ObjStm"
+        }
+      }
+    }
+  },
+  {
+    "blobs": [
+      "32203020332035302034203137312035203232302036203236392037203331382038203337332039203435340a3c3c202f4f75746c696e6573203920302052202f5061676573203320302052202f54797065202f436174616c6f67203e3e0a3c3c202f436f756e742033202f4b696473205b203420302052203520302052203620302052205d202f4d65646961426f78205b203020302036313220373932205d202f5265736f7572636573203c3c202f466f6e74203c3c202f4631203720302052203e3e203e3e202f54797065202f5061676573203e3e0a3c3c202f436f6e74656e747320313020302052202f506172656e74203320302052202f54797065202f50616765203e3e0a3c3c202f436f6e74656e747320313120302052202f506172656e74203320302052202f54797065202f50616765203e3e0a3c3c202f436f6e74656e747320313220302052202f506172656e74203320302052202f54797065202f50616765203e3e0a3c3c202f42617365466f6e74202f48656c766574696361202f53756274797065202f5479706531202f54797065202f466f6e74203e3e0a3c3c202f417574686f72203c6665666630303431303034323e202f50726f647563657220287064662d696e73706563746f7229202f5469746c65202846697874757265205c28746573745c2929203e3e0a3c3c202f436f756e742030202f54797065202f4f75746c696e6573203e3e0a"
+    ],
+    "response": {
+      "ok": {
+        "eof": true,
+        "errors": [],
+        "len": 530,
+        "offset": 0,
+        "part": 0,
+        "stopped_at": null,
+        "total": 530,
+        "type": "bytes"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 0,
+        "encryption": {
+          "authenticated": true,
+          "filter": "Standard",
+          "key_bits": 256,
+          "permissions": -4,
+          "r": 6,
+          "stream_method": "AesV3",
+          "string_method": "AesV3",
+          "v": 5
+        },
+        "header_offset": 0,
+        "info": {
+          "doc": 3,
+          "name": "aes-256.pdf",
+          "path": null,
+          "size": 2265
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 2
+        },
+        "live_objects": 12,
+        "object_slots": 13,
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 13,
+            "index": 0,
+            "kind": "table",
+            "offset": 1836,
+            "span": {
+              "end": 2243,
+              "start": 1836
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 13
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 0,
+        "encryption": {
+          "authenticated": true,
+          "filter": "Standard",
+          "key_bits": 256,
+          "permissions": -4,
+          "r": 6,
+          "stream_method": "AesV3",
+          "string_method": "AesV3",
+          "v": 5
+        },
+        "header_offset": 0,
+        "info": {
+          "doc": 3,
+          "name": "aes-256.pdf",
+          "path": null,
+          "size": 2265
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 2
+        },
+        "live_objects": 12,
+        "object_slots": 13,
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 13,
+            "index": 0,
+            "kind": "table",
+            "offset": 1836,
+            "span": {
+              "end": 2243,
+              "start": 1836
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 13
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": [],
+        "id": {
+          "generation": 0,
+          "num": 2
+        },
+        "location": {
+          "kind": "file",
+          "span": {
+            "end": 392,
+            "start": 146
+          }
+        },
+        "span": {
+          "end": 385,
+          "start": 154
+        },
+        "stream": null,
+        "type": "object",
+        "value": {
+          "len": 3,
+          "type": "dict",
+          "type_name": null
+        }
+      }
+    }
+  },
+  {
+    "blobs": [
+      "4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a4254202f46312032342054662037322037303020546420285061676520322920546a2045540a"
+    ],
+    "response": {
+      "ok": {
+        "eof": true,
+        "errors": [],
+        "len": 760,
+        "offset": 0,
+        "part": 0,
+        "stopped_at": null,
+        "total": 760,
+        "type": "bytes"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 1,
+        "encryption": {
+          "authenticated": false,
+          "filter": "Standard",
+          "key_bits": 256,
+          "permissions": -4,
+          "r": 6,
+          "stream_method": "AesV3",
+          "string_method": "AesV3",
+          "v": 5
+        },
+        "header_offset": 0,
+        "info": {
+          "doc": 4,
+          "name": "aes-256.pdf",
+          "path": null,
+          "size": 2265
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 2
+        },
+        "live_objects": 12,
+        "object_slots": 13,
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 13,
+            "index": 0,
+            "kind": "table",
+            "offset": 1836,
+            "span": {
+              "end": 2243,
+              "start": 1836
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 13
+      }
+    }
+  },
+  {
+    "blobs": [
+      ""
+    ],
+    "response": {
+      "ok": {
+        "eof": true,
+        "errors": [
+          "FlateDecode: deflate decompression error",
+          "file is encrypted and no valid password was given"
+        ],
+        "len": 0,
+        "offset": 0,
+        "part": 0,
+        "stopped_at": null,
+        "total": 0,
+        "type": "bytes"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 0,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 5,
+          "name": "incremental.pdf",
+          "path": null,
+          "size": 1656
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 7
+        },
+        "live_objects": 12,
+        "object_slots": 15,
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 3,
+            "index": 0,
+            "kind": "table",
+            "offset": 1500,
+            "span": {
+              "end": 1634,
+              "start": 1500
+            },
+            "xref_stream": null
+          },
+          {
+            "entries": 13,
+            "index": 1,
+            "kind": "table",
+            "offset": 994,
+            "span": {
+              "end": 1386,
+              "start": 994
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 14
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 0,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 5,
+          "name": "incremental.pdf",
+          "path": null,
+          "size": 1656
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 7
+        },
+        "live_objects": 12,
+        "object_slots": 15,
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 3,
+            "index": 0,
+            "kind": "table",
+            "offset": 1500,
+            "span": {
+              "end": 1634,
+              "start": 1500
+            },
+            "xref_stream": null
+          },
+          {
+            "entries": 13,
+            "index": 1,
+            "kind": "table",
+            "offset": 994,
+            "span": {
+              "end": 1386,
+              "start": 994
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 14
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "entry": {
+              "generation": 65535,
+              "kind": "free",
+              "next": 0
+            },
+            "num": 0
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 1407
+            },
+            "num": 7
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 1471
+            },
+            "num": 14
+          }
+        ],
+        "offset": 0,
+        "total": 3,
+        "type": "xref"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "entry": {
+              "generation": 65535,
+              "kind": "free",
+              "next": 0
+            },
+            "num": 0
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 15
+            },
+            "num": 1
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 80
+            },
+            "num": 2
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 212
+            },
+            "num": 3
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 276
+            },
+            "num": 4
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 340
+            },
+            "num": 5
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 404
+            },
+            "num": 6
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 474
+            },
+            "num": 7
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "free",
+              "next": 0
+            },
+            "num": 8
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 570
+            },
+            "num": 9
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 616
+            },
+            "num": 10
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 742
+            },
+            "num": 11
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 868
+            },
+            "num": 12
+          }
+        ],
+        "offset": 0,
+        "total": 13,
+        "type": "xref"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 1,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 6,
+          "name": "broken.pdf",
+          "path": null,
+          "size": 1407
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 7
+        },
+        "live_objects": 11,
+        "object_slots": 13,
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 13,
+            "index": 0,
+            "kind": "table",
+            "offset": 993,
+            "span": {
+              "end": 1385,
+              "start": 993
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 13
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 1,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 6,
+          "name": "broken.pdf",
+          "path": null,
+          "size": 1407
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 7
+        },
+        "live_objects": 11,
+        "object_slots": 13,
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 13,
+            "index": 0,
+            "kind": "table",
+            "offset": 993,
+            "span": {
+              "end": 1385,
+              "start": 993
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 13
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "code": "XrefOffsetAdjusted",
+            "message": "xref section expected at 1001, found at 993",
+            "obj": null,
+            "severity": "warning",
+            "span": null
+          }
+        ],
+        "offset": 0,
+        "total": 1,
+        "type": "diagnostics"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 1,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 7,
+          "name": "base.pdf",
+          "path": null,
+          "size": 1407
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 7
+        },
+        "live_objects": 11,
+        "object_slots": 13,
+        "recovered": true,
+        "revisions": [
+          {
+            "entries": 11,
+            "index": 0,
+            "kind": "recovered",
+            "offset": 0,
+            "span": {
+              "end": 1407,
+              "start": 0
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 11
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 1,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 7,
+          "name": "base.pdf",
+          "path": null,
+          "size": 1407
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 7
+        },
+        "live_objects": 11,
+        "object_slots": 13,
+        "recovered": true,
+        "revisions": [
+          {
+            "entries": 11,
+            "index": 0,
+            "kind": "recovered",
+            "offset": 0,
+            "span": {
+              "end": 1407,
+              "start": 0
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 11
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "events": [
+      {
+        "info": {
+          "doc": 1,
+          "done": 11,
+          "job": 1,
+          "kind": {
+            "decode_streams": true,
+            "kind": "checkObjects"
+          },
+          "result": {
+            "decode_errors": 0,
+            "decoded_bytes": 2280,
+            "diagnostics": 0,
+            "failed": 0,
+            "kind": "checkObjects",
+            "missing": 0,
+            "ok": 11,
+            "streams": 3
+          },
+          "state": "completed",
+          "total": 11
+        },
+        "type": "jobDone"
+      }
+    ],
+    "response": {
+      "ok": {
+        "doc": 1,
+        "done": 0,
+        "job": 1,
+        "kind": {
+          "decode_streams": true,
+          "kind": "checkObjects"
+        },
+        "result": null,
+        "state": "running",
+        "total": 11,
+        "type": "job"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "doc": 1,
+        "done": 11,
+        "job": 1,
+        "kind": {
+          "decode_streams": true,
+          "kind": "checkObjects"
+        },
+        "result": {
+          "decode_errors": 0,
+          "decoded_bytes": 2280,
+          "diagnostics": 0,
+          "failed": 0,
+          "kind": "checkObjects",
+          "missing": 0,
+          "ok": 11,
+          "streams": 3
+        },
+        "state": "completed",
+        "total": 11,
+        "type": "job"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "events": [
+      {
+        "info": {
+          "doc": 6,
+          "done": 11,
+          "job": 2,
+          "kind": {
+            "decode_streams": false,
+            "kind": "checkObjects"
+          },
+          "result": {
+            "decode_errors": 0,
+            "decoded_bytes": 0,
+            "diagnostics": 3,
+            "failed": 0,
+            "kind": "checkObjects",
+            "missing": 0,
+            "ok": 11,
+            "streams": 0
+          },
+          "state": "completed",
+          "total": 11
+        },
+        "type": "jobDone"
+      }
+    ],
+    "response": {
+      "ok": {
+        "doc": 6,
+        "done": 0,
+        "job": 2,
+        "kind": {
+          "decode_streams": false,
+          "kind": "checkObjects"
+        },
+        "result": null,
+        "state": "running",
+        "total": 11,
+        "type": "job"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "code": "XrefOffsetAdjusted",
+            "message": "xref section expected at 1001, found at 993",
+            "obj": null,
+            "severity": "warning",
+            "span": null
+          },
+          {
+            "code": "StreamLengthInvalid",
+            "message": "stream /Length 5 is wrong; actual data length 54",
+            "obj": {
+              "generation": 0,
+              "num": 10
+            },
+            "severity": "warning",
+            "span": {
+              "end": 723,
+              "start": 669
+            }
+          },
+          {
+            "code": "XrefEntryMismatch",
+            "message": "wrong xref offset 742 (xref points to object 1 0 instead); found at 741 by scanning",
+            "obj": {
+              "generation": 0,
+              "num": 11
+            },
+            "severity": "warning",
+            "span": null
+          },
+          {
+            "code": "XrefEntryMismatch",
+            "message": "wrong xref offset 868 (xref points to object 2 0 instead); found at 867 by scanning",
+            "obj": {
+              "generation": 0,
+              "num": 12
+            },
+            "severity": "warning",
+            "span": null
+          }
+        ],
+        "offset": 0,
+        "total": 4,
+        "type": "diagnostics"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "noSuchJob",
+        "message": "no job 99"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "noSuchJob",
+        "message": "no job 99"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "docs": [
+          {
+            "doc": 1,
+            "name": "base.pdf",
+            "path": null,
+            "size": 1407
+          },
+          {
+            "doc": 2,
+            "name": "objstm.pdf",
+            "path": null,
+            "size": 1080
+          },
+          {
+            "doc": 3,
+            "name": "aes-256.pdf",
+            "path": null,
+            "size": 2265
+          },
+          {
+            "doc": 4,
+            "name": "aes-256.pdf",
+            "path": null,
+            "size": 2265
+          },
+          {
+            "doc": 5,
+            "name": "incremental.pdf",
+            "path": null,
+            "size": 1656
+          },
+          {
+            "doc": 6,
+            "name": "broken.pdf",
+            "path": null,
+            "size": 1407
+          },
+          {
+            "doc": 7,
+            "name": "base.pdf",
+            "path": null,
+            "size": 1407
+          }
+        ],
+        "type": "docs"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "type": "empty"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "noSuchDoc",
+        "message": "no document 7"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "noSuchDoc",
+        "message": "no document 7"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "docs": [
+          {
+            "doc": 1,
+            "name": "base.pdf",
+            "path": null,
+            "size": 1407
+          },
+          {
+            "doc": 2,
+            "name": "objstm.pdf",
+            "path": null,
+            "size": 1080
+          },
+          {
+            "doc": 3,
+            "name": "aes-256.pdf",
+            "path": null,
+            "size": 2265
+          },
+          {
+            "doc": 4,
+            "name": "aes-256.pdf",
+            "path": null,
+            "size": 2265
+          },
+          {
+            "doc": 5,
+            "name": "incremental.pdf",
+            "path": null,
+            "size": 1656
+          },
+          {
+            "doc": 6,
+            "name": "broken.pdf",
+            "path": null,
+            "size": 1407
+          }
+        ],
+        "type": "docs"
+      }
+    }
+  }
+]

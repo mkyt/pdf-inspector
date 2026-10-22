@@ -23,7 +23,8 @@ jobs:
       - run: cargo clippy --workspace --all-targets
       - run: cargo test --workspace
       # Core crates must stay buildable for the browser.
-      - run: cargo build -p pdfi-syntax -p pdfi-api --target wasm32-unknown-unknown
+      - run: cargo build -p pdfi-syntax -p pdfi-api -p pdfi-wasm --target wasm32-unknown-unknown
+      - run: cargo clippy -p pdfi-wasm --target wasm32-unknown-unknown
 
   web:
     runs-on: ubuntu-latest
@@ -32,6 +33,15 @@ jobs:
         working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
+      # The browser mode embeds the wasm build (scripts/build-wasm.sh).
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      # Must match the wasm-bindgen version pinned in crates/pdfi-wasm.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.129
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -41,6 +51,8 @@ jobs:
       # Also type-checks against the generated protocol types, which
       # `cargo test -p pdfi-api` keeps in sync with the Rust definitions.
       - run: npm run build
+      # The conformance scenario through the Worker host and the wasm build.
+      - run: npm run test:conformance
 
   deny:
     runs-on: ubuntu-latest

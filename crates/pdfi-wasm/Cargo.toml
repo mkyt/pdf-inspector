@@ -1,0 +1,21 @@
+[package]
+name = "pdfi-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+js-sys = "0.3.106"
+pdfi-api = { version = "0.1.0", path = "../pdfi-api" }
+pdfi-syntax = { version = "0.1.0", path = "../pdfi-syntax" }
+serde_json = "1.0.154"
+# Must match the wasm-bindgen CLI used by scripts/build-wasm.sh.
+wasm-bindgen = "=0.2.129"
+
+[lints]
+workspace = true

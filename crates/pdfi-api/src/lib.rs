@@ -2,6 +2,9 @@
 //! [`Response`]s and publishing [`Event`]s. Transports (WebSocket server,
 //! wasm Worker) only move messages; all behavior lives here.
 
+// Test support shared by the per-backend conformance runners.
+#[doc(hidden)]
+pub mod conformance;
 mod convert;
 pub mod dto;
 pub mod job;

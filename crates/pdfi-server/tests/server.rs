@@ -260,3 +260,111 @@ async fn malformed_messages_get_errors() {
         ServerMessage::Response { id: 0, response: Response::Err(e) } if e.code == ErrorCode::BadRequest
     ));
 }
+
+/// The conformance scenario over the WebSocket must match the Rust API
+/// (`tests/conformance/expected.json`).
+#[tokio::test]
+async fn conformance() {
+    use pdfi_api::Event;
+    use pdfi_api::conformance::{self, Step};
+
+    let r = start(ServeOptions {
+        roots: vec![fixtures()],
+        ..Default::default()
+    })
+    .await;
+    let mut ws = good(&r).await;
+    let mut events: Vec<Event> = Vec::new();
+    let mut next_id = 0u64;
+    let mut out = Vec::new();
+
+    // Like `call`, but keeps the events that arrive meanwhile.
+    async fn send(
+        ws: &mut Ws,
+        id: u64,
+        request: &pdfi_api::Request,
+        events: &mut Vec<Event>,
+    ) -> (Response, Vec<Vec<u8>>) {
+        let msg = pdfi_api::ClientMessage {
+            id,
+            request: request.clone(),
+        };
+        ws.send(Message::text(serde_json::to_string(&msg).unwrap()))
+            .await
+            .unwrap();
+        let mut blobs = Vec::new();
+        while let Some(m) = ws.next().await {
+            match m.unwrap() {
+                Message::Binary(b) => {
+                    let f = BinaryFrame::decode(&b).unwrap();
+                    assert_eq!(f.id, id);
+                    assert_eq!(f.part as usize, blobs.len());
+                    blobs.push(f.data);
+                }
+                Message::Text(t) => match serde_json::from_str(&t).unwrap() {
+                    ServerMessage::Response { id: rid, response } => {
+                        assert_eq!(rid, id);
+                        return (response, blobs);
+                    }
+                    ServerMessage::Event { event } => events.push(event),
+                },
+                _ => {}
+            }
+        }
+        panic!("connection closed");
+    }
+
+    for step in conformance::scenario() {
+        next_id += 1;
+        let entry = match step {
+            Step::Request(req) => {
+                let (res, blobs) = send(&mut ws, next_id, &req, &mut events).await;
+                conformance::entry(&res, &blobs, &[])
+            }
+            Step::Open {
+                file,
+                password,
+                recover,
+            } => {
+                let req = pdfi_api::Request::Open {
+                    source: pdfi_api::OpenSource::Path {
+                        path: fixtures().join(file).to_string_lossy().into_owned(),
+                    },
+                    password,
+                    recover,
+                };
+                let (res, blobs) = send(&mut ws, next_id, &req, &mut events).await;
+                conformance::entry(&res, &blobs, &[])
+            }
+            Step::Job(req) => {
+                events.clear();
+                let (res, blobs) = send(&mut ws, next_id, &req, &mut events).await;
+                let job = conformance::started_job(&res).expect("job started");
+                // Jobs run on their own thread; wait for the last event.
+                while !events
+                    .iter()
+                    .any(|e| conformance::job_event(e, job) == Some(true))
+                {
+                    match ws.next().await.unwrap().unwrap() {
+                        Message::Text(t) => {
+                            if let ServerMessage::Event { event } =
+                                serde_json::from_str(&t).unwrap()
+                            {
+                                events.push(event);
+                            }
+                        }
+                        m => panic!("unexpected {m:?}"),
+                    }
+                }
+                let evs: Vec<Event> = events
+                    .iter()
+                    .filter(|e| conformance::job_event(e, job).is_some())
+                    .cloned()
+                    .collect();
+                conformance::entry(&res, &blobs, &evs)
+            }
+        };
+        out.push(entry);
+    }
+    conformance::check("server", out, false);
+}

@@ -14,8 +14,8 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { BackendContext, api, useBackend } from "./api";
+import { useCallback, useEffect, useMemo, useState, type DragEvent } from "react";
+import { api, useBackend } from "./api";
 import type { ConnectionState } from "./backend/backend";
 import { DiagnosticsPanel } from "./components/DiagnosticsPanel";
 import { HexView } from "./components/HexView";
@@ -28,20 +28,6 @@ import { NavContext, sameTarget, type Nav, type Target } from "./nav";
 import type { DocId, Span } from "./protocol/generated";
 
 export function App() {
-  const backend = useContext(BackendContext);
-  if (!backend) {
-    return (
-      <Center h="100vh">
-        <Stack maw={520}>
-          <Title order={3}>pdf-inspector</Title>
-          <Text>
-            No backend. Start the local server with <code>pdfi serve file.pdf</code>; it opens this page with an
-            access token.
-          </Text>
-        </Stack>
-      </Center>
-    );
-  }
   return <Shell />;
 }
 
@@ -60,6 +46,26 @@ function Shell() {
   const [openDialog, setOpenDialog] = useState(false);
 
   const docs = useQuery({ queryKey: ["docs"], queryFn: () => api.docs(backend), staleTime: 0 });
+  const [dropError, setDropError] = useState<string | null>(null);
+
+  // Browser mode: drop a PDF anywhere to open it.
+  const onDragOver = (e: DragEvent) => {
+    if (backend.openFile && e.dataTransfer.types.includes("Files")) e.preventDefault();
+  };
+  const onDrop = (e: DragEvent) => {
+    const file = e.dataTransfer.files[0];
+    if (!backend.openFile || !file) return;
+    e.preventDefault();
+    setDropError(null);
+    api.openFile(backend, file, null, false).then(
+      async (s) => {
+        // Select it only once the list knows it, or the list effect resets the selection.
+        await qc.invalidateQueries({ queryKey: ["docs"] });
+        setDoc(s.info.doc);
+      },
+      (err) => setDropError(`${file.name}: ${err instanceof Error ? err.message : String(err)}`),
+    );
+  };
 
   useEffect(
     () =>
@@ -87,7 +93,7 @@ function Shell() {
   }, [docs.data, doc]);
 
   return (
-    <AppShell header={{ height: 48 }} padding={0}>
+    <AppShell header={{ height: 48 }} padding={0} onDragOver={onDragOver} onDrop={onDrop}>
       <AppShell.Header>
         <Group h="100%" px="sm" gap="sm" wrap="nowrap">
           <Title order={5} style={{ whiteSpace: "nowrap" }}>
@@ -116,11 +122,22 @@ function Shell() {
         </Group>
       </AppShell.Header>
       <AppShell.Main h="100vh" style={{ display: "flex", flexDirection: "column" }}>
+        {dropError && (
+          <Alert color="red" m="xs" p={6} withCloseButton onClose={() => setDropError(null)}>
+            <Text size="xs">{dropError}</Text>
+          </Alert>
+        )}
         {doc === null ? (
           <Center style={{ flex: 1 }}>
             <Stack align="center">
               <Text c="dimmed">No document open.</Text>
               <Button onClick={() => setOpenDialog(true)}>Open a PDF…</Button>
+              {backend.mode === "browser" && (
+                <Text size="xs" c="dimmed" maw={420} ta="center">
+                  Or drop a file here. It is read in this tab only and never uploaded. For files of hundreds of MB,
+                  use the local server (<code>pdfi serve</code>).
+                </Text>
+              )}
             </Stack>
           </Center>
         ) : (

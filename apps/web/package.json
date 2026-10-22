@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build:wasm": "../../scripts/build-wasm.sh",
+    "build": "npm run build:wasm && tsc -b && vite build",
     "typecheck": "tsc -b",
+    "test:conformance": "node scripts/conformance.ts",
     "preview": "vite preview"
   },
   "dependencies": {

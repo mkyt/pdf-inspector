@@ -306,7 +306,10 @@ async fn connection(mut socket: WebSocket, session: Arc<Session>) {
     });
 }
 
-const CSP: &str = "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; \
+// `wasm-unsafe-eval`: the same UI also runs the wasm backend when opened
+// without a token.
+const CSP: &str = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; \
+                   img-src 'self' data: blob:; \
                    style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; \
                    frame-ancestors 'none'";
 

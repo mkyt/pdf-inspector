@@ -62,6 +62,12 @@ export const api = {
     recover: boolean,
   ): Promise<DocSummary> =>
     (await call(b, "doc", { op: "open", source: { kind: "path", path }, password, recover })).body,
+  openFile: async (b: Backend, file: File, password: string | null, recover: boolean): Promise<DocSummary> => {
+    if (!b.openFile) throw new Error("this backend opens paths, not files");
+    const r = await b.openFile(file, password, recover);
+    if (r.body.type !== "doc") throw new Error(`expected doc, got ${r.body.type}`);
+    return r.body;
+  },
   docs: async (b: Backend): Promise<DocInfo[]> => (await call(b, "docs", { op: "docs" })).body.docs,
   close: async (b: Backend, doc: DocId) => void (await b.request({ op: "close", doc })),
   summary: async (b: Backend, doc: DocId): Promise<DocSummary> =>

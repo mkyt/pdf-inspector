@@ -86,6 +86,7 @@ export function SummaryCard({ summary: s }: { summary: DocSummary }) {
           <Progress size="sm" value={job.total ? (100 * job.done) / job.total : 100} animated={running} />
           <Text size="xs" c="dimmed">
             {job.state === "running" && `${job.done.toLocaleString()} / ${job.total.toLocaleString()}`}
+            {running && backend.mode === "browser" && " · runs in this tab; pdfi serve is faster for large files"}
             {job.state === "cancelled" && "Cancelled"}
             {r &&
               `ok ${r.ok.toLocaleString()} · failed ${r.failed} · missing ${r.missing}` +

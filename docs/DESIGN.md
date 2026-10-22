@@ -6,6 +6,7 @@
 > - v2.1: §4.10 macOS インタフェース（pdfi-ffi / PdfInspectorKit）を追加。macOS は最新バージョン前提
 > - v2.2: 対象ブラウザを Chromium 系に確定（保存は File System Access API に一本化）
 > - v2.3: M2 実装で確定した事項を §4.8 / §4.9 に追記（TS 型生成は ts-rs、バイナリフレーム形式、ジョブ実行器、トークンの渡し方）
+> - v2.4: M3 実装で確定した事項を §5.3 / §7 に追記（JS 側 ByteSource、Worker ホストのスケジューリング、ファイルを開く経路、適合テストの形）
 
 ## 1. ゴール
 
@@ -413,6 +414,13 @@ UI は同じものを使い、起動経路（静的ホスティング or `pdfi s
 - 一時データ（巨大ストリーム差し替え等）は OPFS（`FileSystemSyncAccessHandle`）に置く
 - Chromium 前提で使える機能: wasm SIMD、Memory64（必要になった場合の選択肢。初期は wasm32 + 上限付きキャッシュで設計）。マルチスレッド（SharedArrayBuffer）は COOP/COEP が必要なため初期は使わない
 - 初版は単一 Worker。将来、レンダリング専用 Worker を複数立てる（読み取り専用 Source を共有し、Overlay のスナップショットを渡す）
+- **M3 で確定した形**:
+  - `pdfi-wasm` は `WasmSession`（`dispatch(json)` / `open(id, source, …)` / `runJobStep()` / `takeEvents()`）を公開する。プロトコルは WebSocket と同じ JSON（`ClientMessage` / `ServerMessage`）、バイナリ部は Transferable な `Uint8Array` で送る
+  - ByteSource は JS オブジェクト `{ size, read(offset, length) }`（`JsByteSource`）。`JsValue` は `Send` でないため、Rust 側はスレッドローカルの表に置いてキーだけを持つ。Worker では `Blob.slice()` + `FileReaderSync`。パーサは窓単位（〜1 MB）で読むのでブロックキャッシュは置いていない
+  - ファイルは JSON に載らないため、Worker への専用メッセージ `{ kind: "open", id, file }` で渡し、`Request::Open` と同じ形の応答を返す（`Backend.openFile`）。UI はファイル選択とドラッグ & ドロップ。`showOpenFilePicker` と「最近使ったファイル」（IndexedDB の `FileSystemFileHandle`）は未実装
+  - Worker 内の `Host`（`apps/web/src/worker/host.ts`）がリクエストをキューし、1 ターンに「リクエスト 1 件 → ジョブを最大 16 ms」実行して `MessageChannel` で次ターンを予約する。`Cancel` は未着手のリクエストをキューから外す。イベントはリクエストの応答より先に送る（WebSocket と同じ順序）
+  - モード判定: URL / sessionStorage にトークンがあれば RemoteBackend、なければ WorkerBackend。`pdfi serve` の CSP に `'wasm-unsafe-eval'` を追加
+  - ビルド: `scripts/build-wasm.sh`（`wasm-bindgen --target web`、出力は `apps/web/src/wasm/`、git 管理外）。`wasm-bindgen` crate は `=` で固定し CLI と版を揃える。`npm run build` が先に実行する
 
 ### 5.4 ローカルサーバーモード
 - `ByteSource` は mmap。キャッシュ上限はブラウザモードより大きく設定
@@ -456,6 +464,8 @@ UI は同じものを使い、起動経路（静的ホスティング or `pdfi s
 - レンダリングの回帰テスト: 自作 vs PDFium の画像差分（しきい値付き）をコーパスで実行
 - 大規模ファイルのベンチマーク: 起動時間、ページ i の表示時間、ピークメモリ（CI では合成した巨大 PDF を使用）
 - **プロトコル適合テスト**: 同一のテストシナリオを Rust 直呼び / wasm（Node or headless browser）/ サーバー（WebSocket）/ UniFFI（Swift の XCTest）の 4 経路で実行し、結果が一致することを確認
+  - シナリオは `tests/conformance/scenario.json`、期待結果は `tests/conformance/expected.json`（Rust 直呼びの結果。`UPDATE_CONFORMANCE=1 cargo test -p pdfi-api --test conformance` で再生成）。各経路はこれと比較する: `pdfi-api/tests/conformance.rs`、`pdfi-server/tests/server.rs`（WebSocket）、`apps/web/scripts/conformance.ts`（Node で wasm + Worker の `Host`）。Swift は M4
+  - 経路で当然異なるもの（hello の `backend` / `filesystem`、ファイルパス）は比較前にマスクする。ジョブは `jobDone` までのそのジョブのイベントも記録する
 - サーバーのセキュリティテスト: 不正 Host / Origin / トークン、許可ルート外パス、シンボリックリンク
 - コーパス: pdf.js / qpdf / PDF Association 等の公開テストファイル（取得スクリプトで管理）
 - 参照実装との比較: `qpdf --check`, `qpdf --json` の出力と突き合わせ

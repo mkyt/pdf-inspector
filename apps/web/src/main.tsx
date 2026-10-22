@@ -6,13 +6,16 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { BackendContext } from "./api";
 import { remoteFromLocation } from "./backend/remote";
+import { WorkerBackend } from "./backend/worker";
 
 // Documents do not change while open (no editing yet), so cached answers stay valid.
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: Infinity, gcTime: 5 * 60_000, retry: false, refetchOnWindowFocus: false } },
 });
 
-const backend = remoteFromLocation();
+// Opened by `pdfi serve` (token in the URL): use the server. Otherwise run
+// the wasm build in this tab.
+const backend = remoteFromLocation() ?? new WorkerBackend();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
