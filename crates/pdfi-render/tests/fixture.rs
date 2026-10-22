@@ -74,6 +74,13 @@ fn assert_px(o: &Output, x: u32, y: u32, want: [u8; 4]) {
 }
 
 const WHITE: [u8; 4] = [255; 4];
+/// Process colors through the default CMYK profile (FOGRA39).
+const CMYK_CYAN: [u8; 4] = [0, 159, 227, 255];
+const CMYK_YELLOW: [u8; 4] = [255, 237, 0, 255];
+/// Magenta and yellow.
+const CMYK_RED: [u8; 4] = [228, 8, 25, 255];
+/// Cyan and magenta.
+const CMYK_BLUE: [u8; 4] = [47, 40, 132, 255];
 
 #[test]
 fn paths_clips_and_colors() {
@@ -92,11 +99,12 @@ fn paths_clips_and_colors() {
     assert_px(&o, 35, 185, [0, 255, 0, 255]);
     assert_px(&o, 60, 185, WHITE);
     assert_px(&o, 35, 165, WHITE);
-    // CMYK yellow, Indexed blue, Separation through its tint transform
-    // (cyan), half-transparent blue over white.
-    assert_px(&o, 230, 70, [255, 255, 0, 255]);
+    // CMYK yellow (through the default CMYK profile), Indexed blue,
+    // Separation through its tint transform (cyan), half-transparent blue
+    // over white.
+    assert_px(&o, 230, 70, CMYK_YELLOW);
     assert_px(&o, 300, 70, [0, 0, 255, 255]);
-    assert_px(&o, 365, 80, [0, 255, 255, 255]);
+    assert_px(&o, 365, 80, CMYK_CYAN);
     assert_px(&o, 370, 190, [128, 128, 255, 255]);
     // Dashes: green, with gaps along the line.
     assert_px(&o, 26, 150, [0, 153, 0, 255]);
@@ -133,12 +141,13 @@ fn images() {
     // Color key: black samples show the blue backdrop.
     assert_px(&o, 140, 140, [255, 0, 0, 255]);
     assert_px(&o, 180, 140, [0, 0, 255, 255]);
-    // JPEG: gradient corners, gray, CMYK through /Decode (red).
+    // JPEG: gradient corners, gray, CMYK through /Decode (red, through
+    // the default CMYK profile).
     let j = px(&o, 225, 125);
     assert!(j[2] > 200 && j[0] < 60, "{j:?}");
     let g = px(&o, 30, 285);
     assert!(g[0] == g[1] && g[1] == g[2], "{g:?}");
-    assert_px(&o, 260, 260, [255, 0, 0, 255]);
+    assert_px(&o, 260, 260, CMYK_RED);
     // Inline image with /D [1 0]: 0 → white, 255 → black.
     assert_px(&o, 315, 260, WHITE);
     assert_px(&o, 385, 260, [0, 0, 0, 255]);
@@ -430,8 +439,8 @@ fn icc_cal_and_tint_colors() {
     assert!(near(cell(&o, 3, 1), [0, 255, 0, 255], 3));
     // CalGray with gamma 2.2.
     assert!(near(cell(&o, 2, 0), [128, 128, 128, 255], 3));
-    // Calculator and sampled tint transforms.
-    assert_eq!(cell(&o, 3, 0), [255, 0, 0, 255]);
+    // Calculator (to CMYK red) and sampled tint transforms.
+    assert!(near(cell(&o, 3, 0), CMYK_RED, 3));
     assert_eq!(cell(&o, 0, 1), [255, 255, 0, 255]);
     assert_eq!(cell(&o, 1, 1), [255, 0, 0, 255]);
     assert!(o.notes.is_empty(), "{:?}", o.notes);
@@ -565,9 +574,9 @@ fn image_codecs() {
     assert_ne!(px(&o, 150, 150), px(&o, 102, 102));
     assert_ne!(px(&o, 250, 150), px(&o, 202, 102));
     assert_eq!(px(&o, 250, 150), px(&o, 150, 150));
-    // A YCCK JPEG (inverted, with /Decode): red | blue.
-    assert_eq!(px(&o, 320, 175), [255, 0, 0, 255]);
-    assert_eq!(px(&o, 380, 175), [0, 0, 255, 255]);
+    // A YCCK JPEG (inverted, with /Decode): CMYK red | blue.
+    assert_px(&o, 320, 175, CMYK_RED);
+    assert_px(&o, 380, 175, CMYK_BLUE);
     // A one-channel JPEG in /Separation /Black: no ink | full ink.
     assert!(near(px(&o, 20, 275), WHITE, 4));
     assert!(px(&o, 80, 275)[..3].iter().all(|&c| c < 64));

@@ -1,6 +1,8 @@
 //! Color spaces and their conversion to RGB.
 //!
-//! Device spaces convert directly (CMYK naively). CalGray, CalRGB and
+//! Device spaces convert directly, except CMYK, which goes through a
+//! default profile (FOGRA39, see `assets/README.md`; naively if it cannot
+//! be used) as Acrobat and MuPDF do. CalGray, CalRGB and
 //! Lab convert through XYZ (white points scaled to D65). ICC profiles are
 //! read with moxcms and turned into transforms to sRGB (kept per
 //! document); a profile that cannot be used falls back to `/Alternate`,
@@ -10,7 +12,7 @@
 //! tint.
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use moxcms::{ColorProfile, DataColorSpace, Layout, TransformF32Executor, TransformOptions};
 use pdfi_model::resolve;
@@ -32,7 +34,14 @@ const D65: [f64; 3] = [0.9505, 1.0, 1.089];
 pub struct Icc {
     pub n: usize,
     xf: Arc<TransformF32Executor>,
+    /// Black point compensation (CMYK profiles): per channel, sRGB
+    /// values in `BPC_STEPS` steps to the values that map the profile's
+    /// darkest color to black.
+    bpc: Option<Arc<[Vec<f32>; 3]>>,
 }
+
+/// Steps of the black point compensation tables.
+const BPC_STEPS: usize = 1024;
 
 impl std::fmt::Debug for Icc {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -64,13 +73,76 @@ impl Icc {
                 TransformOptions::default(),
             )
             .ok()?;
-        Some(Icc { n, xf })
+        let mut icc = Icc { n, xf, bpc: None };
+        if n == 4 {
+            icc.bpc = icc.black_point_tables().map(Arc::new);
+        }
+        Some(icc)
+    }
+
+    /// Tables that scale each channel in linear light so that full ink
+    /// (the profile's black, a dark gray for printing profiles) becomes
+    /// black, as Acrobat and MuPDF draw CMYK (moxcms has no black point
+    /// compensation).
+    fn black_point_tables(&self) -> Option<[Vec<f32>; 3]> {
+        let mut black = [0f32; 3];
+        self.xf.transform(&[1.0; 4], &mut black).ok()?;
+        let lin = |v: f32| {
+            if v <= 0.04045 {
+                v / 12.92
+            } else {
+                ((v + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        let enc = |v: f32| {
+            if v <= 0.003_130_8 {
+                v * 12.92
+            } else {
+                1.055 * v.powf(1.0 / 2.4) - 0.055
+            }
+        };
+        if black.iter().all(|&b| b < 0.002) {
+            return None;
+        }
+        Some(black.map(|b| {
+            let lb = lin(b.clamp(0.0, 0.99));
+            (0..=BPC_STEPS)
+                .map(|i| {
+                    let v = lin(i as f32 / BPC_STEPS as f32);
+                    enc(((v - lb) / (1.0 - lb)).clamp(0.0, 1.0))
+                })
+                .collect()
+        }))
     }
 
     /// Convert pixels of `n` components (0..1) to RGB triples.
     pub fn convert(&self, src: &[f32], dst: &mut [f32]) -> bool {
-        self.xf.transform(src, dst).is_ok()
+        if self.xf.transform(src, dst).is_err() {
+            return false;
+        }
+        if let Some(t) = &self.bpc {
+            for px in dst.chunks_exact_mut(3) {
+                for (v, t) in px.iter_mut().zip(t.iter()) {
+                    let x = v.clamp(0.0, 1.0) * BPC_STEPS as f32;
+                    let i = (x as usize).min(BPC_STEPS - 1);
+                    let f = x - i as f32;
+                    *v = t[i] + (t[i + 1] - t[i]) * f;
+                }
+            }
+        }
+        true
     }
+}
+
+/// The profile that DeviceCMYK is converted with.
+static CMYK_PROFILE: &[u8] = include_bytes!("../assets/FOGRA39L_coated.icc");
+
+/// The transform of DeviceCMYK to sRGB (`None`: the profile cannot be
+/// used, CMYK converts naively).
+pub fn default_cmyk() -> Option<&'static Icc> {
+    static ICC: OnceLock<Option<Icc>> = OnceLock::new();
+    ICC.get_or_init(|| Icc::from_profile(CMYK_PROFILE, 4))
+        .as_ref()
 }
 
 /// ICC profiles of a document, by stream (`None`: not usable).
@@ -270,8 +342,15 @@ fn lab_bytes(v: &[f64], range: &[f64; 4]) -> Vec<f64> {
     ]
 }
 
+/// DeviceCMYK to RGB.
 pub fn cmyk(c: f64, m: f64, y: f64, k: f64) -> [f32; 3] {
     let u = |v: f64| v.clamp(0.0, 1.0);
+    if let Some(icc) = default_cmyk() {
+        let mut dst = [0f32; 3];
+        if icc.convert(&[c, m, y, k].map(|v| u(v) as f32), &mut dst) {
+            return dst.map(|v| v.clamp(0.0, 1.0));
+        }
+    }
     let k = u(k);
     [
         ((1.0 - u(c)) * (1.0 - k)) as f32,
@@ -503,10 +582,13 @@ mod tests {
     fn device_colors() {
         let mut a = Approx::default();
         assert_eq!(Space::Gray.to_rgb(&[0.5], &mut a), Some([0.5; 3]));
-        assert_eq!(
-            Space::Cmyk.to_rgb(&[1.0, 0.0, 0.0, 0.0], &mut a),
-            Some([0.0, 1.0, 1.0])
-        );
+        // CMYK through the default profile: process cyan, paper white,
+        // full ink black.
+        let rgb = |c: [f64; 4]| Space::Cmyk.to_rgb(&c, &mut Approx::default()).unwrap();
+        let near = |a: [f32; 3], b: [f32; 3]| a.iter().zip(b).all(|(x, y)| (x - y).abs() < 0.02);
+        assert!(near(rgb([1.0, 0.0, 0.0, 0.0]), [0.0, 0.62, 0.89]));
+        assert!(near(rgb([0.0; 4]), [1.0; 3]));
+        assert!(near(rgb([1.0; 4]), [0.0; 3]));
         let white = Space::Lab {
             white: [0.9505, 1.0, 1.089],
             range: [-100.0, 100.0, -100.0, 100.0],

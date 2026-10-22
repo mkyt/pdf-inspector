@@ -534,6 +534,7 @@ fn pixels(
     // ICC profiles convert a row at a time.
     let icc = match (&space, &table) {
         (Space::Icc(icc), None) => Some(icc),
+        (Space::Cmyk, None) => crate::color::default_cmyk(),
         _ => None,
     };
     let (mut src, mut dst) = match icc {
