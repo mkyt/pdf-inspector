@@ -1,9 +1,11 @@
 import { Group, Text, TextInput } from "@mantine/core";
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, useBackend } from "../api";
 import { asciiByte, hexByte, spanText } from "../format";
 import { useNav } from "../nav";
+import type { Span } from "../protocol/generated";
+import { useTargetObject } from "./Breadcrumbs";
 import classes from "./Hex.module.css";
 
 const ROW = 16;
@@ -11,6 +13,30 @@ const LINE_H = 18;
 const CHUNK = 64 * 1024;
 /** Browsers cap element heights (~33M px in Chromium); scale the scrollbar beyond this. */
 const MAX_SCROLL = 8_000_000;
+
+/**
+ * Bytes of the object the current view shows ("N G obj … endobj"); for an
+ * object inside an object stream, those of the stream.
+ */
+function useTargetSpan(): { key: string; span: Span } | null {
+  const backend = useBackend();
+  const nav = useNav();
+  const { id } = useTargetObject();
+  const obj = useQuery({
+    queryKey: ["doc", nav.doc, "object", id?.num, id?.generation],
+    queryFn: () => api.object(backend, nav.doc, id!),
+    enabled: id !== null,
+  }).data;
+  const stream = obj?.location.kind === "objStm" ? obj.location.stream : null;
+  const container = useQuery({
+    queryKey: ["doc", nav.doc, "object", stream?.num, stream?.generation],
+    queryFn: () => api.object(backend, nav.doc, stream!),
+    enabled: stream !== null,
+  }).data;
+  const loc = stream ? container?.location : obj?.location;
+  if (!id || loc?.kind !== "file") return null;
+  return { key: `${id.num}/${id.generation}`, span: loc.span };
+}
 
 /**
  * Hex view over the whole file. Only the visible rows are fetched (64 KiB
@@ -57,6 +83,16 @@ export function HexView({ size }: { size: number }) {
   useEffect(() => {
     if (nav.hexSpan) scrollToRow(Math.floor(nav.hexSpan.start / ROW) - 2);
   }, [nav.hexSpan, scrollToRow]);
+
+  // Select the object shown, once per object (later picks in the view win).
+  const target = useTargetSpan();
+  const followed = useRef<string | null>(null);
+  const { showBytes } = nav;
+  useEffect(() => {
+    if (!target || followed.current === target.key) return;
+    followed.current = target.key;
+    showBytes(target.span);
+  }, [target?.key, target?.span.start, target?.span.end, showBytes]);
 
   const first = top * ROW;
   const last = Math.min(size, (top + visible) * ROW);

@@ -133,7 +133,26 @@ pub struct Inventory {
     /// Live objects nothing refers to (object and cross-reference streams
     /// and linearization dictionaries aside).
     pub unreferenced: Vec<ObjId>,
+    /// Live objects grouped by kind, `/Type` and `/Subtype`, most common
+    /// first.
+    pub classes: Vec<ObjClass>,
 }
+
+/// Objects of one kind (`dictionary`, `stream`, ...; [`UNLOADABLE`] for
+/// those that failed to load) with the same `/Type` and `/Subtype`.
+#[derive(Clone, Debug, Default)]
+pub struct ObjClass {
+    pub kind: &'static str,
+    pub type_name: Option<String>,
+    pub subtype: Option<String>,
+    /// Ascending.
+    pub ids: Vec<ObjId>,
+}
+
+/// Kind of the [`ObjClass`] of objects that failed to load.
+pub const UNLOADABLE: &str = "unloadable";
+
+type ClassKey = (&'static str, Option<String>, Option<String>);
 
 /// Builds an [`Inventory`]: first every object (fonts, images, references),
 /// then every page (which fonts and images it uses).
@@ -151,6 +170,17 @@ pub struct Builder {
     forms: u64,
     failed: HashSet<u32>,
     structural: HashSet<u32>,
+    classes: HashMap<ClassKey, Vec<ObjId>>,
+}
+
+fn class_key(o: &Object) -> ClassKey {
+    let d = match o {
+        Object::Dict(d) => Some(d),
+        Object::Stream(s) => Some(&s.dict),
+        _ => None,
+    };
+    let get = |k: &str| d.and_then(|d| d.get_name(k)).map(name_str);
+    (o.type_name(), get("Type"), get("Subtype"))
 }
 
 fn collect_refs(o: &Object, src: u32, depth: usize, out: &mut Vec<(u32, u32)>) {
@@ -345,6 +375,7 @@ impl Builder {
             forms: 0,
             failed: HashSet::new(),
             structural: HashSet::new(),
+            classes: HashMap::new(),
         }
     }
 
@@ -365,9 +396,17 @@ impl Builder {
             for &id in &self.ids[self.pos..end] {
                 let Ok(o) = f.get(id) else {
                     self.failed.insert(id.num);
+                    self.classes
+                        .entry((UNLOADABLE, None, None))
+                        .or_default()
+                        .push(id);
                     continue;
                 };
                 collect_refs(&o.node.obj, id.num, 0, &mut self.pairs);
+                self.classes
+                    .entry(class_key(&o.node.obj))
+                    .or_default()
+                    .push(id);
                 match &o.node.obj {
                     Object::Dict(d) if is_font(d) => {
                         self.fonts.insert(o.id, font_entry(f, o.id, d));
@@ -488,6 +527,21 @@ impl Builder {
             })
             .copied()
             .collect();
+        let mut classes: Vec<ObjClass> = self
+            .classes
+            .into_iter()
+            .map(|((kind, type_name, subtype), ids)| ObjClass {
+                kind,
+                type_name,
+                subtype,
+                ids,
+            })
+            .collect();
+        classes.sort_by(|a, b| {
+            b.ids.len().cmp(&a.ids.len()).then_with(|| {
+                (a.kind, &a.type_name, &a.subtype).cmp(&(b.kind, &b.type_name, &b.subtype))
+            })
+        });
         Inventory {
             fonts: self.fonts.into_values().collect(),
             images: self.images.into_values().collect(),
@@ -497,6 +551,7 @@ impl Builder {
             pages: self.pages,
             refs,
             unreferenced,
+            classes,
         }
     }
 }

@@ -1,0 +1,32 @@
+/* A 1px border with a wider invisible grip around it. */
+.handle {
+  position: relative;
+  flex-shrink: 0;
+  z-index: 2;
+  background: var(--mantine-color-default-border);
+  outline: none;
+  touch-action: none;
+
+  &[data-vertical] {
+    width: 1px;
+    cursor: col-resize;
+  }
+
+  &:not([data-vertical]) {
+    height: 1px;
+    cursor: row-resize;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+  }
+
+  &:hover,
+  &:focus-visible,
+  &:active {
+    background: var(--mantine-primary-color-filled);
+    box-shadow: 0 0 0 1px var(--mantine-primary-color-filled);
+  }
+}

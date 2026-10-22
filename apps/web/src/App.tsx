@@ -12,11 +12,15 @@ import {
   Text,
   Title,
   Tooltip,
+  useMantineColorScheme,
+  type MantineColorScheme,
 } from "@mantine/core";
+import { useHotkeys } from "@mantine/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { api, useBackend } from "./api";
 import type { ConnectionState } from "./backend/backend";
+import { Breadcrumbs } from "./components/Breadcrumbs";
 import { DiagnosticsPanel } from "./components/DiagnosticsPanel";
 import { DocumentPanel } from "./components/DocumentPanel";
 import { FontsPanel, ImagesPanel } from "./components/InventoryPanels";
@@ -26,15 +30,28 @@ import { PageView } from "./components/PageView";
 import { ContentView } from "./components/ContentView";
 import { FontView } from "./components/FontView";
 import { HexView } from "./components/HexView";
+import {
+  AutoThemeIcon,
+  BackIcon,
+  BottomPaneIcon,
+  ForwardIcon,
+  LeftPaneIcon,
+  MoonIcon,
+  RightPaneIcon,
+  SunIcon,
+} from "./components/Icons";
 import { Inspector } from "./components/Inspector";
+import { Landmarks } from "./components/Landmarks";
 import { ObjectList } from "./components/ObjectList";
 import { OpenDialog } from "./components/OpenDialog";
 import { SchemaPanel } from "./components/SchemaPanel";
+import { ResizeHandle } from "./components/Split";
 import { ValidatePanel } from "./components/ValidatePanel";
 import { SummaryCard } from "./components/SummaryCard";
 import { XrefPanel } from "./components/XrefPanel";
 import { DocContext, type DocState } from "./doc";
 import { useJob } from "./jobs";
+import { useLayout, type Layout } from "./layout";
 import { contentKey, NavContext, sameTarget, type Nav, type Selection, type Target } from "./nav";
 import type { DocId, Span } from "./protocol/generated";
 import { DEFAULT_TAB, useRouter, type Router } from "./route";
@@ -48,6 +65,53 @@ function useConnection(): ConnectionState {
   const [state, setState] = useState<ConnectionState>("connecting");
   useEffect(() => backend.onState(setState), [backend]);
   return state;
+}
+
+const THEMES: { value: MantineColorScheme; label: string; icon: () => React.JSX.Element }[] = [
+  { value: "auto", label: "Theme: follow the system", icon: AutoThemeIcon },
+  { value: "light", label: "Theme: light", icon: SunIcon },
+  { value: "dark", label: "Theme: dark", icon: MoonIcon },
+];
+
+/** Cycles through system, light and dark (kept in this browser by Mantine). */
+function ThemeToggle() {
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
+  const i = Math.max(
+    0,
+    THEMES.findIndex((t) => t.value === colorScheme),
+  );
+  const { label, icon: Icon } = THEMES[i];
+  return (
+    <Tooltip label={label}>
+      <ActionIcon
+        variant="subtle"
+        color="gray"
+        aria-label={label}
+        onClick={() => setColorScheme(THEMES[(i + 1) % THEMES.length].value)}
+      >
+        <Icon />
+      </ActionIcon>
+    </Tooltip>
+  );
+}
+
+function PaneToggles({ layout }: { layout: Layout }) {
+  const items = [
+    { pane: layout.left, label: "Sidebar", keys: "Ctrl/⌘+B", Icon: LeftPaneIcon },
+    { pane: layout.hex, label: "File bytes", keys: "Ctrl/⌘+J", Icon: BottomPaneIcon },
+    { pane: layout.right, label: "Schema panel", keys: "Ctrl/⌘+Alt+B", Icon: RightPaneIcon },
+  ];
+  return (
+    <Group gap={2} wrap="nowrap">
+      {items.map(({ pane, label, keys, Icon }) => (
+        <Tooltip key={label} label={`${pane.shown ? "Hide" : "Show"} ${label.toLowerCase()} (${keys})`}>
+          <ActionIcon variant="subtle" color="gray" aria-label={label} aria-pressed={pane.shown} onClick={pane.toggle}>
+            <Icon shown={pane.shown} />
+          </ActionIcon>
+        </Tooltip>
+      ))}
+    </Group>
+  );
 }
 
 function Shell() {
@@ -64,6 +128,12 @@ function Shell() {
     [router.push],
   );
   const [openDialog, setOpenDialog] = useState(false);
+  const layout = useLayout();
+  useHotkeys([
+    ["mod+B", layout.left.toggle],
+    ["mod+alt+B", layout.right.toggle],
+    ["mod+J", layout.hex.toggle],
+  ]);
 
   const docs = useQuery({ queryKey: ["docs"], queryFn: () => api.docs(backend), staleTime: 0 });
   const [dropError, setDropError] = useState<string | null>(null);
@@ -142,6 +212,10 @@ function Shell() {
               Close
             </Button>
           )}
+          <Group gap={2} ml="auto" wrap="nowrap">
+            {known && <PaneToggles layout={layout} />}
+            <ThemeToggle />
+          </Group>
         </Group>
       </AppShell.Header>
       <AppShell.Main h="100vh" style={{ display: "flex", flexDirection: "column" }}>
@@ -164,7 +238,7 @@ function Shell() {
             </Stack>
           </Center>
         ) : (
-          <DocView key={doc} doc={doc!} router={router} />
+          <DocView key={doc} doc={doc!} router={router} layout={layout} />
         )}
       </AppShell.Main>
       <OpenDialog opened={openDialog} onClose={() => setOpenDialog(false)} onOpened={showDoc} />
@@ -172,7 +246,7 @@ function Shell() {
   );
 }
 
-function DocView({ doc, router }: { doc: DocId; router: Router }) {
+function DocView({ doc, router, layout }: { doc: DocId; router: Router; layout: Layout }) {
   const backend = useBackend();
   const summary = useQuery({ queryKey: ["doc", doc, "summary"], queryFn: () => api.summary(backend, doc) });
   const { route, push, replace } = router;
@@ -201,12 +275,26 @@ function DocView({ doc, router }: { doc: DocId; router: Router }) {
       update: (t: Target) => replace({ ...route, target: t }),
       back: router.back,
       canBack: router.canBack,
+      forward: router.forward,
+      canForward: router.canForward,
       showBytes: setHexSpan,
       hexSpan,
       selection,
       select: (s) => setPicked(s && { target, selection: s }),
     }),
-    [doc, target, open, replace, route, router.back, router.canBack, hexSpan, selection],
+    [
+      doc,
+      target,
+      open,
+      replace,
+      route,
+      router.back,
+      router.canBack,
+      router.forward,
+      router.canForward,
+      hexSpan,
+      selection,
+    ],
   );
 
   const docState: DocState | null = useMemo(
@@ -238,69 +326,79 @@ function DocView({ doc, router }: { doc: DocId; router: Router }) {
   if (!summary.data || !docState) return null;
   const s = summary.data;
   const t = nav.target;
+  const { left, right, hex } = layout;
 
   return (
     <DocContext.Provider value={docState}>
       <NavContext.Provider value={nav}>
         <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-          <div
-            style={{
-              width: 380,
-              borderRight: "1px solid var(--mantine-color-default-border)",
-              display: "flex",
-              flexDirection: "column",
-              minHeight: 0,
-            }}
-          >
-            <SummaryCard summary={s} />
-            <Tabs value={tab} onChange={setTab} style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-              <Tabs.List>
-                <Tabs.Tab value="pages">Pages</Tabs.Tab>
-                <Tabs.Tab value="outline">Outline</Tabs.Tab>
-                <Tabs.Tab value="fonts">Fonts</Tabs.Tab>
-                <Tabs.Tab value="images">Images</Tabs.Tab>
-                <Tabs.Tab value="objects">Objects</Tabs.Tab>
-                <Tabs.Tab value="xref">XRef</Tabs.Tab>
-                <Tabs.Tab value="validate">Validate</Tabs.Tab>
-                <Tabs.Tab value="diagnostics">
-                  Diagnostics {s.diagnostics > 0 && <Badge size="xs" color="orange">{s.diagnostics}</Badge>}
-                </Tabs.Tab>
-              </Tabs.List>
-              <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-                {tab === "pages" && <PageList />}
-                {tab === "outline" && <OutlinePanel />}
-                {tab === "fonts" && <FontsPanel />}
-                {tab === "images" && <ImagesPanel />}
-                {tab === "objects" && <ObjectList total={s.xref_entries} />}
-                {tab === "xref" && <XrefPanel summary={s} />}
-                {tab === "validate" && <ValidatePanel job={validation} setJob={setValidation} />}
-                {tab === "diagnostics" && <DiagnosticsPanel total={s.diagnostics} />}
-              </div>
-            </Tabs>
-          </div>
+          {left.shown && (
+            <div
+              style={{
+                width: left.size,
+                flexShrink: 0,
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+              }}
+            >
+              <SummaryCard summary={s} />
+              <Landmarks />
+              <Tabs
+                value={tab}
+                onChange={setTab}
+                style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
+              >
+                <Tabs.List>
+                  <Tabs.Tab value="pages">Pages</Tabs.Tab>
+                  <Tabs.Tab value="outline">Outline</Tabs.Tab>
+                  <Tabs.Tab value="fonts">Fonts</Tabs.Tab>
+                  <Tabs.Tab value="images">Images</Tabs.Tab>
+                  <Tabs.Tab value="objects">Objects</Tabs.Tab>
+                  <Tabs.Tab value="xref">XRef</Tabs.Tab>
+                  <Tabs.Tab value="validate">Validate</Tabs.Tab>
+                  <Tabs.Tab value="diagnostics">
+                    Diagnostics{" "}
+                    {s.diagnostics > 0 && (
+                      <Badge size="xs" color="orange">
+                        {s.diagnostics}
+                      </Badge>
+                    )}
+                  </Tabs.Tab>
+                </Tabs.List>
+                <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+                  {tab === "pages" && <PageList />}
+                  {tab === "outline" && <OutlinePanel />}
+                  {tab === "fonts" && <FontsPanel />}
+                  {tab === "images" && <ImagesPanel />}
+                  {tab === "objects" && <ObjectList total={s.xref_entries} />}
+                  {tab === "xref" && <XrefPanel summary={s} />}
+                  {tab === "validate" && <ValidatePanel job={validation} setJob={setValidation} />}
+                  {tab === "diagnostics" && <DiagnosticsPanel total={s.diagnostics} />}
+                </div>
+              </Tabs>
+            </div>
+          )}
+          {left.shown && <ResizeHandle pane={left} grow="right" label="sidebar" />}
           <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-            <Group px="sm" py={4} gap="xs" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+            <Group
+              px="sm"
+              py={4}
+              gap={4}
+              wrap="nowrap"
+              style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}
+            >
               <Tooltip label="Back">
                 <ActionIcon variant="subtle" disabled={!nav.canBack} onClick={nav.back} aria-label="Back">
-                  ←
+                  <BackIcon />
                 </ActionIcon>
               </Tooltip>
-              <Button size="compact-xs" variant={t.kind === "document" ? "light" : "subtle"} onClick={() => open({ kind: "document" })}>
-                Document
-              </Button>
-              <Button size="compact-xs" variant={t.kind === "trailer" ? "light" : "subtle"} onClick={() => open({ kind: "trailer" })}>
-                Trailer
-              </Button>
-              {s.root && (
-                <Button size="compact-xs" variant="subtle" onClick={() => open({ kind: "object", id: s.root! })}>
-                  Catalog
-                </Button>
-              )}
-              {s.info_dict && (
-                <Button size="compact-xs" variant="subtle" onClick={() => open({ kind: "object", id: s.info_dict! })}>
-                  Info
-                </Button>
-              )}
+              <Tooltip label="Forward">
+                <ActionIcon variant="subtle" disabled={!nav.canForward} onClick={nav.forward} aria-label="Forward">
+                  <ForwardIcon />
+                </ActionIcon>
+              </Tooltip>
+              <Breadcrumbs />
             </Group>
             <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
               {t.kind === "document" ? (
@@ -315,20 +413,23 @@ function DocView({ doc, router }: { doc: DocId; router: Router }) {
                 <Inspector />
               )}
             </div>
-            <div style={{ height: 280, borderTop: "1px solid var(--mantine-color-default-border)" }}>
-              <HexView size={s.info.size} />
-            </div>
+            {hex.shown && (
+              <>
+                <ResizeHandle pane={hex} grow="up" label="file bytes" />
+                <div style={{ height: hex.size, flexShrink: 0 }}>
+                  <HexView size={s.info.size} />
+                </div>
+              </>
+            )}
           </div>
-          <div
-            style={{
-              width: 300,
-              flexShrink: 0,
-              borderLeft: "1px solid var(--mantine-color-default-border)",
-              overflow: "auto",
-            }}
-          >
-            <SchemaPanel />
-          </div>
+          {right.shown && (
+            <>
+              <ResizeHandle pane={right} grow="left" label="schema panel" />
+              <div style={{ width: right.size, flexShrink: 0, overflow: "auto" }}>
+                <SchemaPanel />
+              </div>
+            </>
+          )}
         </div>
       </NavContext.Provider>
     </DocContext.Provider>

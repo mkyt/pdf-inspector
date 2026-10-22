@@ -64,6 +64,8 @@ pub(crate) struct Doc {
     pub model: DocModel,
     /// Set by the inventory job.
     pub inventory: Mutex<Option<Arc<Inventory>>>,
+    /// Object numbers the last `Objects` filter picked.
+    filtered: Mutex<Option<(ObjectFilter, Arc<Vec<u32>>)>>,
     pub content: DocContent,
     pub render: DocRender,
 }
@@ -72,6 +74,18 @@ impl Doc {
     fn nums(&self) -> &[u32] {
         self.nums
             .get_or_init(|| self.file.xref().iter().map(|(n, _)| n).collect())
+    }
+
+    /// Object numbers `f` picks, kept for the next page of the same list.
+    fn filtered(&self, f: &ObjectFilter) -> Result<Arc<Vec<u32>>, ApiError> {
+        if let Some((g, nums)) = lock(&self.filtered).as_ref()
+            && g == f
+        {
+            return Ok(nums.clone());
+        }
+        let nums = Arc::new(model::filter_objects(self, f)?);
+        *lock(&self.filtered) = Some((f.clone(), nums.clone()));
+        Ok(nums)
     }
 }
 
@@ -198,6 +212,7 @@ impl Session {
             schema: DocSchema::new(),
             model: DocModel::new(),
             inventory: Mutex::default(),
+            filtered: Mutex::default(),
             content: DocContent::new(),
             render: DocRender::new(),
         });
@@ -289,10 +304,17 @@ impl Session {
                 Ok(ResponseBody::Empty)
             }
             Request::Summary { doc } => Ok(ResponseBody::Doc(summary(&*self.doc(doc)?))),
-            Request::Objects { doc, range } => {
+            Request::Objects { doc, range, filter } => {
                 let d = self.doc(doc)?;
-                Ok(ResponseBody::Objects(objects(&d, range)))
+                Ok(ResponseBody::Objects(objects(&d, range, filter.as_ref())?))
             }
+            Request::ObjectClasses { doc } => Ok(ResponseBody::ObjectClasses {
+                classes: model::object_classes(&*self.doc(doc)?)?,
+            }),
+            Request::RefPath { doc, id } => Ok(ResponseBody::RefPath(model::ref_path(
+                &*self.doc(doc)?,
+                id,
+            )?)),
             Request::Object { doc, id } => Ok(ResponseBody::Object(object(&*self.doc(doc)?, id)?)),
             Request::Children { doc, path, range } => Ok(ResponseBody::Children(children(
                 &*self.doc(doc)?,
@@ -605,9 +627,20 @@ fn summary(d: &Doc) -> DocSummary {
     }
 }
 
-fn objects(d: &Doc, range: Range) -> Page<ObjectSummary> {
-    let nums = d.nums();
-    page(nums.len() as u64, range, |o, n| {
+fn objects(
+    d: &Doc,
+    range: Range,
+    filter: Option<&ObjectFilter>,
+) -> Result<Page<ObjectSummary>, ApiError> {
+    let filtered;
+    let nums: &[u32] = match filter {
+        None => d.nums(),
+        Some(f) => {
+            filtered = d.filtered(f)?;
+            &filtered
+        }
+    };
+    Ok(page(nums.len() as u64, range, |o, n| {
         nums[o..o + n]
             .iter()
             .filter_map(|&num| {
@@ -641,7 +674,7 @@ fn objects(d: &Doc, range: Range) -> Page<ObjectSummary> {
                 Some(s)
             })
             .collect()
-    })
+    }))
 }
 
 fn object(d: &Doc, id: ObjRef) -> Result<ObjectView, ApiError> {

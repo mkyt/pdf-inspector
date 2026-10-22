@@ -27,6 +27,8 @@ import type {
   NodeView,
   ObjectSchema,
   ObjRef,
+  ObjectClass,
+  ObjectFilter,
   ObjectSummary,
   ObjectView,
   OutlineItem,
@@ -36,6 +38,7 @@ import type {
   PixelRect,
   Range,
   Referrer,
+  RefPath,
   RenderLayer,
   Request,
   ResponseBody,
@@ -100,8 +103,15 @@ export const api = {
   close: async (b: Backend, doc: DocId) => void (await b.request({ op: "close", doc })),
   summary: async (b: Backend, doc: DocId): Promise<DocSummary> =>
     (await call(b, "doc", { op: "summary", doc })).body,
-  objects: async (b: Backend, doc: DocId, range: Range, signal?: AbortSignal): Promise<Page<ObjectSummary>> =>
-    (await call(b, "objects", { op: "objects", doc, range }, signal)).body,
+  objects: async (
+    b: Backend,
+    doc: DocId,
+    range: Range,
+    filter: ObjectFilter | null,
+    signal?: AbortSignal,
+  ): Promise<Page<ObjectSummary>> => (await call(b, "objects", { op: "objects", doc, range, filter }, signal)).body,
+  objectClasses: async (b: Backend, doc: DocId): Promise<ObjectClass[]> =>
+    (await call(b, "objectClasses", { op: "objectClasses", doc })).body.classes,
   object: async (b: Backend, doc: DocId, id: ObjRef): Promise<ObjectView> =>
     (await call(b, "object", { op: "object", doc, id })).body,
   children: async (b: Backend, doc: DocId, path: NodePath, range: Range): Promise<Page<NodeView>> =>
@@ -134,6 +144,8 @@ export const api = {
     (await call(b, "images", { op: "images", doc, range }, signal)).body,
   referrers: async (b: Backend, doc: DocId, id: ObjRef, range: Range): Promise<Page<Referrer>> =>
     (await call(b, "referrers", { op: "referrers", doc, id, range })).body,
+  refPath: async (b: Backend, doc: DocId, id: ObjRef): Promise<RefPath> =>
+    (await call(b, "refPath", { op: "refPath", doc, id })).body,
   unreferenced: async (b: Backend, doc: DocId, range: Range, signal?: AbortSignal): Promise<Page<ObjRef>> =>
     (await call(b, "objRefs", { op: "unreferenced", doc, range }, signal)).body,
   content: async (b: Backend, doc: DocId, content: ContentRef): Promise<ContentSummary> =>

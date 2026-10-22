@@ -27,6 +27,8 @@ export interface Nav {
   update(t: Target): void;
   back(): void;
   canBack: boolean;
+  forward(): void;
+  canForward: boolean;
   /** Highlight a span of the file in the hex view and scroll to it. */
   showBytes(s: Span): void;
   hexSpan: Span | null;

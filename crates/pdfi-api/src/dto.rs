@@ -849,6 +849,43 @@ pub struct ImageInfo {
     pub pages: Vec<u32>,
 }
 
+/// Live objects of one kind (`dictionary`, `stream`, ...; `unloadable` for
+/// those that failed to load) with the same `/Type` and `/Subtype`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct ObjectClass {
+    pub kind: String,
+    pub type_name: Option<String>,
+    pub subtype: Option<String>,
+    pub count: u64,
+}
+
+/// Which objects `Objects` lists (needs the inventory).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct ObjectFilter {
+    /// Objects in any of these classes (`count` ignored); `None`: any.
+    pub classes: Option<Vec<ObjectClass>>,
+    /// Only objects nothing refers to.
+    pub unreferenced: bool,
+}
+
+/// How the trailer reaches an object: each step refers to the next one (the
+/// last to the object) through `key`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct RefPath {
+    /// Whether some chain of references from the trailer reaches it.
+    pub reachable: bool,
+    pub steps: Vec<PathStep>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct PathStep {
+    pub from: NodeRoot,
+    /// Schema type, or `/Type`.
+    pub type_name: Option<String>,
+    /// Where in it: `/Pages`, `/Kids[3]`, ...
+    pub key: String,
+}
+
 /// An object (or the trailer) that refers to another one.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct Referrer {

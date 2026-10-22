@@ -1,7 +1,7 @@
 {
   "comment": "Protocol conformance scenario (docs/DESIGN.md §7). Every backend runs these steps on a fresh session and must produce expected.json. Steps: request = send as is; open = open tests/fixtures/<file> the backend's own way (doc ids count from 1); job = send startJob, then also record that job's events up to jobDone.",
   "steps": [
-    { "request": { "op": "hello", "protocol": 6 } },
+    { "request": { "op": "hello", "protocol": 7 } },
     { "request": { "op": "hello", "protocol": 999 } },
     { "open": { "file": "base.pdf" } },
     { "request": { "op": "summary", "doc": 1 } },

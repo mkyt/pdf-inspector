@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 6;
+pub const PROTOCOL_VERSION: u32 = 7;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct ClientMessage {
@@ -40,10 +40,18 @@ pub enum Request {
     Summary {
         doc: DocId,
     },
-    /// Cross-reference rows in object-number order (merged table).
+    /// Cross-reference rows in object-number order (merged table), or the
+    /// live objects a filter picks (needs the inventory).
     Objects {
         doc: DocId,
         range: Range,
+        #[serde(default)]
+        filter: Option<ObjectFilter>,
+    },
+    /// Live objects grouped by kind, `/Type` and `/Subtype` (needs the
+    /// inventory).
+    ObjectClasses {
+        doc: DocId,
     },
     Object {
         doc: DocId,
@@ -117,6 +125,13 @@ pub enum Request {
         doc: DocId,
         id: ObjRef,
         range: Range,
+    },
+    /// A shortest chain of references from the trailer to `id`, preferring
+    /// forward links (`/Kids`) to back links (`/Parent`) (needs the
+    /// inventory).
+    RefPath {
+        doc: DocId,
+        id: ObjRef,
     },
     /// Live objects nothing refers to (needs the inventory).
     Unreferenced {
@@ -241,6 +256,7 @@ pub enum ResponseBody {
     Doc(DocSummary),
     Docs { docs: Vec<DocInfo> },
     Objects(Page<ObjectSummary>),
+    ObjectClasses { classes: Vec<ObjectClass> },
     Object(ObjectView),
     Children(Page<NodeView>),
     Xref(Page<XrefRow>),
@@ -256,6 +272,7 @@ pub enum ResponseBody {
     Fonts(Page<FontInfo>),
     Images(Page<ImageInfo>),
     Referrers(Page<Referrer>),
+    RefPath(RefPath),
     ObjRefs(Page<ObjRef>),
     Content(ContentSummary),
     Ops(Page<OpView>),

@@ -72,6 +72,7 @@ fn summary_and_objects() {
             offset: 1,
             limit: 3,
         },
+        filter: None,
     }));
     let ResponseBody::Objects(p) = b else {
         panic!()
@@ -89,6 +90,7 @@ fn summary_and_objects() {
             offset: 10_000,
             limit: 10,
         },
+        filter: None,
     }));
     let ResponseBody::Objects(p) = b else {
         panic!()
@@ -328,7 +330,11 @@ fn raw_bytes_and_limits() {
 fn objects_in_object_streams_have_no_file_spans() {
     let (s, _) = session();
     let doc = open(&s, "objstm.pdf", None).info.doc;
-    let (b, _) = ok(s.dispatch(Request::Objects { doc, range: all() }));
+    let (b, _) = ok(s.dispatch(Request::Objects {
+        doc,
+        range: all(),
+        filter: None,
+    }));
     let ResponseBody::Objects(p) = b else {
         panic!()
     };
@@ -514,4 +520,63 @@ fn typescript_bindings_are_up_to_date() {
         "{} is stale; run `UPDATE_TS=1 cargo test -p pdfi-api`",
         path.display()
     );
+}
+
+#[test]
+fn object_classes_filters_and_ref_paths() {
+    let (s, exec) = session();
+    let doc = open(&s, "model.pdf", None).info.doc;
+    let r = s.dispatch(Request::ObjectClasses { doc });
+    assert!(matches!(r.response, Response::Err(e) if e.code == ErrorCode::NotReady));
+    let (b, _) = ok(s.dispatch(Request::StartJob {
+        doc,
+        job: JobKind::Inventory,
+    }));
+    assert!(matches!(b, ResponseBody::Job(_)));
+    exec.run_all();
+
+    let (b, _) = ok(s.dispatch(Request::ObjectClasses { doc }));
+    let ResponseBody::ObjectClasses { classes } = b else {
+        panic!()
+    };
+    let page = classes
+        .iter()
+        .find(|c| c.type_name.as_deref() == Some("Page"))
+        .expect("a /Page class")
+        .clone();
+
+    let (b, _) = ok(s.dispatch(Request::Objects {
+        doc,
+        range: all(),
+        filter: Some(ObjectFilter {
+            classes: Some(vec![page.clone()]),
+            unreferenced: false,
+        }),
+    }));
+    let ResponseBody::Objects(p) = b else {
+        panic!()
+    };
+    assert_eq!(p.total, page.count);
+    assert!(
+        p.items
+            .iter()
+            .all(|o| o.type_name.as_deref() == Some("Page"))
+    );
+    assert!(p.items.windows(2).all(|w| w[0].num < w[1].num));
+
+    // Reached through the page tree, not through back links.
+    let first = p.items[0].num;
+    let id = ObjRef {
+        num: first,
+        generation: 0,
+    };
+    let (b, _) = ok(s.dispatch(Request::RefPath { doc, id }));
+    let ResponseBody::RefPath(path) = b else {
+        panic!()
+    };
+    assert!(path.reachable);
+    assert_eq!(path.steps[0].from, NodeRoot::Trailer);
+    assert_eq!(path.steps[0].key, "/Root");
+    assert_eq!(path.steps[1].key, "/Pages");
+    assert!(path.steps.last().unwrap().key.starts_with("/Kids["));
 }

@@ -422,3 +422,162 @@ pub fn unreferenced(d: &Doc, range: Range) -> Result<Page<ObjRef>, ApiError> {
         ids[o..o + n].iter().map(|&i| i.into()).collect()
     }))
 }
+
+pub fn object_classes(d: &Doc) -> Result<Vec<ObjectClass>, ApiError> {
+    let inv = inventory(d)?;
+    Ok(inv
+        .classes
+        .iter()
+        .map(|c| ObjectClass {
+            kind: c.kind.into(),
+            type_name: c.type_name.clone(),
+            subtype: c.subtype.clone(),
+            count: c.ids.len() as u64,
+        })
+        .collect())
+}
+
+/// Object numbers `f` picks, ascending.
+pub fn filter_objects(d: &Doc, f: &ObjectFilter) -> Result<Vec<u32>, ApiError> {
+    let inv = inventory(d)?;
+    let mut nums: Vec<u32> = match &f.classes {
+        Some(want) => inv
+            .classes
+            .iter()
+            .filter(|c| {
+                want.iter().any(|w| {
+                    w.kind == c.kind && w.type_name == c.type_name && w.subtype == c.subtype
+                })
+            })
+            .flat_map(|c| c.ids.iter().map(|i| i.num))
+            .collect(),
+        None if f.unreferenced => inv.unreferenced.iter().map(|i| i.num).collect(),
+        None => d.file.xref().live_ids().map(|i| i.num).collect(),
+    };
+    nums.sort_unstable();
+    nums.dedup();
+    if f.unreferenced && f.classes.is_some() {
+        let orphans: std::collections::HashSet<u32> =
+            inv.unreferenced.iter().map(|i| i.num).collect();
+        nums.retain(|n| orphans.contains(n));
+    }
+    Ok(nums)
+}
+
+/// Objects loaded while looking for a [`RefPath`].
+const MAX_PATH_LOADS: usize = 20_000;
+/// Extra cost of following a back link: a page is reached through `/Kids`
+/// rather than from one of its annotations' `/P`.
+const BACK_LINK_COST: u32 = 8;
+
+/// Entries that point back up or sideways, or jump to a destination.
+fn is_back_link(key: &str) -> bool {
+    let last = key.trim_end_matches(|c: char| c == ']' || c == '[' || c.is_ascii_digit());
+    let name = last.rsplit('/').next().unwrap_or("");
+    matches!(
+        name,
+        "Parent" | "P" | "Prev" | "Next" | "Last" | "Dest" | "D" | "OpenAction" | "A" | "SE"
+    )
+}
+
+pub fn ref_path(d: &Doc, id: ObjRef) -> Result<RefPath, ApiError> {
+    use std::cmp::Reverse;
+    use std::collections::{BinaryHeap, HashMap};
+
+    let inv = inventory(d)?;
+    let target: ObjId = id.into();
+    let trailer = Object::Dict(d.file.trailer().clone());
+    // Walk the reverse graph from the object (Dijkstra): for each node, the
+    // cost to reach the object and the next node towards it, with the key.
+    let mut best: HashMap<u32, (u32, u32, String)> = HashMap::new();
+    let mut heap = BinaryHeap::from([Reverse((0u32, id.num))]);
+    let mut done = std::collections::HashSet::new();
+    let mut loads = 0;
+    let mut found = false;
+    while let Some(Reverse((cost, num))) = heap.pop() {
+        if loads > MAX_PATH_LOADS {
+            break;
+        }
+        if num == TRAILER {
+            found = true;
+            break;
+        }
+        if !done.insert(num) {
+            continue;
+        }
+        let to = ObjId::new(num, d.file.xref().get(num).map_or(0, |e| e.generation()));
+        for &src in inv.refs.referrers(num) {
+            if done.contains(&src) {
+                continue;
+            }
+            loads += 1;
+            if loads > MAX_PATH_LOADS {
+                break;
+            }
+            let key = if src == TRAILER {
+                inventory::ref_paths(&trailer, to, 1)
+            } else {
+                let sid = ObjId::new(src, d.file.xref().get(src).map_or(0, |e| e.generation()));
+                d.file
+                    .get(sid)
+                    .map(|o| inventory::ref_paths(&o.node.obj, to, 1))
+                    .unwrap_or_default()
+            };
+            let Some(key) = key.into_iter().next() else {
+                continue;
+            };
+            let c = cost
+                + if is_back_link(&key) {
+                    BACK_LINK_COST
+                } else {
+                    1
+                };
+            if best.get(&src).is_none_or(|b| c < b.0) {
+                best.insert(src, (c, num, key));
+                heap.push(Reverse((c, src)));
+            }
+        }
+    }
+    if !found {
+        return Ok(RefPath {
+            reachable: false,
+            steps: Vec::new(),
+        });
+    }
+    let ck = d.schema.checker(&d.file);
+    let mut steps = Vec::new();
+    let mut at = TRAILER;
+    while at != target.num {
+        let Some((_, next, key)) = best.get(&at) else {
+            break;
+        };
+        let step = if at == TRAILER {
+            PathStep {
+                from: NodeRoot::Trailer,
+                type_name: Some(ck.trailer_type().name()),
+                key: key.clone(),
+            }
+        } else {
+            let sid = ObjId::new(at, d.file.xref().get(at).map_or(0, |e| e.generation()));
+            PathStep {
+                from: NodeRoot::Object { id: sid.into() },
+                type_name: ck.type_of(sid).map(|(t, _)| t.name()).or_else(|| {
+                    d.file.get(sid).ok().and_then(|o| {
+                        o.node
+                            .obj
+                            .as_dict()
+                            .and_then(|d| d.get_name("Type"))
+                            .map(|n| format!("/{}", name_text(n)))
+                    })
+                }),
+                key: key.clone(),
+            }
+        };
+        steps.push(step);
+        at = *next;
+    }
+    Ok(RefPath {
+        reachable: true,
+        steps,
+    })
+}

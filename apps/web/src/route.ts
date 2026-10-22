@@ -89,6 +89,25 @@ function entryIndex(): number {
   return typeof s?.pdfiIndex === "number" ? s.pdfiIndex : 0;
 }
 
+/** Index of the newest entry of the app in this tab, to know whether "forward" does anything. */
+const LAST_KEY = "pdfi.lastEntry";
+
+function lastIndex(): number {
+  try {
+    return Number(sessionStorage.getItem(LAST_KEY) ?? 0) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function setLastIndex(i: number) {
+  try {
+    sessionStorage.setItem(LAST_KEY, String(i));
+  } catch {
+    // Storage blocked: "forward" stays enabled as far as this tab knows.
+  }
+}
+
 export interface Router {
   route: Route;
   /** Go somewhere new: a new history entry. */
@@ -97,11 +116,14 @@ export interface Router {
   replace(r: Route): void;
   back(): void;
   canBack: boolean;
+  forward(): void;
+  canForward: boolean;
 }
 
 export function useRouter(): Router {
   const [route, setRoute] = useState(() => parseRoute(location.search));
   const [index, setIndex] = useState(entryIndex);
+  const [last, setLast] = useState(() => Math.max(lastIndex(), entryIndex()));
 
   useEffect(() => {
     // Mark the entry we were loaded in, keeping its index across reloads.
@@ -121,6 +143,9 @@ export function useRouter(): Router {
     history.pushState({ pdfiIndex: next } satisfies EntryState, "", url);
     setRoute(r);
     setIndex(next);
+    // Pushing drops the entries ahead.
+    setLast(next);
+    setLastIndex(next);
   }, []);
 
   const replace = useCallback((r: Route) => {
@@ -129,5 +154,6 @@ export function useRouter(): Router {
   }, []);
 
   const back = useCallback(() => history.back(), []);
-  return { route, push, replace, back, canBack: index > 0 };
+  const forward = useCallback(() => history.forward(), []);
+  return { route, push, replace, back, canBack: index > 0, forward, canForward: index < last };
 }
