@@ -7,6 +7,7 @@
 > - v2.2: 対象ブラウザを Chromium 系に確定（保存は File System Access API に一本化）
 > - v2.3: M2 実装で確定した事項を §4.8 / §4.9 に追記（TS 型生成は ts-rs、バイナリフレーム形式、ジョブ実行器、トークンの渡し方）
 > - v2.4: M3 実装で確定した事項を §5.3 / §7 に追記（JS 側 ByteSource、Worker ホストのスケジューリング、ファイルを開く経路、適合テストの形）
+> - v2.5: M4（macOS）を後回しにして M5 を先に実装。確定した事項を §4.2 / §4.8 に追記（codegen の形、述語の扱い、型推論、validation のスコープとジョブ、プロトコル v2）
 
 ## 1. ゴール
 
@@ -147,6 +148,14 @@ pub struct Node { pub obj: Object, pub span: Option<Span> }  // 編集で作っ�
 - **validation**: 型不一致、必須キー欠落、未知キー、値域外、バージョン不整合、indirect 必須違反、参照切れ、循環
 - **スコープ別実行**: 「このオブジェクト」「このページとその配下」「ドキュメント全体（ジョブ）」
 - UI 向けにキーの説明・仕様の節番号・導入/廃止バージョンを DTO に含める
+- **M5 で確定した形**:
+  - `schema/arlington/` に Arlington の `tsv/latest` を vendoring（取り込んだ commit は同ディレクトリの README）。`pdfi-schema` の `build.rs` が TSV を静的テーブル（`TYPES: [TypeDef; N]`）に変換する。実行時に TSV は読まない
+  - 述語（`fn:...`）は codegen で 3 種に落とす: ① バージョン系ラッパ（`fn:SinceVersion` / `fn:Deprecated` / `fn:IsPDFVersion` / `fn:Extension`）は version フィールドに、② `Required` の `fn:IsRequired(...)`・`IndirectReference` の条件・`PossibleValues` の `fn:Eval(...)` は式の文字列のまま残して実行時に評価、③ それ以外（他オブジェクトを辿るパス、`fn:RectWidth` 等の未対応関数）は「未知」。評価は**三値論理**で、未知になった条件では何も報告しない（誤検出より見逃しを選ぶ）
+  - 式評価（`expr.rs`）は `@Key`、リテラル、比較・論理・`mod` 等の算術、`fn:IsPresent` / `fn:Not` / `fn:Eval` / バージョン系 / `fn:ArrayLength` / `fn:StringLength` に対応。バージョン系は `Required` 等の条件では「かつ」、`PossibleValues` の制約では「ならば」として評価する
+  - **型推論**: trailer（newest が xref stream なら `XRefStream`、それ以外は `FileTrailer`）から Link を辿る。候補が複数あるときは、値が固定集合の必須キー（`/Type`, `/Subtype` 等）の一致・不一致を最も重く、次いで必須キーの欠落・未知キーで採点して選ぶ。辿って決まった型はドキュメントごとに記憶（最初の割り当てを優先）。未記憶のオブジェクトは `/Type` からの推測（UI では `?` 付き）。開いた直後に trailer と Catalog の直下だけは型付けしておく
+  - name tree / number tree は専用の型（ノード・`/Kids`・`/Names`|`/Nums`）として扱い、葉の値をリンク先の型で検証する
+  - **validation のスコープ**: ① 1 オブジェクト（`Schema` リクエスト。直接オブジェクトは再帰的に、各コンテナ先頭 2000 件まで）② 子エントリ単位（`Children` の各 `NodeView.schema`）③ ジョブ `Validate { root }`。root なしは trailer から型付き参照を幅優先で全部、root ありは `/Parent` を辿らず、ページ・ページツリーノードは `/Kids` 経由のときだけ辿る（1 ページの検証で文書全体に広がらないように）
+  - 報告する問題: 型不一致、矩形・行列の形、必須キー欠落（継承可能キーは `/Parent` を遡って確認。条件付き必須は warning）、未知キー（info）、値の集合外・述語不成立、indirect / direct 指定違反、導入バージョンより古い文書・廃止済み、配列長、日付形式、ASCII 文字列、欠落オブジェクトへの参照、木構造の不整合。ジョブの問題は先頭 10 万件まで保持して `JobDiagnostics` で範囲取得
 
 ### 4.3 pdfi-model — 意味層
 
@@ -253,6 +262,7 @@ impl Session {
   - ジョブは `step()` を繰り返す有界な作業単位。実行は `Executor` trait（server: ジョブごとのスレッド、wasm: `QueueExecutor` を協調的に回す）
   - ファイルアクセスは `SourceProvider` trait で注入（pdfi-api 自体は fs に触れない）
   - `Cancel(RequestId)` はトランスポート層で未着手のリクエストを破棄する。`Batch` はネスト不可
+- **M5 で追加（プロトコル v2）**: `Schema { doc, root }`（型・推論の出所・仕様の参照・問題一覧）、`JobKind::Validate { root }`、`JobDiagnostics { job, range }`。`NodeView.schema`（キー定義 `KeyDoc`・値の型・そのエントリの問題）、`ObjectSummary.schema_type`、`DiagnosticInfo.path`（`/Pages/Kids[3]`）、`DocSummary.pdf_version`（Catalog の `/Version` を反映した実効バージョン）
 
 Rust API（論理的な操作一覧）:
 
@@ -507,7 +517,7 @@ UI は同じものを使い、起動経路（静的ホスティング or `pdfi s
 | **M1** | pdfi-syntax: ByteSource, lexer/parser, Span, xref 全形式 + Prev + ObjStm, ストリーミング filters, リカバリ, 暗号, シリアライザ | `pdfi dump / obj / xref / stream` |
 | **M2** | pdfi-api 最小版（プロトコル・範囲 API・ジョブ・イベント・TS 型生成）+ **pdfi-server + Web 最小ビューア**（RemoteBackend。オブジェクトツリー、生表示、hex、ストリーム表示）+ セキュリティ要件 | `pdfi serve` で数百 MB の PDF を開いて歩ける |
 | **M3** | **pdfi-wasm + WorkerBackend**（Blob ByteSource、協調ジョブ）、プロトコル適合テスト | 同じ UI がブラウザ完結でも動く |
-| **M4** | **pdfi-ffi + PdfInspectorKit + macOS 最小アプリ**（NSDocument + SwiftUI、M2 と同等機能、XCTest による適合テスト） | Swift から同じ API |
+| **M4** | （後回し。M5 を先に実装）**pdfi-ffi + PdfInspectorKit + macOS 最小アプリ**（NSDocument + SwiftUI、M2 と同等機能、XCTest による適合テスト） | Swift から同じ API |
 | **M5** | pdfi-schema: Arlington codegen、型推論、validation（スコープ別・ジョブ）、型付き表示 | Catalog/Page 等がラベル・警告付きで見える |
 | **M6** | pdfi-model: ページ（継承解決・高速 index）、Info/XMP、Outline、Annot、インベントリジョブ、被参照グラフ | Document / Pages / Fonts / Images 画面 |
 | **M7** | pdfi-content: 命令列モデル、validation、命令列ビュー（閲覧のみ）、インタプリタ + bbox | 命令列と状態の可視化 |

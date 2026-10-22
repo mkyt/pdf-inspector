@@ -1,5 +1,6 @@
 //! Conversions from the syntax layer to DTOs.
 
+use pdfi_schema as schema;
 use pdfi_syntax::{self as syn, DictExt, Object};
 
 use crate::dto::*;
@@ -113,17 +114,87 @@ pub fn xref_kind(k: syn::xref::XrefKind) -> XrefKind {
     }
 }
 
+fn severity(s: syn::Severity) -> Severity {
+    match s {
+        syn::Severity::Info => Severity::Info,
+        syn::Severity::Warning => Severity::Warning,
+        syn::Severity::Error => Severity::Error,
+    }
+}
+
 pub fn diagnostic(d: &syn::Diagnostic) -> DiagnosticInfo {
     DiagnosticInfo {
-        severity: match d.severity {
-            syn::Severity::Info => Severity::Info,
-            syn::Severity::Warning => Severity::Warning,
-            syn::Severity::Error => Severity::Error,
-        },
+        severity: severity(d.severity),
         code: format!("{:?}", d.code),
         message: d.message.clone(),
         obj: d.obj.map(Into::into),
+        path: None,
         span: d.span.map(Into::into),
+    }
+}
+
+/// A schema issue. `in_file`: spans refer to the source file (not to an
+/// object stream's data).
+pub fn issue(i: &schema::Issue, in_file: bool) -> DiagnosticInfo {
+    DiagnosticInfo {
+        severity: severity(i.severity),
+        code: format!("{:?}", i.code),
+        message: i.message.clone(),
+        obj: i.obj.map(Into::into),
+        path: (!i.path.is_empty()).then(|| schema::path_text(&i.path)),
+        span: i.span.filter(|_| in_file).map(Into::into),
+    }
+}
+
+/// Allowed values listed in a key definition.
+const MAX_ALLOWED: usize = 64;
+
+pub fn key_doc(k: &schema::KeyDef) -> KeyDoc {
+    use schema::tables::Lit;
+    let ver = |v: u8| (v != 0).then(|| schema::version_text(v));
+    let text = |s: &str| (!s.is_empty()).then(|| s.to_string());
+    let mut allowed = Vec::new();
+    for slot in k.slots {
+        for l in slot.values.iter().flat_map(|v| v.lits) {
+            if allowed.len() == MAX_ALLOWED {
+                break;
+            }
+            allowed.push(match l.lit {
+                Lit::Name(n) => format!("/{n}"),
+                Lit::Int(i) => i.to_string(),
+                Lit::Num(n) => n.to_string(),
+                Lit::Str(s) => format!("({s})"),
+                Lit::Bool(b) => b.to_string(),
+            });
+        }
+    }
+    KeyDoc {
+        types: k
+            .slots
+            .iter()
+            .map(|s| SlotDoc {
+                base: s.base.as_str().into(),
+                links: s
+                    .links
+                    .iter()
+                    .map(|l| schema::type_def(l.ty).name.to_string())
+                    .collect(),
+            })
+            .collect(),
+        requirement: match k.required {
+            schema::Req::Yes => Requirement::Required,
+            schema::Req::No => Requirement::Optional,
+            schema::Req::Cond(c) => Requirement::Conditional {
+                condition: c.into(),
+            },
+        },
+        since: ver(k.since),
+        deprecated: ver(k.deprecated),
+        extension: text(k.extension),
+        inheritable: k.inheritable,
+        default: text(k.default),
+        allowed,
+        note: text(k.note),
     }
 }
 

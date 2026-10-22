@@ -6,9 +6,11 @@ use std::io::Read;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use pdfi_syntax::{ObjId, Object};
+use pdfi_schema::{Severity, Walk};
+use pdfi_syntax::{ObjId, ObjLocation, Object};
 
-use crate::dto::{JobInfo, JobKind, JobResult, JobState};
+use crate::convert;
+use crate::dto::{DiagnosticInfo, JobInfo, JobKind, JobResult, JobState};
 use crate::protocol::Event;
 use crate::session::{Doc, EventBus, lock};
 
@@ -60,17 +62,29 @@ impl<T: Executor + ?Sized> Executor for Arc<T> {
 
 /// Objects processed per step.
 const STEP: usize = 256;
+/// Objects validated per step (each may load what it refers to).
+const VALIDATE_STEP: usize = 32;
+/// Issues a validation job keeps for `JobDiagnostics`.
+const MAX_KEPT: usize = 100_000;
 
 pub(crate) struct Job {
     pub doc: Arc<Doc>,
     info: Mutex<JobInfo>,
     cancel: AtomicBool,
     work: Mutex<Work>,
+    diags: Mutex<Vec<DiagnosticInfo>>,
     bus: Arc<EventBus>,
 }
 
 enum Work {
     Check(CheckWork),
+    Validate(ValidateWork),
+}
+
+struct ValidateWork {
+    walk: Walk,
+    /// Issues by severity: info, warning, error.
+    counts: [u64; 3],
 }
 
 #[derive(Default)]
@@ -96,9 +110,28 @@ impl Job {
                 diags_before: doc.file.diag_count(),
                 ..Default::default()
             }),
+            JobKind::Validate { root } => {
+                let ck = doc.schema.checker(&doc.file);
+                let walk = match root {
+                    None => Walk::document(&ck),
+                    Some(r) => {
+                        let id = (*r).into();
+                        match ck.type_of(id) {
+                            Some((ty, _)) => Walk::object(id, ty),
+                            // Nothing to check against: finishes at once.
+                            None => Walk::empty(),
+                        }
+                    }
+                };
+                Work::Validate(ValidateWork {
+                    walk,
+                    counts: [0; 3],
+                })
+            }
         };
         let total = match &work {
             Work::Check(w) => w.ids.len() as u64,
+            Work::Validate(w) => w.walk.pending() as u64,
         };
         Self {
             info: Mutex::new(JobInfo {
@@ -113,6 +146,7 @@ impl Job {
             doc,
             cancel: AtomicBool::new(false),
             work: Mutex::new(work),
+            diags: Mutex::default(),
             bus,
         }
     }
@@ -125,6 +159,14 @@ impl Job {
         self.cancel.store(true, Ordering::Relaxed);
     }
 
+    /// Issues found so far: total kept and the requested slice.
+    pub fn diagnostics(&self, offset: u64, limit: u32) -> (u64, Vec<DiagnosticInfo>) {
+        let d = lock(&self.diags);
+        let o = (offset as usize).min(d.len());
+        let n = (limit as usize).min(d.len() - o);
+        (d.len() as u64, d[o..o + n].to_vec())
+    }
+
     /// Do one bounded unit of work. Returns whether more remains.
     pub fn step(&self) -> bool {
         if lock(&self.info).state != JobState::Running {
@@ -135,13 +177,23 @@ impl Job {
             return false;
         }
         let mut work = lock(&self.work);
-        let (done, result) = match &mut *work {
-            Work::Check(w) => self.check_step(w),
+        let (done, total, result) = match &mut *work {
+            Work::Check(w) => {
+                let (done, r) = self.check_step(w);
+                (done, None, r)
+            }
+            Work::Validate(w) => {
+                let (done, total, r) = self.validate_step(w);
+                (done, Some(total), r)
+            }
         };
         drop(work);
         let total = {
             let mut info = lock(&self.info);
             info.done = done;
+            if let Some(t) = total {
+                info.total = t;
+            }
             info.total
         };
         match result {
@@ -169,6 +221,46 @@ impl Job {
             info.clone()
         };
         self.bus.emit(&Event::JobDone { info });
+    }
+
+    fn validate_step(&self, w: &mut ValidateWork) -> (u64, u64, Option<JobResult>) {
+        let d = &self.doc;
+        let ck = d.schema.checker(&d.file);
+        let mut issues = Vec::new();
+        let more = w.walk.step(&ck, VALIDATE_STEP, &mut issues);
+        {
+            let mut kept = lock(&self.diags);
+            for i in &issues {
+                w.counts[match i.severity {
+                    Severity::Info => 0,
+                    Severity::Warning => 1,
+                    Severity::Error => 2,
+                }] += 1;
+                if kept.len() < MAX_KEPT {
+                    // Spans of objects in object streams do not point into the file.
+                    let in_file = i.obj.is_none_or(|id| {
+                        d.file
+                            .get(id)
+                            .is_ok_and(|o| matches!(o.location, ObjLocation::File(_)))
+                    });
+                    kept.push(convert::issue(i, in_file));
+                }
+            }
+        }
+        let done = w.walk.done;
+        let total = done + w.walk.pending() as u64;
+        if more {
+            return (done, total, None);
+        }
+        let kept = lock(&self.diags).len() as u64;
+        let result = JobResult::Validate {
+            objects: done,
+            errors: w.counts[2],
+            warnings: w.counts[1],
+            infos: w.counts[0],
+            kept,
+        };
+        (done, total, Some(result))
     }
 
     fn check_step(&self, w: &mut CheckWork) -> (u64, Option<JobResult>) {

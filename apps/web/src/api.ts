@@ -10,7 +10,9 @@ import type {
   JobInfo,
   JobKind,
   NodePath,
+  NodeRoot,
   NodeView,
+  ObjectSchema,
   ObjRef,
   ObjectSummary,
   ObjectView,
@@ -82,6 +84,10 @@ export const api = {
     (await call(b, "xref", { op: "xref", doc, revision, range }, signal)).body,
   diagnostics: async (b: Backend, doc: DocId, range: Range, signal?: AbortSignal): Promise<Page<DiagnosticInfo>> =>
     (await call(b, "diagnostics", { op: "diagnostics", doc, range }, signal)).body,
+  schema: async (b: Backend, doc: DocId, root: NodeRoot): Promise<ObjectSchema> =>
+    (await call(b, "schema", { op: "schema", doc, root })).body,
+  jobDiagnostics: async (b: Backend, job: number, range: Range, signal?: AbortSignal): Promise<Page<DiagnosticInfo>> =>
+    (await call(b, "diagnostics", { op: "jobDiagnostics", job, range }, signal)).body,
   rawBytes: async (b: Backend, doc: DocId, offset: number, len: number, signal?: AbortSignal): Promise<Bytes> =>
     bytes(await call(b, "bytes", { op: "rawBytes", doc, offset, len }, signal)),
   streamData: async (
@@ -94,6 +100,8 @@ export const api = {
   ): Promise<Bytes> => bytes(await call(b, "bytes", { op: "streamData", doc, id, decoded, offset, len })),
   startJob: async (b: Backend, doc: DocId, job: JobKind): Promise<JobInfo> =>
     (await call(b, "job", { op: "startJob", doc, job })).body,
+  jobStatus: async (b: Backend, job: number): Promise<JobInfo> =>
+    (await call(b, "job", { op: "jobStatus", job })).body,
   cancelJob: async (b: Backend, job: number): Promise<JobInfo> =>
     (await call(b, "job", { op: "cancelJob", job })).body,
 };

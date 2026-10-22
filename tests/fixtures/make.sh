@@ -51,6 +51,27 @@ j = broken.index(b" ", i + 8)
 broken = broken[:i] + b"/Length 5" + broken[j:]
 open("broken.pdf", "wb").write(broken)
 PY
+# Schema problems (pdfi-schema): one of each kind the validator reports.
+python3 -I - <<'PY'
+objs = {
+    1: b"<< /Type /Catalog /Pages 2 0 R /PageLayout /Sideways /Outlines << /Type /Outlines /Count 0 >> /MarkInfo << /Marked true >> /Metadata 99 0 R >>",
+    2: b"<< /Type /Pages /Kids [3 0 R] >>",
+    3: b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612] /Resources << >> /Rotate 45 /Contents 7 /Foo 1 >>",
+    4: b"<< /Title (Schema problems) /CreationDate (2024-01-31) >>",
+}
+out = bytearray(b"%PDF-1.3\n%\xe2\xe3\xcf\xd3\n")
+offsets = {}
+for n in sorted(objs):
+    offsets[n] = len(out)
+    out += b"%d 0 obj\n" % n + objs[n] + b"\nendobj\n"
+size = max(offsets) + 1
+xref = len(out)
+out += b"xref\n0 %d\n0000000000 65535 f\r\n" % size
+for n in range(1, size):
+    out += b"%010d 00000 n\r\n" % offsets[n]
+out += b"trailer\n<< /Size %d /Root 1 0 R /Info 4 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (size, xref)
+open("schema.pdf", "wb").write(out)
+PY
 qpdf --object-streams=generate base.pdf objstm.pdf
 qpdf --linearize base.pdf linearized.pdf
 qpdf --allow-weak-crypto --encrypt user owner 40 -- base.pdf rc4-40.pdf

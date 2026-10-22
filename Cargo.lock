@@ -638,6 +638,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 name = "pdfi-api"
 version = "0.1.0"
 dependencies = [
+ "pdfi-schema",
  "pdfi-syntax",
  "serde",
  "serde_json",
@@ -650,9 +651,17 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "pdfi-schema",
  "pdfi-server",
  "pdfi-syntax",
  "tokio",
+]
+
+[[package]]
+name = "pdfi-schema"
+version = "0.1.0"
+dependencies = [
+ "pdfi-syntax",
 ]
 
 [[package]]

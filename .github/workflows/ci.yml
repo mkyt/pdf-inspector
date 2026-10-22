@@ -23,7 +23,7 @@ jobs:
       - run: cargo clippy --workspace --all-targets
       - run: cargo test --workspace
       # Core crates must stay buildable for the browser.
-      - run: cargo build -p pdfi-syntax -p pdfi-api -p pdfi-wasm --target wasm32-unknown-unknown
+      - run: cargo build -p pdfi-syntax -p pdfi-schema -p pdfi-api -p pdfi-wasm --target wasm32-unknown-unknown
       - run: cargo clippy -p pdfi-wasm --target wasm32-unknown-unknown
 
   web:

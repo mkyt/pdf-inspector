@@ -5,7 +5,7 @@
       "ok": {
         "backend": null,
         "filesystem": null,
-        "protocol": 1,
+        "protocol": 2,
         "type": "hello",
         "version": "0.1.0"
       }
@@ -16,7 +16,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 999, backend speaks 1"
+        "message": "client speaks protocol 999, backend speaks 2"
       }
     }
   },
@@ -39,6 +39,7 @@
         },
         "live_objects": 11,
         "object_slots": 13,
+        "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
           {
@@ -82,6 +83,7 @@
         },
         "live_objects": 11,
         "object_slots": 13,
+        "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
           {
@@ -120,6 +122,7 @@
             "error": null,
             "kind": null,
             "num": 0,
+            "schema_type": null,
             "subtype": null,
             "type_name": null
           },
@@ -132,6 +135,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 1,
+            "schema_type": "Catalog",
             "subtype": null,
             "type_name": "Catalog"
           },
@@ -144,6 +148,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 2,
+            "schema_type": "PageTreeNodeRoot",
             "subtype": null,
             "type_name": "Pages"
           },
@@ -156,6 +161,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 3,
+            "schema_type": "PageObject",
             "subtype": null,
             "type_name": "Page"
           },
@@ -168,6 +174,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 4,
+            "schema_type": "PageObject",
             "subtype": null,
             "type_name": "Page"
           },
@@ -180,6 +187,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 5,
+            "schema_type": "PageObject",
             "subtype": null,
             "type_name": "Page"
           },
@@ -192,6 +200,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 6,
+            "schema_type": "FontType1",
             "subtype": "Type1",
             "type_name": "Font"
           },
@@ -204,6 +213,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 7,
+            "schema_type": "DocInfo",
             "subtype": null,
             "type_name": null
           },
@@ -216,6 +226,7 @@
             "error": null,
             "kind": null,
             "num": 8,
+            "schema_type": null,
             "subtype": null,
             "type_name": null
           },
@@ -228,6 +239,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 9,
+            "schema_type": "Outline",
             "subtype": null,
             "type_name": "Outlines"
           },
@@ -240,6 +252,7 @@
             "error": null,
             "kind": "stream",
             "num": 10,
+            "schema_type": null,
             "subtype": null,
             "type_name": null
           },
@@ -252,6 +265,7 @@
             "error": null,
             "kind": "stream",
             "num": 11,
+            "schema_type": null,
             "subtype": null,
             "type_name": null
           },
@@ -264,6 +278,7 @@
             "error": null,
             "kind": "stream",
             "num": 12,
+            "schema_type": null,
             "subtype": null,
             "type_name": null
           }
@@ -288,6 +303,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 5,
+            "schema_type": "PageObject",
             "subtype": null,
             "type_name": "Page"
           },
@@ -300,6 +316,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 6,
+            "schema_type": "FontType1",
             "subtype": "Type1",
             "type_name": "Font"
           },
@@ -312,6 +329,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 7,
+            "schema_type": "DocInfo",
             "subtype": null,
             "type_name": null
           }
@@ -341,6 +359,28 @@
           {
             "index": 0,
             "key": "Size",
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": "Table 15 and Table 19",
+                "requirement": {
+                  "kind": "required"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "integer",
+                    "links": []
+                  }
+                ]
+              },
+              "value_type": null
+            },
             "span": {
               "end": 1283,
               "start": 1281
@@ -353,6 +393,30 @@
           {
             "index": 1,
             "key": "Root",
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": null,
+                "requirement": {
+                  "kind": "required"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "dictionary",
+                    "links": [
+                      "Catalog"
+                    ]
+                  }
+                ]
+              },
+              "value_type": "Catalog"
+            },
             "span": {
               "end": 1295,
               "start": 1290
@@ -368,6 +432,31 @@
           {
             "index": 2,
             "key": "Info",
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": "https://github.com/pdf-association/pdf-issues/issues/106",
+                "requirement": {
+                  "condition": "fn:SinceVersion(1.4,fn:IsPresent(trailer::Catalog::PieceInfo))",
+                  "kind": "conditional"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "dictionary",
+                    "links": [
+                      "DocInfo"
+                    ]
+                  }
+                ]
+              },
+              "value_type": "DocInfo"
+            },
             "span": {
               "end": 1307,
               "start": 1302
@@ -383,6 +472,31 @@
           {
             "index": 3,
             "key": "ID",
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": null,
+                "requirement": {
+                  "condition": "fn:SinceVersion(2.0) || fn:IsPresent(Encrypt)",
+                  "kind": "conditional"
+                },
+                "since": "1.1",
+                "types": [
+                  {
+                    "base": "array",
+                    "links": [
+                      "TrailerIDArray"
+                    ]
+                  }
+                ]
+              },
+              "value_type": "TrailerIDArray"
+            },
             "span": {
               "end": 1383,
               "start": 1312
@@ -437,6 +551,30 @@
           {
             "index": 0,
             "key": "Type",
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [
+                  "/Pages"
+                ],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": "Table 30 and Table 31 for inheritable keys",
+                "requirement": {
+                  "kind": "required"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "name",
+                    "links": []
+                  }
+                ]
+              },
+              "value_type": null
+            },
             "span": {
               "end": 103,
               "start": 97
@@ -449,6 +587,30 @@
           {
             "index": 1,
             "key": "Kids",
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": null,
+                "requirement": {
+                  "kind": "required"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "array",
+                    "links": [
+                      "ArrayOfPageTreeNodeKids"
+                    ]
+                  }
+                ]
+              },
+              "value_type": "ArrayOfPageTreeNodeKids"
+            },
             "span": {
               "end": 129,
               "start": 110
@@ -461,6 +623,28 @@
           {
             "index": 2,
             "key": "Count",
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": null,
+                "requirement": {
+                  "kind": "required"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "integer",
+                    "links": []
+                  }
+                ]
+              },
+              "value_type": null
+            },
             "span": {
               "end": 138,
               "start": 137
@@ -473,6 +657,28 @@
           {
             "index": 3,
             "key": "MediaBox",
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": "Inheritable",
+                "requirement": {
+                  "kind": "optional"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "rectangle",
+                    "links": []
+                  }
+                ]
+              },
+              "value_type": null
+            },
             "span": {
               "end": 162,
               "start": 149
@@ -485,6 +691,30 @@
           {
             "index": 4,
             "key": "Resources",
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": "Inheritable",
+                "requirement": {
+                  "kind": "optional"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "dictionary",
+                    "links": [
+                      "Resource"
+                    ]
+                  }
+                ]
+              },
+              "value_type": "Resource"
+            },
             "span": {
               "end": 201,
               "start": 174
@@ -510,6 +740,31 @@
           {
             "index": 1,
             "key": null,
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": "Table 30. https://github.com/pdf-association/pdf-issues/issues/271",
+                "requirement": {
+                  "kind": "optional"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "dictionary",
+                    "links": [
+                      "PageTreeNode",
+                      "PageObject"
+                    ]
+                  }
+                ]
+              },
+              "value_type": "PageObject"
+            },
             "span": {
               "end": 122,
               "start": 117
@@ -525,6 +780,31 @@
           {
             "index": 2,
             "key": null,
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": "Table 30. https://github.com/pdf-association/pdf-issues/issues/271",
+                "requirement": {
+                  "kind": "optional"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "dictionary",
+                    "links": [
+                      "PageTreeNode",
+                      "PageObject"
+                    ]
+                  }
+                ]
+              },
+              "value_type": "PageObject"
+            },
             "span": {
               "end": 128,
               "start": 123
@@ -552,6 +832,36 @@
           {
             "index": 0,
             "key": "F1",
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": "Table 34",
+                "requirement": {
+                  "kind": "optional"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "dictionary",
+                    "links": [
+                      "FontType1",
+                      "FontTrueType",
+                      "FontMultipleMaster",
+                      "FontType3",
+                      "FontType0",
+                      "FontCIDType0",
+                      "FontCIDType2"
+                    ]
+                  }
+                ]
+              },
+              "value_type": "FontType1"
+            },
             "span": {
               "end": 195,
               "start": 190
@@ -965,6 +1275,7 @@
         },
         "live_objects": 13,
         "object_slots": 14,
+        "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
           {
@@ -1006,6 +1317,7 @@
             "error": null,
             "kind": null,
             "num": 0,
+            "schema_type": null,
             "subtype": null,
             "type_name": null
           },
@@ -1018,6 +1330,7 @@
             "error": null,
             "kind": "stream",
             "num": 1,
+            "schema_type": "ObjectStream",
             "subtype": null,
             "type_name": "ObjStm"
           },
@@ -1030,6 +1343,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 2,
+            "schema_type": "Catalog",
             "subtype": null,
             "type_name": "Catalog"
           },
@@ -1042,6 +1356,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 3,
+            "schema_type": "PageTreeNodeRoot",
             "subtype": null,
             "type_name": "Pages"
           },
@@ -1054,6 +1369,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 4,
+            "schema_type": "PageObject",
             "subtype": null,
             "type_name": "Page"
           },
@@ -1066,6 +1382,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 5,
+            "schema_type": "PageObject",
             "subtype": null,
             "type_name": "Page"
           },
@@ -1078,6 +1395,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 6,
+            "schema_type": "PageObject",
             "subtype": null,
             "type_name": "Page"
           },
@@ -1090,6 +1408,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 7,
+            "schema_type": "FontType1",
             "subtype": "Type1",
             "type_name": "Font"
           },
@@ -1102,6 +1421,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 8,
+            "schema_type": "DocInfo",
             "subtype": null,
             "type_name": null
           },
@@ -1114,6 +1434,7 @@
             "error": null,
             "kind": "dictionary",
             "num": 9,
+            "schema_type": "Outline",
             "subtype": null,
             "type_name": "Outlines"
           },
@@ -1126,6 +1447,7 @@
             "error": null,
             "kind": "stream",
             "num": 10,
+            "schema_type": null,
             "subtype": null,
             "type_name": null
           },
@@ -1138,6 +1460,7 @@
             "error": null,
             "kind": "stream",
             "num": 11,
+            "schema_type": null,
             "subtype": null,
             "type_name": null
           },
@@ -1150,6 +1473,7 @@
             "error": null,
             "kind": "stream",
             "num": 12,
+            "schema_type": null,
             "subtype": null,
             "type_name": null
           },
@@ -1162,6 +1486,7 @@
             "error": null,
             "kind": "stream",
             "num": 13,
+            "schema_type": "XRefStream",
             "subtype": null,
             "type_name": "XRef"
           }
@@ -1286,6 +1611,7 @@
         },
         "live_objects": 12,
         "object_slots": 13,
+        "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
           {
@@ -1338,6 +1664,7 @@
         },
         "live_objects": 12,
         "object_slots": 13,
+        "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
           {
@@ -1437,6 +1764,7 @@
         },
         "live_objects": 12,
         "object_slots": 13,
+        "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
           {
@@ -1500,6 +1828,7 @@
         },
         "live_objects": 12,
         "object_slots": 15,
+        "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
           {
@@ -1554,6 +1883,7 @@
         },
         "live_objects": 12,
         "object_slots": 15,
+        "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
           {
@@ -1760,6 +2090,7 @@
         },
         "live_objects": 11,
         "object_slots": 13,
+        "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
           {
@@ -1803,6 +2134,7 @@
         },
         "live_objects": 11,
         "object_slots": 13,
+        "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
           {
@@ -1836,6 +2168,7 @@
             "code": "XrefOffsetAdjusted",
             "message": "xref section expected at 1001, found at 993",
             "obj": null,
+            "path": null,
             "severity": "warning",
             "span": null
           }
@@ -1865,6 +2198,7 @@
         },
         "live_objects": 11,
         "object_slots": 13,
+        "pdf_version": "1.7",
         "recovered": true,
         "revisions": [
           {
@@ -1908,6 +2242,7 @@
         },
         "live_objects": 11,
         "object_slots": 13,
+        "pdf_version": "1.7",
         "recovered": true,
         "revisions": [
           {
@@ -2056,6 +2391,7 @@
             "code": "XrefOffsetAdjusted",
             "message": "xref section expected at 1001, found at 993",
             "obj": null,
+            "path": null,
             "severity": "warning",
             "span": null
           },
@@ -2066,6 +2402,7 @@
               "generation": 0,
               "num": 10
             },
+            "path": null,
             "severity": "warning",
             "span": {
               "end": 723,
@@ -2079,6 +2416,7 @@
               "generation": 0,
               "num": 11
             },
+            "path": null,
             "severity": "warning",
             "span": null
           },
@@ -2089,6 +2427,7 @@
               "generation": 0,
               "num": 12
             },
+            "path": null,
             "severity": "warning",
             "span": null
           }
@@ -2114,6 +2453,1200 @@
       "err": {
         "code": "noSuchJob",
         "message": "no job 99"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "issues": [],
+        "note": "Table 15 and Table 19",
+        "origin": "context",
+        "pdf_version": "1.7",
+        "truncated": false,
+        "type": "schema",
+        "type_name": "FileTrailer"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "issues": [],
+        "note": "Table 30 and Table 31 for inheritable keys",
+        "origin": "context",
+        "pdf_version": "1.7",
+        "truncated": false,
+        "type": "schema",
+        "type_name": "PageTreeNodeRoot"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "notFound",
+        "message": "object 77 0 not found"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "events": [
+      {
+        "info": {
+          "doc": 1,
+          "done": 12,
+          "job": 3,
+          "kind": {
+            "kind": "validate",
+            "root": null
+          },
+          "result": {
+            "errors": 0,
+            "infos": 0,
+            "kept": 0,
+            "kind": "validate",
+            "objects": 12,
+            "warnings": 0
+          },
+          "state": "completed",
+          "total": 12
+        },
+        "type": "jobDone"
+      }
+    ],
+    "response": {
+      "ok": {
+        "doc": 1,
+        "done": 0,
+        "job": 3,
+        "kind": {
+          "kind": "validate",
+          "root": null
+        },
+        "result": null,
+        "state": "running",
+        "total": 1,
+        "type": "job"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [],
+        "offset": 0,
+        "total": 0,
+        "type": "diagnostics"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "entry": {
+              "generation": 65535,
+              "kind": "free",
+              "next": 0
+            },
+            "error": null,
+            "kind": null,
+            "num": 0,
+            "schema_type": null,
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 15
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 1,
+            "schema_type": "Catalog",
+            "subtype": null,
+            "type_name": "Catalog"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 80
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 2,
+            "schema_type": "PageTreeNodeRoot",
+            "subtype": null,
+            "type_name": "Pages"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 212
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 3,
+            "schema_type": "PageObject",
+            "subtype": null,
+            "type_name": "Page"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 276
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 4,
+            "schema_type": "PageObject",
+            "subtype": null,
+            "type_name": "Page"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 340
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 5,
+            "schema_type": "PageObject",
+            "subtype": null,
+            "type_name": "Page"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 404
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 6,
+            "schema_type": "FontType1",
+            "subtype": "Type1",
+            "type_name": "Font"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 474
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 7,
+            "schema_type": "DocInfo",
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "free",
+              "next": 0
+            },
+            "error": null,
+            "kind": null,
+            "num": 8,
+            "schema_type": null,
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 570
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 9,
+            "schema_type": "Outline",
+            "subtype": null,
+            "type_name": "Outlines"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 616
+            },
+            "error": null,
+            "kind": "stream",
+            "num": 10,
+            "schema_type": "Stream",
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 742
+            },
+            "error": null,
+            "kind": "stream",
+            "num": 11,
+            "schema_type": "Stream",
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 868
+            },
+            "error": null,
+            "kind": "stream",
+            "num": 12,
+            "schema_type": "Stream",
+            "subtype": null,
+            "type_name": null
+          }
+        ],
+        "offset": 0,
+        "total": 13,
+        "type": "objects"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "events": [
+      {
+        "info": {
+          "doc": 3,
+          "done": 1,
+          "job": 4,
+          "kind": {
+            "kind": "validate",
+            "root": {
+              "generation": 0,
+              "num": 2
+            }
+          },
+          "result": {
+            "errors": 0,
+            "infos": 0,
+            "kept": 0,
+            "kind": "validate",
+            "objects": 1,
+            "warnings": 0
+          },
+          "state": "completed",
+          "total": 1
+        },
+        "type": "jobDone"
+      }
+    ],
+    "response": {
+      "ok": {
+        "doc": 3,
+        "done": 0,
+        "job": 4,
+        "kind": {
+          "kind": "validate",
+          "root": {
+            "generation": 0,
+            "num": 2
+          }
+        },
+        "result": null,
+        "state": "running",
+        "total": 1,
+        "type": "job"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [],
+        "offset": 0,
+        "total": 0,
+        "type": "diagnostics"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "events": [
+      {
+        "info": {
+          "doc": 6,
+          "done": 12,
+          "job": 5,
+          "kind": {
+            "kind": "validate",
+            "root": null
+          },
+          "result": {
+            "errors": 0,
+            "infos": 0,
+            "kept": 0,
+            "kind": "validate",
+            "objects": 12,
+            "warnings": 0
+          },
+          "state": "completed",
+          "total": 12
+        },
+        "type": "jobDone"
+      }
+    ],
+    "response": {
+      "ok": {
+        "doc": 6,
+        "done": 0,
+        "job": 5,
+        "kind": {
+          "kind": "validate",
+          "root": null
+        },
+        "result": null,
+        "state": "running",
+        "total": 1,
+        "type": "job"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [],
+        "offset": 0,
+        "total": 0,
+        "type": "diagnostics"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "noSuchJob",
+        "message": "no job 99"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 0,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 8,
+          "name": "schema.pdf",
+          "path": null,
+          "size": 583
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 4
+        },
+        "live_objects": 4,
+        "object_slots": 5,
+        "pdf_version": "1.3",
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 5,
+            "index": 0,
+            "kind": "table",
+            "offset": 408,
+            "span": {
+              "end": 562,
+              "start": 408
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.3",
+        "xref_entries": 5
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 0,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 8,
+          "name": "schema.pdf",
+          "path": null,
+          "size": 583
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 4
+        },
+        "live_objects": 4,
+        "object_slots": 5,
+        "pdf_version": "1.3",
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 5,
+            "index": 0,
+            "kind": "table",
+            "offset": 408,
+            "span": {
+              "end": 562,
+              "start": 408
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.3",
+        "xref_entries": 5
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "issues": [
+          {
+            "code": "BadValue",
+            "message": "/Sideways is not one of /SinglePage, /OneColumn, /TwoColumnLeft, /TwoColumnRight, /TwoPageLeft, /TwoPageRight",
+            "obj": {
+              "generation": 0,
+              "num": 1
+            },
+            "path": null,
+            "severity": "warning",
+            "span": {
+              "end": 75,
+              "start": 66
+            }
+          },
+          {
+            "code": "NotIndirect",
+            "message": "must be an indirect reference",
+            "obj": {
+              "generation": 0,
+              "num": 1
+            },
+            "path": null,
+            "severity": "warning",
+            "span": {
+              "end": 116,
+              "start": 86
+            }
+          },
+          {
+            "code": "TooNew",
+            "message": "introduced in PDF 1.4; the document is PDF 1.3",
+            "obj": {
+              "generation": 0,
+              "num": 1
+            },
+            "path": null,
+            "severity": "warning",
+            "span": {
+              "end": 145,
+              "start": 127
+            }
+          },
+          {
+            "code": "TooNew",
+            "message": "introduced in PDF 1.4; the document is PDF 1.3",
+            "obj": {
+              "generation": 0,
+              "num": 1
+            },
+            "path": null,
+            "severity": "warning",
+            "span": {
+              "end": 142,
+              "start": 138
+            }
+          },
+          {
+            "code": "MissingObject",
+            "message": "99 0 R refers to a missing object (treated as null)",
+            "obj": {
+              "generation": 0,
+              "num": 1
+            },
+            "path": null,
+            "severity": "warning",
+            "span": {
+              "end": 162,
+              "start": 156
+            }
+          }
+        ],
+        "note": "Table 29",
+        "origin": "context",
+        "pdf_version": "1.3",
+        "truncated": false,
+        "type": "schema",
+        "type_name": "Catalog"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "index": 0,
+            "key": "Type",
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [
+                  "/Page",
+                  "/Template"
+                ],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": "Table 31",
+                "requirement": {
+                  "kind": "required"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "name",
+                    "links": []
+                  }
+                ]
+              },
+              "value_type": null
+            },
+            "span": {
+              "end": 243,
+              "start": 238
+            },
+            "value": {
+              "name": "Page",
+              "type": "name"
+            }
+          },
+          {
+            "index": 1,
+            "key": "Parent",
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": null,
+                "requirement": {
+                  "condition": "@Type!=Template",
+                  "kind": "conditional"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "dictionary",
+                    "links": [
+                      "PageTreeNode",
+                      "PageTreeNodeRoot"
+                    ]
+                  }
+                ]
+              },
+              "value_type": "PageTreeNodeRoot"
+            },
+            "span": {
+              "end": 257,
+              "start": 252
+            },
+            "value": {
+              "id": {
+                "generation": 0,
+                "num": 2
+              },
+              "type": "ref"
+            }
+          },
+          {
+            "index": 2,
+            "key": "MediaBox",
+            "schema": {
+              "issues": [
+                {
+                  "code": "WrongType",
+                  "message": "a rectangle is an array of 4 numbers",
+                  "obj": null,
+                  "path": null,
+                  "severity": "error",
+                  "span": {
+                    "end": 277,
+                    "start": 268
+                  }
+                }
+              ],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": true,
+                "note": "Inheritable from Parent",
+                "requirement": {
+                  "kind": "required"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "rectangle",
+                    "links": []
+                  }
+                ]
+              },
+              "value_type": null
+            },
+            "span": {
+              "end": 277,
+              "start": 268
+            },
+            "value": {
+              "len": 3,
+              "type": "array"
+            }
+          },
+          {
+            "index": 3,
+            "key": "Resources",
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": true,
+                "note": "Inheritable from Parent",
+                "requirement": {
+                  "kind": "required"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "dictionary",
+                    "links": [
+                      "Resource"
+                    ]
+                  }
+                ]
+              },
+              "value_type": "Resource"
+            },
+            "span": {
+              "end": 294,
+              "start": 289
+            },
+            "value": {
+              "len": 0,
+              "type": "dict",
+              "type_name": null
+            }
+          },
+          {
+            "index": 4,
+            "key": "Rotate",
+            "schema": {
+              "issues": [
+                {
+                  "code": "PredicateFailed",
+                  "message": "45 does not satisfy (@Rotate mod 90)==0",
+                  "obj": null,
+                  "path": null,
+                  "severity": "warning",
+                  "span": {
+                    "end": 305,
+                    "start": 303
+                  }
+                }
+              ],
+              "key": {
+                "allowed": [],
+                "default": "0",
+                "deprecated": null,
+                "extension": null,
+                "inheritable": true,
+                "note": "Inheritable from Parent",
+                "requirement": {
+                  "kind": "optional"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "integer",
+                    "links": []
+                  }
+                ]
+              },
+              "value_type": null
+            },
+            "span": {
+              "end": 305,
+              "start": 303
+            },
+            "value": {
+              "type": "integer",
+              "value": 45
+            }
+          },
+          {
+            "index": 5,
+            "key": "Contents",
+            "schema": {
+              "issues": [
+                {
+                  "code": "WrongType",
+                  "message": "expected array or stream, got integer",
+                  "obj": null,
+                  "path": null,
+                  "severity": "error",
+                  "span": {
+                    "end": 317,
+                    "start": 316
+                  }
+                }
+              ],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": null,
+                "requirement": {
+                  "kind": "optional"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "array",
+                    "links": [
+                      "ArrayOfStreamsGeneral"
+                    ]
+                  },
+                  {
+                    "base": "stream",
+                    "links": [
+                      "Stream"
+                    ]
+                  }
+                ]
+              },
+              "value_type": null
+            },
+            "span": {
+              "end": 317,
+              "start": 316
+            },
+            "value": {
+              "type": "integer",
+              "value": 7
+            }
+          },
+          {
+            "index": 6,
+            "key": "Foo",
+            "schema": {
+              "issues": [
+                {
+                  "code": "UnknownKey",
+                  "message": "/Foo is not a key of PageObject",
+                  "obj": null,
+                  "path": null,
+                  "severity": "info",
+                  "span": {
+                    "end": 324,
+                    "start": 323
+                  }
+                }
+              ],
+              "key": null,
+              "value_type": null
+            },
+            "span": {
+              "end": 324,
+              "start": 323
+            },
+            "value": {
+              "type": "integer",
+              "value": 1
+            }
+          }
+        ],
+        "offset": 0,
+        "total": 7,
+        "type": "children"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "index": 0,
+            "key": "Type",
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [
+                  "/Outlines"
+                ],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": "Table 150",
+                "requirement": {
+                  "kind": "optional"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "name",
+                    "links": []
+                  }
+                ]
+              },
+              "value_type": null
+            },
+            "span": {
+              "end": 104,
+              "start": 95
+            },
+            "value": {
+              "name": "Outlines",
+              "type": "name"
+            }
+          },
+          {
+            "index": 1,
+            "key": "Count",
+            "schema": {
+              "issues": [],
+              "key": {
+                "allowed": [],
+                "default": null,
+                "deprecated": null,
+                "extension": null,
+                "inheritable": false,
+                "note": null,
+                "requirement": {
+                  "kind": "optional"
+                },
+                "since": "1.0",
+                "types": [
+                  {
+                    "base": "integer",
+                    "links": []
+                  }
+                ]
+              },
+              "value_type": null
+            },
+            "span": {
+              "end": 113,
+              "start": 112
+            },
+            "value": {
+              "type": "integer",
+              "value": 0
+            }
+          }
+        ],
+        "offset": 0,
+        "total": 2,
+        "type": "children"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "events": [
+      {
+        "info": {
+          "doc": 8,
+          "done": 5,
+          "job": 6,
+          "kind": {
+            "kind": "validate",
+            "root": null
+          },
+          "result": {
+            "errors": 3,
+            "infos": 1,
+            "kept": 11,
+            "kind": "validate",
+            "objects": 5,
+            "warnings": 7
+          },
+          "state": "completed",
+          "total": 5
+        },
+        "type": "jobDone"
+      }
+    ],
+    "response": {
+      "ok": {
+        "doc": 8,
+        "done": 0,
+        "job": 6,
+        "kind": {
+          "kind": "validate",
+          "root": null
+        },
+        "result": null,
+        "state": "running",
+        "total": 1,
+        "type": "job"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "code": "BadValue",
+            "message": "/Sideways is not one of /SinglePage, /OneColumn, /TwoColumnLeft, /TwoColumnRight, /TwoPageLeft, /TwoPageRight",
+            "obj": {
+              "generation": 0,
+              "num": 1
+            },
+            "path": null,
+            "severity": "warning",
+            "span": {
+              "end": 75,
+              "start": 66
+            }
+          },
+          {
+            "code": "NotIndirect",
+            "message": "must be an indirect reference",
+            "obj": {
+              "generation": 0,
+              "num": 1
+            },
+            "path": null,
+            "severity": "warning",
+            "span": {
+              "end": 116,
+              "start": 86
+            }
+          },
+          {
+            "code": "TooNew",
+            "message": "introduced in PDF 1.4; the document is PDF 1.3",
+            "obj": {
+              "generation": 0,
+              "num": 1
+            },
+            "path": null,
+            "severity": "warning",
+            "span": {
+              "end": 145,
+              "start": 127
+            }
+          },
+          {
+            "code": "TooNew",
+            "message": "introduced in PDF 1.4; the document is PDF 1.3",
+            "obj": {
+              "generation": 0,
+              "num": 1
+            },
+            "path": null,
+            "severity": "warning",
+            "span": {
+              "end": 142,
+              "start": 138
+            }
+          },
+          {
+            "code": "MissingObject",
+            "message": "99 0 R refers to a missing object (treated as null)",
+            "obj": {
+              "generation": 0,
+              "num": 1
+            },
+            "path": null,
+            "severity": "warning",
+            "span": {
+              "end": 162,
+              "start": 156
+            }
+          },
+          {
+            "code": "BadDate",
+            "message": "date should start with D:",
+            "obj": {
+              "generation": 0,
+              "num": 4
+            },
+            "path": null,
+            "severity": "warning",
+            "span": {
+              "end": 397,
+              "start": 385
+            }
+          },
+          {
+            "code": "MissingKey",
+            "message": "required key /Count is missing",
+            "obj": {
+              "generation": 0,
+              "num": 2
+            },
+            "path": null,
+            "severity": "error",
+            "span": null
+          },
+          {
+            "code": "WrongType",
+            "message": "a rectangle is an array of 4 numbers",
+            "obj": {
+              "generation": 0,
+              "num": 3
+            },
+            "path": null,
+            "severity": "error",
+            "span": {
+              "end": 277,
+              "start": 268
+            }
+          },
+          {
+            "code": "PredicateFailed",
+            "message": "45 does not satisfy (@Rotate mod 90)==0",
+            "obj": {
+              "generation": 0,
+              "num": 3
+            },
+            "path": null,
+            "severity": "warning",
+            "span": {
+              "end": 305,
+              "start": 303
+            }
+          },
+          {
+            "code": "WrongType",
+            "message": "expected array or stream, got integer",
+            "obj": {
+              "generation": 0,
+              "num": 3
+            },
+            "path": null,
+            "severity": "error",
+            "span": {
+              "end": 317,
+              "start": 316
+            }
+          },
+          {
+            "code": "UnknownKey",
+            "message": "/Foo is not a key of PageObject",
+            "obj": {
+              "generation": 0,
+              "num": 3
+            },
+            "path": null,
+            "severity": "info",
+            "span": {
+              "end": 324,
+              "start": 323
+            }
+          }
+        ],
+        "offset": 0,
+        "total": 11,
+        "type": "diagnostics"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "code": "WrongType",
+            "message": "expected array or stream, got integer",
+            "obj": {
+              "generation": 0,
+              "num": 3
+            },
+            "path": null,
+            "severity": "error",
+            "span": {
+              "end": 317,
+              "start": 316
+            }
+          },
+          {
+            "code": "UnknownKey",
+            "message": "/Foo is not a key of PageObject",
+            "obj": {
+              "generation": 0,
+              "num": 3
+            },
+            "path": null,
+            "severity": "info",
+            "span": {
+              "end": 324,
+              "start": 323
+            }
+          }
+        ],
+        "offset": 9,
+        "total": 11,
+        "type": "diagnostics"
       }
     }
   },
@@ -2163,6 +3696,12 @@
             "name": "base.pdf",
             "path": null,
             "size": 1407
+          },
+          {
+            "doc": 8,
+            "name": "schema.pdf",
+            "path": null,
+            "size": 583
           }
         ],
         "type": "docs"
@@ -2235,6 +3774,12 @@
             "name": "broken.pdf",
             "path": null,
             "size": 1407
+          },
+          {
+            "doc": 8,
+            "name": "schema.pdf",
+            "path": null,
+            "size": 583
           }
         ],
         "type": "docs"

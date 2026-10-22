@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 1;
+pub const PROTOCOL_VERSION: u32 = 2;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct ClientMessage {
@@ -64,6 +64,11 @@ pub enum Request {
         doc: DocId,
         range: Range,
     },
+    /// Schema type of the trailer or an object, and its problems.
+    Schema {
+        doc: DocId,
+        root: NodeRoot,
+    },
     RawBytes {
         doc: DocId,
         offset: u64,
@@ -86,6 +91,11 @@ pub enum Request {
     },
     CancelJob {
         job: JobId,
+    },
+    /// Issues found by a `Validate` job (also while it runs).
+    JobDiagnostics {
+        job: JobId,
+        range: Range,
     },
     /// Drop a request that has not started yet. Handled by the transport.
     Cancel {
@@ -117,6 +127,7 @@ pub enum ResponseBody {
     Children(Page<NodeView>),
     Xref(Page<XrefRow>),
     Diagnostics(Page<DiagnosticInfo>),
+    Schema(ObjectSchema),
     Bytes(BytesInfo),
     Job(JobInfo),
     Batch { responses: Vec<Response> },
@@ -191,6 +202,8 @@ impl From<std::io::Error> for ApiError {
     }
 }
 
+// Like `Response`: built once and moved straight to the transport.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ServerMessage {

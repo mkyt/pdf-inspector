@@ -1,0 +1,13 @@
+[package]
+name = "pdfi-schema"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+pdfi-syntax = { version = "0.1.0", path = "../pdfi-syntax" }
+
+[lints]
+workspace = true

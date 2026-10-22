@@ -22,9 +22,12 @@ import { HexView } from "./components/HexView";
 import { Inspector } from "./components/Inspector";
 import { ObjectList } from "./components/ObjectList";
 import { OpenDialog } from "./components/OpenDialog";
+import { SchemaPanel } from "./components/SchemaPanel";
+import { ValidatePanel } from "./components/ValidatePanel";
 import { SummaryCard } from "./components/SummaryCard";
 import { XrefPanel } from "./components/XrefPanel";
-import { NavContext, sameTarget, type Nav, type Target } from "./nav";
+import { useJob } from "./jobs";
+import { NavContext, sameTarget, type Nav, type Selection, type Target } from "./nav";
 import type { DocId, Span } from "./protocol/generated";
 
 export function App() {
@@ -155,22 +158,29 @@ function DocView({ doc }: { doc: DocId }) {
   const [history, setHistory] = useState<Target[]>([{ kind: "trailer" }]);
   const [hexSpan, setHexSpan] = useState<Span | null>(null);
   const [tab, setTab] = useState<string | null>("objects");
+  const [selection, setSelection] = useState<Selection | null>(null);
+  const [validation, setValidation] = useJob(doc);
 
-  const open = useCallback(
-    (t: Target) => setHistory((h) => (sameTarget(h[h.length - 1], t) ? h : [...h.slice(-99), t])),
-    [],
-  );
+  const open = useCallback((t: Target) => {
+    setHistory((h) => (sameTarget(h[h.length - 1], t) ? h : [...h.slice(-99), t]));
+    setSelection(null);
+  }, []);
   const nav: Nav = useMemo(
     () => ({
       doc,
       target: history[history.length - 1],
       open,
-      back: () => setHistory((h) => (h.length > 1 ? h.slice(0, -1) : h)),
+      back: () => {
+        setHistory((h) => (h.length > 1 ? h.slice(0, -1) : h));
+        setSelection(null);
+      },
       canBack: history.length > 1,
       showBytes: setHexSpan,
       hexSpan,
+      selection,
+      select: setSelection,
     }),
-    [doc, history, open, hexSpan],
+    [doc, history, open, hexSpan, selection],
   );
 
   if (summary.error) {
@@ -200,6 +210,7 @@ function DocView({ doc }: { doc: DocId }) {
             <Tabs.List>
               <Tabs.Tab value="objects">Objects</Tabs.Tab>
               <Tabs.Tab value="xref">XRef</Tabs.Tab>
+              <Tabs.Tab value="validate">Validate</Tabs.Tab>
               <Tabs.Tab value="diagnostics">
                 Diagnostics {s.diagnostics > 0 && <Badge size="xs" color="orange">{s.diagnostics}</Badge>}
               </Tabs.Tab>
@@ -207,6 +218,7 @@ function DocView({ doc }: { doc: DocId }) {
             <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
               {tab === "objects" && <ObjectList total={s.xref_entries} />}
               {tab === "xref" && <XrefPanel summary={s} />}
+              {tab === "validate" && <ValidatePanel job={validation} setJob={setValidation} />}
               {tab === "diagnostics" && <DiagnosticsPanel total={s.diagnostics} />}
             </div>
           </Tabs>
@@ -238,6 +250,16 @@ function DocView({ doc }: { doc: DocId }) {
           <div style={{ height: 280, borderTop: "1px solid var(--mantine-color-default-border)" }}>
             <HexView size={s.info.size} />
           </div>
+        </div>
+        <div
+          style={{
+            width: 300,
+            flexShrink: 0,
+            borderLeft: "1px solid var(--mantine-color-default-border)",
+            overflow: "auto",
+          }}
+        >
+          <SchemaPanel />
         </div>
       </div>
     </NavContext.Provider>

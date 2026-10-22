@@ -69,6 +69,18 @@ enum Cmd {
         #[arg(short, long)]
         verbose: bool,
     },
+    /// Validate against the Arlington PDF Model, following typed references
+    /// from the trailer (or from one object).
+    Validate {
+        #[command(flatten)]
+        f: FileArgs,
+        /// Start at this object number instead of the trailer.
+        #[arg(long)]
+        obj: Option<u32>,
+        /// Include informational issues (unknown keys, deprecations).
+        #[arg(short, long)]
+        verbose: bool,
+    },
     /// Rewrite as a plain file (object streams expanded, decrypted).
     Rewrite {
         #[command(flatten)]
@@ -116,6 +128,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
         Cmd::Info(a) => info(&open(&a)?),
+        Cmd::Validate { f, obj, verbose } => validate(&open(&f)?, obj, verbose),
         Cmd::Xref { f, rev } => xref(&open(&f)?, rev),
         Cmd::Obj { f, num, generation } => {
             let file = open(&f)?;
@@ -445,4 +458,56 @@ fn print_diags(file: &PdfFile, all: bool, only: Option<ObjId>) {
             println!("  {c}: {n}");
         }
     }
+}
+
+fn validate(file: &PdfFile, obj: Option<u32>, verbose: bool) -> Result<()> {
+    use pdfi_schema::{DocSchema, Walk, path_text};
+    let t0 = Instant::now();
+    let schema = DocSchema::new();
+    let ck = schema.checker(file);
+    let mut walk = match obj {
+        None => Walk::document(&ck),
+        Some(num) => {
+            let id = file.get_num(num)?.id;
+            let (ty, _) = ck
+                .type_of(id)
+                .with_context(|| format!("type of object {id} is unknown"))?;
+            Walk::object(id, ty)
+        }
+    };
+    let mut issues = Vec::new();
+    while walk.step(&ck, 256, &mut issues) {}
+    let mut counts = [0usize; 3];
+    for i in &issues {
+        counts[i.severity as usize] += 1;
+        if i.severity == Severity::Info && !verbose {
+            continue;
+        }
+        let at = match i.obj {
+            Some(id) => format!("{id} obj"),
+            None => "trailer".into(),
+        };
+        let ty = i
+            .obj
+            .and_then(|id| ck.known_type(id))
+            .map(|t| t.name())
+            .unwrap_or_default();
+        println!(
+            "{:<7} {:<15} {at}{} ({ty}): {}",
+            format!("{:?}", i.severity).to_lowercase(),
+            format!("{:?}", i.code),
+            path_text(&i.path),
+            i.message
+        );
+    }
+    println!(
+        "{} objects validated, {} typed; {} errors, {} warnings, {} info ({:.2?})",
+        walk.done,
+        schema.known(),
+        counts[2],
+        counts[1],
+        counts[0],
+        t0.elapsed()
+    );
+    Ok(())
 }

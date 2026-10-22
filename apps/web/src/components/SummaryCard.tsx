@@ -1,38 +1,22 @@
 import { Alert, Badge, Button, Group, Progress, Stack, Text } from "@mantine/core";
-import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api, useBackend } from "../api";
 import { bytesText } from "../format";
-import type { DocSummary, JobInfo } from "../protocol/generated";
+import { useJob } from "../jobs";
+import type { DocSummary } from "../protocol/generated";
 
 export function SummaryCard({ summary: s }: { summary: DocSummary }) {
   const backend = useBackend();
-  const qc = useQueryClient();
-  const [job, setJob] = useState<JobInfo | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const doc = s.info.doc;
-
-  useEffect(
-    () =>
-      backend.onEvent((ev) => {
-        if (ev.type === "jobProgress" && ev.doc === doc) {
-          setJob((j) => (j && j.job === ev.job ? { ...j, done: ev.done, total: ev.total } : j));
-        } else if (ev.type === "jobDone" && ev.info.doc === doc) {
-          setJob((j) => (j && j.job === ev.info.job ? ev.info : j));
-          // Loading objects records new diagnostics.
-          void qc.invalidateQueries({ queryKey: ["doc", doc, "summary"] });
-          void qc.invalidateQueries({ queryKey: ["doc", doc, "objects"] });
-        }
-      }),
-    [backend, qc, doc],
-  );
+  const [job, setJob] = useJob(doc);
+  const [error, setError] = useState<string | null>(null);
 
   const start = (decode: boolean) => {
     setError(null);
     api.startJob(backend, doc, { kind: "checkObjects", decode_streams: decode }).then(setJob, (e) => setError(String(e)));
   };
   const running = job?.state === "running";
-  const r = job?.result;
+  const r = job?.result?.kind === "checkObjects" ? job.result : null;
 
   return (
     <Stack gap={4} p="sm" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
@@ -42,6 +26,7 @@ export function SummaryCard({ summary: s }: { summary: DocSummary }) {
       <Group gap={6}>
         <Badge size="sm" variant="default">
           PDF {s.version ?? "?"}
+          {s.pdf_version && s.pdf_version !== s.version && ` → ${s.pdf_version}`}
         </Badge>
         <Badge size="sm" variant="default">
           {bytesText(s.info.size)}

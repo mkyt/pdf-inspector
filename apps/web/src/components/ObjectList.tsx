@@ -63,9 +63,14 @@ export function ObjectList({ total }: { total: number }) {
                   </Text>
                 )
               )}
-              <Text size="xs" fw={500} style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
-                {o.type_name && `/${o.type_name}`}
-                {o.subtype && ` /${o.subtype}`}
+              <Text
+                size="xs"
+                fw={500}
+                style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}
+                title={[o.type_name && `/${o.type_name}`, o.subtype && `/${o.subtype}`].filter(Boolean).join(" ")}
+              >
+                {o.schema_type ?? (o.type_name && `/${o.type_name}`)}
+                {!o.schema_type && o.subtype && ` /${o.subtype}`}
               </Text>
               <Text size="xs" c="dimmed" className={classes.mono}>
                 {entryText(o.entry)}

@@ -1,7 +1,14 @@
 import { createContext, useContext } from "react";
-import type { DocId, ObjRef, Span } from "./protocol/generated";
+import type { DocId, NodeView, ObjRef, Span } from "./protocol/generated";
 
 export type Target = { kind: "trailer" } | { kind: "object"; id: ObjRef };
+
+/** An entry picked in the structure tree, shown in the schema panel. */
+export interface Selection {
+  node: NodeView;
+  /** Location in the object, like `/Pages/Kids[3]`. */
+  path: string;
+}
 
 export interface Nav {
   doc: DocId;
@@ -12,6 +19,8 @@ export interface Nav {
   /** Highlight a span of the file in the hex view and scroll to it. */
   showBytes(s: Span): void;
   hexSpan: Span | null;
+  selection: Selection | null;
+  select(s: Selection | null): void;
 }
 
 export const NavContext = createContext<Nav | null>(null);

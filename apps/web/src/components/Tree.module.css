@@ -32,6 +32,26 @@
 
 .key {
   color: light-dark(var(--mantine-color-indigo-7), var(--mantine-color-indigo-3));
+
+  &[data-unknown] {
+    font-style: italic;
+    color: var(--mantine-color-dimmed);
+  }
+}
+
+.schemaType {
+  flex-shrink: 0;
+  font-family: var(--mantine-font-family);
+  font-size: 10px;
+  color: light-dark(var(--mantine-color-teal-8), var(--mantine-color-teal-4));
+}
+
+.issue {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-left: 6px;
+  border-radius: 50%;
 }
 
 .value {

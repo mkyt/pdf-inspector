@@ -1,10 +1,11 @@
-import { Alert, Anchor, Badge, Code, Group, Loader, Stack, Tabs, Text, Title } from "@mantine/core";
+import { Alert, Anchor, Badge, Code, Group, Loader, Stack, Tabs, Text, Title, Tooltip } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { api, useBackend } from "../api";
 import { bytesAsText, objText, spanText, valueText } from "../format";
 import { useNav } from "../nav";
-import type { ObjRef, ObjectView, Span } from "../protocol/generated";
+import type { NodeRoot, ObjRef, ObjectView, Span } from "../protocol/generated";
 import { severityColor } from "./DiagnosticsPanel";
+import { IssueList } from "./Issues";
 import { StreamPanel } from "./StreamPanel";
 import { NodeChildren } from "./Tree";
 
@@ -17,10 +18,14 @@ export function Inspector() {
   if (t.kind === "trailer") {
     return (
       <Stack p="sm" gap="xs">
-        <Title order={5}>Trailer</Title>
+        <Group gap="sm">
+          <Title order={5}>Trailer</Title>
+          <SchemaBadge root={{ kind: "trailer" }} />
+        </Group>
         <Text size="xs" c="dimmed">
           Merged trailer of all revisions.
         </Text>
+        <SchemaIssues root={{ kind: "trailer" }} />
         <div>
           <NodeChildren path={{ root: { kind: "trailer" }, path: [] }} depth={0} />
         </div>
@@ -50,7 +55,10 @@ function ObjectInspector({ id }: { id: ObjRef }) {
     <Stack p="sm" gap="xs">
       <Group gap="sm">
         <Title order={5}>{objText(o.id)}</Title>
-        <Badge variant="light">{valueText(o.value)}</Badge>
+        <SchemaBadge root={{ kind: "object", id: o.id }} />
+        <Badge variant="light" color="gray">
+          {valueText(o.value)}
+        </Badge>
         {o.location.kind === "file" ? (
           <Anchor size="xs" onClick={() => nav.showBytes((o.location as { span: Span }).span)}>
             file {spanText(o.location.span)}
@@ -68,6 +76,7 @@ function ObjectInspector({ id }: { id: ObjRef }) {
           </Text>
         </Alert>
       ))}
+      <SchemaIssues root={{ kind: "object", id: o.id }} />
       <Tabs defaultValue="structure" keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="structure">Structure</Tabs.Tab>
@@ -124,5 +133,54 @@ function Source({ o }: { o: ObjectView }) {
       {o.stream && "\n… stream data …\nendstream\nendobj"}
       {len < (end ?? 0) - span.start && "\n… truncated"}
     </Code>
+  );
+}
+
+function useSchema(root: NodeRoot) {
+  const backend = useBackend();
+  const nav = useNav();
+  const key = root.kind === "trailer" ? ["trailer"] : [root.id.num, root.id.generation];
+  return useQuery({
+    queryKey: ["doc", nav.doc, "schema", ...key],
+    queryFn: () => api.schema(backend, nav.doc, root),
+  });
+}
+
+/** Schema type of the object; a guess (from `/Type`) is marked as such. */
+function SchemaBadge({ root }: { root: NodeRoot }) {
+  const s = useSchema(root).data;
+  if (!s?.type_name) return null;
+  const guess = s.origin === "guess";
+  const tip = [
+    guess
+      ? "Guessed from /Type; open it through a reference or validate the document to type it from context."
+      : "Typed by following references from the trailer.",
+    s.note,
+    s.pdf_version && `Checked against PDF ${s.pdf_version}.`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <Tooltip label={tip} multiline maw={320}>
+      <Badge variant={guess ? "outline" : "filled"} color="teal" tt="none">
+        {s.type_name}
+        {guess && "?"}
+      </Badge>
+    </Tooltip>
+  );
+}
+
+function SchemaIssues({ root }: { root: NodeRoot }) {
+  const s = useSchema(root).data;
+  if (!s || s.issues.length === 0) return null;
+  return (
+    <Alert p={6} color={s.issues.some((i) => i.severity === "error") ? "red" : "orange"} variant="light">
+      <IssueList issues={s.issues} />
+      {s.truncated && (
+        <Text size="xs" c="dimmed" mt={4}>
+          Partly checked; validate from this object for everything.
+        </Text>
+      )}
+    </Alert>
   );
 }

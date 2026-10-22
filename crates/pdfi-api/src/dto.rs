@@ -113,6 +113,8 @@ pub struct DocSummary {
     pub info_dict: Option<ObjRef>,
     pub encryption: Option<EncryptionInfo>,
     pub diagnostics: u64,
+    /// Effective version: the header's, or the catalog's `/Version` if later.
+    pub pdf_version: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -170,6 +172,8 @@ pub struct ObjectSummary {
     /// `/Type` and `/Subtype` of dictionaries and streams.
     pub type_name: Option<String>,
     pub subtype: Option<String>,
+    /// Schema type, learned from references or guessed from `/Type`.
+    pub schema_type: Option<String>,
     pub error: Option<String>,
 }
 
@@ -252,6 +256,81 @@ pub struct NodeView {
     /// Location in the source file. `None` for objects inside object streams
     /// and for synthetic nodes.
     pub span: Option<Span>,
+    /// What the schema says about this entry, when the container's type is
+    /// known.
+    pub schema: Option<NodeSchema>,
+}
+
+// ------------------------------------------------------------------ schema
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub enum TypeOrigin {
+    /// Reached by following typed references from the trailer.
+    Context,
+    /// Guessed from the object's `/Type` and other entries.
+    Guess,
+}
+
+/// Schema type of an object (or the trailer) and its problems.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct ObjectSchema {
+    /// `None` when no type is known.
+    pub type_name: Option<String>,
+    pub origin: Option<TypeOrigin>,
+    /// Where the specification defines it (e.g. `Table 29`).
+    pub note: Option<String>,
+    /// Version the document is checked against.
+    pub pdf_version: Option<String>,
+    /// Problems of the object and of the direct objects inside it.
+    pub issues: Vec<DiagnosticInfo>,
+    /// Some large container was checked only in part.
+    pub truncated: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum Requirement {
+    Required,
+    Optional,
+    /// Required when the (Arlington) condition holds.
+    Conditional {
+        condition: String,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct SlotDoc {
+    /// Arlington type: `dictionary`, `name`, `rectangle`, `string-text`, ...
+    pub base: String,
+    /// Types a dictionary, array or stream of this slot may have.
+    pub links: Vec<String>,
+}
+
+/// Definition of a key (or array element) in the schema.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct KeyDoc {
+    pub types: Vec<SlotDoc>,
+    pub requirement: Requirement,
+    pub since: Option<String>,
+    pub deprecated: Option<String>,
+    pub extension: Option<String>,
+    pub inheritable: bool,
+    pub default: Option<String>,
+    /// Allowed values, when the schema lists them (truncated).
+    pub allowed: Vec<String>,
+    pub note: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct NodeSchema {
+    /// `None` for keys the schema does not define.
+    pub key: Option<KeyDoc>,
+    /// Type of the value: of a direct dictionary / array, or of the
+    /// referenced object.
+    pub value_type: Option<String>,
+    /// Problems of this entry (and, for a direct container, of its own keys).
+    pub issues: Vec<DiagnosticInfo>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -294,6 +373,8 @@ pub struct DiagnosticInfo {
     pub code: String,
     pub message: String,
     pub obj: Option<ObjRef>,
+    /// Location inside `obj` (or the trailer), like `/Pages/Kids[3]`.
+    pub path: Option<String>,
     pub span: Option<Span>,
 }
 
@@ -323,6 +404,10 @@ pub enum JobKind {
     /// Load every object (optionally decoding every stream) and collect
     /// diagnostics.
     CheckObjects { decode_streams: bool },
+    /// Validate against the schema, following typed references from the
+    /// trailer, or from `root` (not following `/Parent` or other pages).
+    /// Issues are read with `JobDiagnostics`.
+    Validate { root: Option<ObjRef> },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -355,5 +440,14 @@ pub enum JobResult {
         decoded_bytes: u64,
         decode_errors: u64,
         diagnostics: u64,
+    },
+    Validate {
+        objects: u64,
+        errors: u64,
+        warnings: u64,
+        infos: u64,
+        /// Issues kept for `JobDiagnostics` (the first ones, when there are
+        /// very many).
+        kept: u64,
     },
 }

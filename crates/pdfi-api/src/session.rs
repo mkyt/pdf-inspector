@@ -5,6 +5,7 @@ use std::io::{self, Read};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
+use pdfi_schema::{self as schema, Container, DocSchema, Origin};
 use pdfi_syntax::{
     self as syn, ByteSource, DictExt, ObjLocation, Object, OpenOptions, PdfFile, Recovery,
 };
@@ -19,7 +20,7 @@ use crate::source::SourceProvider;
 pub const MAX_CHUNK: u32 = 4 << 20;
 /// Largest number of items returned by one ranged request.
 pub const MAX_PAGE: u32 = 2000;
-/// Diagnostics attached to an [`ObjectView`].
+/// Diagnostics attached to an [`ObjectView`] or [`ObjectSchema`].
 const MAX_OBJECT_DIAGS: usize = 100;
 
 pub(crate) fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -54,6 +55,7 @@ pub(crate) struct Doc {
     key: Option<(String, Option<String>, bool)>,
     /// Object numbers present in the xref, ascending.
     nums: OnceLock<Vec<u32>>,
+    pub schema: DocSchema,
 }
 
 impl Doc {
@@ -177,6 +179,7 @@ impl Session {
             file,
             key: path.map(|p| (p, password, recover)),
             nums: OnceLock::new(),
+            schema: DocSchema::new(),
         });
         lock(&self.docs).insert(id, doc.clone());
         self.bus.emit(&Event::DocOpened {
@@ -280,6 +283,10 @@ impl Session {
                 revision,
                 range,
             } => Ok(ResponseBody::Xref(xref(&*self.doc(doc)?, revision, range)?)),
+            Request::Schema { doc, root } => Ok(ResponseBody::Schema(object_schema(
+                &*self.doc(doc)?,
+                &root,
+            )?)),
             Request::Diagnostics { doc, range } => {
                 let d = self.doc(doc)?;
                 let all = d.file.diagnostics();
@@ -339,6 +346,15 @@ impl Session {
                 let j = self.job(job)?;
                 j.cancel();
                 Ok(ResponseBody::Job(j.info()))
+            }
+            Request::JobDiagnostics { job, range } => {
+                let j = self.job(job)?;
+                let (total, items) = j.diagnostics(range.offset, range.limit.min(MAX_PAGE));
+                Ok(ResponseBody::Diagnostics(Page {
+                    total,
+                    offset: range.offset.min(total),
+                    items,
+                }))
             }
             // Cancellation of queued requests happens in the transport; by
             // the time a request reaches the session it has started.
@@ -433,6 +449,10 @@ fn summary(d: &Doc) -> DocSummary {
             }
         }),
         diagnostics: f.diag_count() as u64,
+        pdf_version: match d.schema.checker(f).version() {
+            0 => None,
+            v => Some(schema::version_text(v)),
+        },
     }
 }
 
@@ -449,6 +469,7 @@ fn objects(d: &Doc, range: Range) -> Page<ObjectSummary> {
                     kind: None,
                     type_name: None,
                     subtype: None,
+                    schema_type: None,
                     error: None,
                 };
                 if e.is_live() {
@@ -459,6 +480,11 @@ fn objects(d: &Doc, range: Range) -> Page<ObjectSummary> {
                                 s.type_name = dict.get_name("Type").map(convert::name_text);
                                 s.subtype = dict.get_name("Subtype").map(convert::name_text);
                             }
+                            s.schema_type = d
+                                .schema
+                                .checker(&d.file)
+                                .type_of(o.id)
+                                .map(|(t, _)| t.name());
                         }
                         Err(e) => s.error = Some(e.to_string()),
                     }
@@ -509,66 +535,130 @@ fn object(d: &Doc, id: ObjRef) -> Result<ObjectView, ApiError> {
     })
 }
 
-#[derive(Clone, Copy)]
-enum Cur<'a> {
-    Dict(&'a syn::Dict),
-    Obj(&'a Object),
-}
-
-impl<'a> Cur<'a> {
-    fn dict(self) -> Option<&'a syn::Dict> {
-        match self {
-            Cur::Dict(d) => Some(d),
-            Cur::Obj(o) => o.as_dict(),
-        }
-    }
-
-    fn len(self) -> usize {
-        match self {
-            Cur::Obj(Object::Array(a)) => a.len(),
-            c => c.dict().map_or(0, |d| d.len()),
-        }
-    }
-
-    fn child(self, i: usize) -> Option<(Option<&'a syn::Name>, &'a syn::Node)> {
-        match self {
-            Cur::Obj(Object::Array(a)) => a.get(i).map(|n| (None, n)),
-            c => c.dict()?.get_index(i).map(|(k, n)| (Some(k), n)),
-        }
-    }
-}
-
 fn children(d: &Doc, path: &NodePath, range: Range) -> Result<Page<NodeView>, ApiError> {
+    let ck = d.schema.checker(&d.file);
     let held;
-    let (mut cur, in_file) = match &path.root {
-        NodeRoot::Trailer => (Cur::Dict(d.file.trailer()), true),
+    let (root, mut ty, in_file) = match &path.root {
+        NodeRoot::Trailer => (
+            Container::Dict(d.file.trailer()),
+            Some(ck.trailer_type()),
+            true,
+        ),
         NodeRoot::Object { id } => {
             held = d.file.get((*id).into())?;
+            let c = Container::of(&held.node.obj)
+                .ok_or_else(|| ApiError::new(ErrorCode::BadRequest, "not a container"))?;
             (
-                Cur::Obj(&held.node.obj),
+                c,
+                ck.type_of(held.id).map(|(t, _)| t),
                 matches!(held.location, ObjLocation::File(_)),
             )
         }
     };
+    let mut cur = root;
     for &i in &path.path {
+        let i = i as usize;
+        let child_ty = ty.and_then(|t| ck.entry(t, cur, i, false).ty);
         let (_, n) = cur
-            .child(i as usize)
+            .child(i)
             .ok_or_else(|| ApiError::new(ErrorCode::NotFound, "no such node"))?;
-        cur = Cur::Obj(&n.obj);
+        cur = Container::of(&n.obj)
+            .ok_or_else(|| ApiError::new(ErrorCode::NotFound, "no such node"))?;
+        ty = child_ty;
     }
     Ok(page(cur.len() as u64, range, |o, n| {
         (o..o + n)
             .filter_map(|i| {
                 let (k, node) = cur.child(i)?;
+                let schema = ty.map(|t| {
+                    let e = ck.entry(t, cur, i, true);
+                    let mut issues: Vec<DiagnosticInfo> = e
+                        .issues
+                        .iter()
+                        .map(|x| convert::issue(x, in_file))
+                        .collect();
+                    // A direct dictionary or array: its missing keys and the like.
+                    if let (Some(ct), Some(c)) = (e.ty, Container::of(&node.obj)) {
+                        issues.extend(
+                            ck.container_issues(ct, c)
+                                .iter()
+                                .map(|x| convert::issue(x, in_file)),
+                        );
+                    }
+                    NodeSchema {
+                        key: e.def.map(convert::key_doc),
+                        value_type: e.ty.map(|t| t.name()),
+                        issues,
+                    }
+                });
                 Some(NodeView {
                     index: i as u32,
                     key: k.map(convert::name_text),
                     value: value_of(&node.obj),
                     span: node.span.filter(|_| in_file).map(Into::into),
+                    schema,
                 })
             })
             .collect()
     }))
+}
+
+/// Entries per container checked for [`ObjectSchema`]; the validation job
+/// checks everything.
+const SCHEMA_ENTRIES: usize = MAX_PAGE as usize;
+
+fn object_schema(d: &Doc, root: &NodeRoot) -> Result<ObjectSchema, ApiError> {
+    let ck = d.schema.checker(&d.file);
+    let held;
+    let (c, typed, in_file, obj) = match root {
+        NodeRoot::Trailer => (
+            Some(Container::Dict(d.file.trailer())),
+            Some((ck.trailer_type(), Origin::Context)),
+            true,
+            None,
+        ),
+        NodeRoot::Object { id } => {
+            held = d.file.get((*id).into())?;
+            (
+                Container::of(&held.node.obj),
+                ck.type_of(held.id),
+                matches!(held.location, ObjLocation::File(_)),
+                Some(held.id),
+            )
+        }
+    };
+    let mut out = ObjectSchema {
+        type_name: typed.map(|(t, _)| t.name()),
+        origin: typed.map(|(_, o)| match o {
+            Origin::Context => TypeOrigin::Context,
+            Origin::Guess => TypeOrigin::Guess,
+        }),
+        note: typed
+            .map(|(t, _)| t.note())
+            .filter(|n| !n.is_empty())
+            .map(Into::into),
+        pdf_version: match ck.version() {
+            0 => None,
+            v => Some(schema::version_text(v)),
+        },
+        issues: Vec::new(),
+        truncated: false,
+    };
+    if let (Some(c), Some((t, _))) = (c, typed) {
+        let v = ck.validate(t, c, SCHEMA_ENTRIES);
+        out.truncated = v.truncated || v.issues.len() > MAX_OBJECT_DIAGS;
+        out.issues = v
+            .issues
+            .iter()
+            .take(MAX_OBJECT_DIAGS)
+            .map(|i| {
+                let mut x = convert::issue(i, in_file);
+                x.obj = obj.map(Into::into);
+                x
+            })
+            .collect();
+    }
+    Ok(out)
 }
 
 fn xref(d: &Doc, revision: Option<u32>, range: Range) -> Result<Page<XrefRow>, ApiError> {
