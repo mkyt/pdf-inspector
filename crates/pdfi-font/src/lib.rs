@@ -181,6 +181,8 @@ pub struct Font {
     /// Type 0: the descendant font and its `/Subtype`.
     pub descendant: Option<ObjId>,
     pub cid_subtype: Option<String>,
+    /// Type 0: `/CIDSystemInfo /Ordering` of the descendant font.
+    pub ordering: Option<String>,
     /// How the encoding was given: `WinAnsiEncoding`, `Identity-H`,
     /// `embedded CMap`, ...
     pub encoding: Option<String>,
@@ -387,6 +389,20 @@ impl Font {
         self.text_name(c.code).and_then(glyph_text)
     }
 
+    /// A Type 0 font whose codes give Adobe-Japan1 CIDs.
+    fn japan1(&self) -> bool {
+        let mapped = match &self.cids {
+            None => true,
+            Some(m) => !m.is_empty(),
+        };
+        mapped && self.ordering.as_deref() == Some("Japan1")
+    }
+
+    /// Text is known for the codes (a `/ToUnicode` CMap or UCS-2 codes).
+    fn unicode_known(&self) -> bool {
+        !self.unicode.is_empty() || self.utf16_codes
+    }
+
     /// Whether word spacing applies: single-byte code 32.
     pub fn is_space(&self, c: Code) -> bool {
         c.len == 1 && c.code == 32
@@ -444,25 +460,39 @@ impl Font {
                 )),
             }
         }
-        if self.kind == FontKind::Type0 {
-            if self.program.is_none() {
-                issues.push(FontIssue::new(
-                    Severity::Warning,
-                    "the CID font is not embedded and there is no substitute for it: glyphs are drawn as boxes",
-                ));
-            }
-            return Glyphs {
-                source: GlyphSource::None,
-                issues,
-            };
-        }
         let traits = Traits {
             base_font: self.base_font.as_deref(),
             flags: self.flags.unwrap_or(0),
             weight: self.traits.1,
             italic_angle: self.traits.0,
         };
-        match substitute::substitute(&traits) {
+        let sub = if self.kind == FontKind::Type0 {
+            // Japanese glyphs: by CID for Adobe-Japan1, else by the text.
+            let usable = self.japan1() || self.unicode_known();
+            match usable
+                .then(|| substitute::substitute_cjk(&traits))
+                .flatten()
+            {
+                Some(s) => Some(s),
+                None => {
+                    issues.push(FontIssue::new(
+                        Severity::Warning,
+                        if self.program.is_none() {
+                            "the CID font is not embedded and there is no substitute for it: glyphs are drawn as boxes"
+                        } else {
+                            "there is no substitute for the CID font: glyphs are drawn as boxes"
+                        },
+                    ));
+                    return Glyphs {
+                        source: GlyphSource::None,
+                        issues,
+                    };
+                }
+            }
+        } else {
+            substitute::substitute(&traits)
+        };
+        match sub {
             Some((name, program)) => {
                 issues.push(FontIssue::new(
                     Severity::Info,
@@ -511,6 +541,19 @@ impl Font {
                 (r, gid.map_or(Pick::None, Pick::Gid))
             }
             (GlyphSource::Embedded(p), _) => self.pick_simple(p, c, r),
+            (GlyphSource::Substitute { program: p, .. }, FontKind::Type0) => {
+                let cid = self.cid(c);
+                r.cid = Some(cid);
+                let gid = if self.japan1() {
+                    p.gid_of_cid(cid)
+                } else {
+                    self.text(c)
+                        .and_then(|t| t.chars().next())
+                        .and_then(|u| p.cmap(3, 10, u as u32).or_else(|| p.cmap(3, 1, u as u32)))
+                };
+                r.gid = gid;
+                (r, gid.map_or(Pick::None, Pick::Gid))
+            }
             (GlyphSource::Substitute { .. }, _) => {
                 // The encoding's names, or the built-in encoding of the
                 // standard font it stands for.
@@ -701,6 +744,7 @@ impl Font {
             descriptor: None,
             descendant: None,
             cid_subtype: None,
+            ordering: None,
             encoding: None,
             differences: 0,
             to_unicode: None,
@@ -1086,6 +1130,15 @@ fn type0(file: &PdfFile, d: &Dict, f: &mut Font) {
     };
     f.descendant = did;
     f.cid_subtype = name_of(file, dd, "Subtype").map(|n| n.as_str_lossy().into_owned());
+    f.ordering = dd
+        .get_key("CIDSystemInfo")
+        .map(|o| resolve(file, o).1)
+        .and_then(|i| {
+            let o = i.as_dict()?.get_key("Ordering")?;
+            let (_, o) = resolve(file, o);
+            o.as_string()
+                .map(|s| String::from_utf8_lossy(&s.bytes).into_owned())
+        });
     f.cid_widths.default = dd
         .get_key("DW")
         .and_then(|o| num(file, o))

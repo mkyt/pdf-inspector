@@ -451,8 +451,10 @@ q 0 0.6 0 RG 5 w BT 1 Tr /F1 100 Tf 50 350 Td (A) Tj ET Q
 q BT 7 Tr /F1 100 Tf 170 350 Td (A) Tj ET 0 0 1 rg 170 350 200 200 re f Q
 BT /F9 100 Tf 290 350 Td <0001> Tj ET
 BT /F3 100 Tf 410 350 Td (B) Tj ET
+BT /F10 100 Tf 470 350 Td <034B> Tj ET
+BT /F11 100 Tf 50 200 Td <0001> Tj ET
 """
-font_res = b" ".join(b"/F%d %d 0 R" % (i, 20 + i) for i in range(1, 10))
+font_res = b" ".join(b"/F%d %d 0 R" % (i, 20 + i) for i in range(1, 12))
 objs = {
     1: b"<< /Type /Catalog /Pages 2 0 R >>",
     2: b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 612 792] >>",
@@ -467,6 +469,13 @@ objs = {
     27: b"<< /Type /Font /Subtype /Type3 /FontBBox [0 0 700 700] /FontMatrix [0.001 0 0 0.001 0 0] /CharProcs << /sq 50 0 R /tri 51 0 R >> /Encoding << /Type /Encoding /Differences [97 /sq /tri] >> /FirstChar 97 /LastChar 98 /Widths [700 700] /Resources << >> >>",
     28: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
     29: b"<< /Type /Font /Subtype /Type0 /BaseFont /PdfiMissingCID /Encoding /Identity-H /DescendantFonts [<< /Type /Font /Subtype /CIDFontType2 /BaseFont /PdfiMissingCID /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 49 0 R /DW 700 >>] >>",
+    # Not embedded, drawn with Harano Aji: Adobe-Japan1 CID 843 (a
+    # hiragana a, Mincho), and an Identity font whose /ToUnicode gives
+    # U+6F22 (a kanji, Gothic by the name).
+    30: b"<< /Type /Font /Subtype /Type0 /BaseFont /Ryumin-Light-Identity-H /Encoding /Identity-H /DescendantFonts [<< /Type /Font /Subtype /CIDFontType0 /BaseFont /Ryumin-Light /CIDSystemInfo << /Registry (Adobe) /Ordering (Japan1) /Supplement 4 >> /FontDescriptor 47 0 R >>] >>",
+    31: b"<< /Type /Font /Subtype /Type0 /BaseFont /PdfiGothic /Encoding /Identity-H /DescendantFonts [<< /Type /Font /Subtype /CIDFontType2 /BaseFont /PdfiGothic /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 48 0 R >>] /ToUnicode 38 0 R >>",
+    47: desc(4, b""),
+    48: desc(4, b""),
     41: desc(32, b"/FontFile2 61 0 R"),
     42: desc(4, b"/FontFile2 62 0 R"),
     43: desc(32, b"/FontFile3 63 0 R"),
@@ -480,6 +489,7 @@ tounicode = b"/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMap
 streams = {
     10: (b"<< /Length %d /Filter /FlateDecode >>", z(content)),
     36: (b"<< /Length %d >>", tounicode),
+    38: (b"<< /Length %d >>", tounicode.replace(b"<0005> <0058>", b"<0001> <6F22>")),
     37: (b"<< /Length %d >>", bytes([0, 0] * 5 + [0, 1])),
     50: (b"<< /Length %d >>", b"700 0 d0 1 0 0 rg 100 0 500 700 re f"),
     51: (b"<< /Length %d >>", b"700 0 0 0 700 700 d1 0 1 0 rg 100 0 500 700 re f"),

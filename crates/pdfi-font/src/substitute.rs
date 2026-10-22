@@ -1,8 +1,11 @@
-//! Fonts that draw simple fonts which are not embedded: the Foxit fonts
-//! that PDFium ships (BSD-3-Clause, see `assets/LICENSE_FOXIT`), metric
-//! compatible with the standard 14 fonts. They are bare CFF fonts despite
-//! the `.pfb` names, compiled in (265 KB) so the browser build draws the
-//! same.
+//! Fonts that draw fonts which are not embedded. Simple fonts: the Foxit
+//! fonts that PDFium ships (BSD-3-Clause, see `assets/LICENSE_FOXIT`),
+//! metric compatible with the standard 14 fonts. They are bare CFF fonts
+//! despite the `.pfb` names, compiled in (265 KB) so the browser build
+//! draws the same. CID fonts: Harano Aji Mincho and Gothic (OFL-1.1, see
+//! `assets/LICENSE_HARANOAJI`), Japanese fonts made from Source Han Serif
+//! and Sans with the glyphs in Adobe-Japan1 order, so Japan1 CIDs pick
+//! them directly (compiled in too, 10.5 MB).
 
 use std::borrow::Cow;
 use std::sync::{Arc, OnceLock};
@@ -43,6 +46,14 @@ static FACES: [Face; 14] = [
 ];
 
 static PARSED: [OnceLock<Option<Arc<Program>>>; 14] = [const { OnceLock::new() }; 14];
+
+/// Mincho (serif) and Gothic (sans serif), Adobe-Japan1-7.
+static CJK_FACES: [Face; 2] = [
+    face!("Harano Aji Mincho", "HaranoAjiMincho-Regular.otf"),
+    face!("Harano Aji Gothic", "HaranoAjiGothic-Medium.otf"),
+];
+
+static CJK_PARSED: [OnceLock<Option<Arc<Program>>>; 2] = [const { OnceLock::new() }; 2];
 
 /// What is known of a font that is not embedded.
 #[derive(Clone, Copy, Debug, Default)]
@@ -101,17 +112,54 @@ fn choose(t: &Traits<'_>) -> usize {
     family + usize::from(italic) + 2 * usize::from(bold)
 }
 
-/// The substitute for a font: its name and program.
+/// The CJK face that stands in for a CID font: Gothic for the sans
+/// serif families by their names, else Mincho.
+fn choose_cjk(t: &Traits<'_>) -> usize {
+    let name = t
+        .base_font
+        .map(|n| {
+            strip_subset(n)
+                .replace([' ', '-', ',', '_'], "")
+                .to_ascii_lowercase()
+        })
+        .unwrap_or_default();
+    let has = |w: &[&str]| w.iter().any(|w| name.contains(w));
+    let gothic = has(&[
+        "gothic",
+        "goth",
+        "sans",
+        "shingo",
+        "futogo",
+        "midashigo",
+        "kozgo",
+        "kakugo",
+        "kaku",
+        "maru",
+        "jun",
+        "meiryo",
+        "hei",
+        "gulim",
+        "dotum",
+    ]) || (name.contains("go") && !name.contains("min"));
+    usize::from(gothic && !has(&["mincho", "ming", "song", "batang"]))
+}
+
+fn parsed(cell: &OnceLock<Option<Arc<Program>>>, f: &Face) -> Option<Arc<Program>> {
+    cell.get_or_init(|| Program::parse(Cow::Borrowed(f.data)).ok().map(Arc::new))
+        .clone()
+}
+
+/// The substitute for a simple font: its name and program.
 pub fn substitute(t: &Traits<'_>) -> Option<(&'static str, Arc<Program>)> {
     let k = choose(t);
-    let p = PARSED[k]
-        .get_or_init(|| {
-            Program::parse(Cow::Borrowed(FACES[k].data))
-                .ok()
-                .map(Arc::new)
-        })
-        .clone()?;
-    Some((FACES[k].name, p))
+    Some((FACES[k].name, parsed(&PARSED[k], &FACES[k])?))
+}
+
+/// The substitute for a CID font: its name and program (CID-keyed, in
+/// Adobe-Japan1 order, with a Unicode cmap).
+pub fn substitute_cjk(t: &Traits<'_>) -> Option<(&'static str, Arc<Program>)> {
+    let k = choose_cjk(t);
+    Some((CJK_FACES[k].name, parsed(&CJK_PARSED[k], &CJK_FACES[k])?))
 }
 
 #[cfg(test)]
@@ -170,5 +218,47 @@ mod tests {
         .unwrap()
         .1;
         assert!(sym.has_glyph_name("alpha"));
+    }
+
+    #[test]
+    fn cjk_faces() {
+        let named = |n: &str| {
+            CJK_FACES[choose_cjk(&Traits {
+                base_font: Some(n),
+                ..Traits::default()
+            })]
+            .name
+        };
+        for n in [
+            "Ryumin-Light",
+            "MidashiMin-MA31",
+            "MS-Mincho",
+            "KozMinPr6N-Regular",
+        ] {
+            assert_eq!(named(n), "Harano Aji Mincho", "{n}");
+        }
+        for n in [
+            "GothicBBB-Medium",
+            "ABCDEF+ShinGo-Bold",
+            "FutoGoB101-Bold",
+            "Jun101-Light",
+            "MSPGothic",
+            "HiraKakuPro-W3",
+        ] {
+            assert_eq!(named(n), "Harano Aji Gothic", "{n}");
+        }
+        for f in &CJK_FACES {
+            let p = Program::parse(Cow::Borrowed(f.data)).unwrap();
+            assert!(p.cid_keyed, "{}", f.name);
+            // CID 843 is あ (Adobe-Japan1); U+6F22 is 漢.
+            let a = p.gid_of_cid(843).and_then(|g| p.outline(g)).unwrap();
+            let b = a.bbox().unwrap();
+            assert!(b[3] > 0.3 && b[3] < 1.2, "{}: {b:?}", f.name);
+            assert!(
+                p.cmap(3, 10, 0x6f22)
+                    .or_else(|| p.cmap(3, 1, 0x6f22))
+                    .is_some()
+            );
+        }
     }
 }

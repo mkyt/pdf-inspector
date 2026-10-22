@@ -1,3 +1,4 @@
 *.pdf binary
 *.pfb binary
 *.icc binary
+*.otf binary

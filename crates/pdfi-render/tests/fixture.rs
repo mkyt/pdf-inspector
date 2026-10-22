@@ -394,10 +394,28 @@ fn text() {
     // /Differences maps B to the square.
     let (cx, cy) = center(410, 350);
     assert_px(&o, cx, cy, BLACK);
+    // CID fonts that are not embedded, drawn with Harano Aji: a Japan1
+    // CID (a hiragana a) and a kanji by /ToUnicode. Black strokes on
+    // white, not a faint box.
+    let ink = |x: u32, y: u32| {
+        let cell: Vec<[u8; 4]> = (x..x + 100)
+            .flat_map(|cx| (792 - y - 100..792 - y + 10).map(move |cy| (cx, cy)))
+            .map(|(cx, cy)| px(&o, cx, cy))
+            .collect();
+        let dark = cell.iter().filter(|p| p[0] < 60).count();
+        let white = cell.iter().filter(|p| p[0] > 250).count();
+        (dark, white)
+    };
+    for (x, y) in [(470, 350), (50, 200)] {
+        let (dark, white) = ink(x, y);
+        assert!(dark > 1000 && white > 5000, "({x}, {y}): {dark} {white}");
+    }
     let notes: Vec<&str> = o.notes.iter().map(|(n, _)| n.as_str()).collect();
     assert_eq!(
         notes,
         [
+            "font /F10 (Ryumin-Light-Identity-H) is drawn with Harano Aji Mincho",
+            "font /F11 (PdfiGothic) is drawn with Harano Aji Gothic",
             "font /F8 (Helvetica) is drawn with Foxit Sans",
             "font /F9 (PdfiMissingCID) has no glyphs: text is drawn as boxes"
         ]
