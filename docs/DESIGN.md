@@ -244,13 +244,22 @@ pub enum OpPayload { InlineImage { dict, data } /* BI … ID … EI */ }
   - **ハイライト層**: 指定した命令だけを不透明な単色で透明背景に描く（線は最低 3 px）。UI は選択した命令の bbox の範囲だけ要求して重ねる。**ステップ実行**は `until` までの命令だけを走らせる
   - **ヒットテスト**: 点の周り（半径 r）を 3 × 3 px のビットマップに描き、各描画のたびに覆ったかを見る（クリップも効く、線の太さもそのまま）。上にあるものから返す
   - 対応範囲: パス・塗り（非ゼロ / 偶奇）・線（幅・端・結合・マイター・ダッシュ、1 px 未満はヘアライン）・クリップ・定数 α（`CA` / `ca`）。色は Device* / Cal*（デバイス扱い）/ Lab / ICCBased（`/Alternate` か成分数）/ Indexed / Separation・DeviceN（関数型 2・3 の tint transform、それ以外は近似）。画像は 1/2/4/8/16 bit、`/Decode`、JPEG（YCCK は RGB 化、CMYK は `/Decode` どおり）、`/ImageMask`、`/SMask`、`/Mask`（ステンシル / 色キー）、インライン画像。縮小は 2 倍以上なら箱フィルタで縮めた版をキャッシュ、拡大は `/Interpolate` がなければ最近傍。デコード済み画像はドキュメントごとに 192 MB まで保持（同じ画像を複数スレッドが同時に要求しても 1 回だけデコード）
-  - まだ描かないものは**注記**（`notes`）として返す: 文字（M9 まではグリフの枠を薄く描く）、shading・パターン色（灰色）、ソフトマスク・ブレンドモード、テキストのクリップモード、JPX / JBIG2 / CCITT（灰色の枠）
+  - まだ描かないものは**注記**（`notes`）として返す: 文字（M9 まではグリフの枠を薄く描く）、shading・パターン色（灰色）、ソフトマスク・ブレンドモード、テキストのクリップモード、JPX / JBIG2 / CCITT（灰色の枠）（M9・M12 でいずれも描くようになった）
   - 1 ページ 80 万命令（25 万の塗り・線）で解釈 0.12 秒、72 dpi 全体 1 秒、300 dpi の 512 px タイル 0.25 秒（native release）
 - **M9 で確定した形**（自作レンダラ (2): 文字）:
   - インタプリタは描画中だけ `GlyphRun` に符号（長さ込み）と原点を載せ、`GlyphRun::glyph_path` がアウトラインを内容の空間のパスにする（グリフ行列 = `[size·Tz, 0, 0, size, x, y]` × Tm × CTM。縦書きは既定の位置ベクトル (w/2, 0.88) で横書きの原点に直す）。レンダラは描画モードに従ってそれを既存の `fill` / `stroke` に渡すだけ（ヒットテスト・ハイライトも同じ経路）。アウトラインを持たないフォントだけ M8 のグリフの枠を薄く描く
   - **Type 3**: インタプリタがグリフ手続きをフォーム XObject と同じ仕組み（`run_sub`: 深さ・命令数・自己参照の制限、復号データのキャッシュ）で実行する。行列は `/FontMatrix` × グリフ行列、リソースはフォントの `/Resources`（無ければ内容のもの）。`d1` のグリフ（uncolored）では色の演算子を無視する。描画はそれを呼んだ `Tj` の描画として扱う
   - **テキストのクリップ**（`Tr` 4–7）: `BT` 以降にクリップモードで表示したグリフのパス（アウトラインが無ければ枠）と bbox を `State.text_clip` にためて、`ET` でクリップに重ねる。解析（bbox）でも同じく効く
   - 注記は「どのフォントが代替で描かれたか」「どのフォントが枠で描かれたか」をフォントごとに返す（M8 の「文字はグリフの枠」は廃止）
+- **M12 で確定した形**（自作レンダラ (3): 描画の網羅性。編集（M10 / M11）より先に実施）:
+  - **関数**（`function.rs`）: 型 0（サンプル。多重線形補間、BitsPerSample 1–32）、2、3、4（PostScript 計算機。`{ … }` を `if` / `ifelse` の飛び先付きの平たい命令列にコンパイルし、スタック 100・命令 2^20 ステップまで）と関数の配列。Separation / DeviceN の tint transform はすべての型で正確に評価する（読めない関数だけ従来の近似と注記）
+  - **色**: ICCBased は **moxcms** でプロファイルから sRGB への変換を作り（ドキュメントごとに ICC ストリームのオブジェクト単位でキャッシュ）、画像は行ごとにまとめて変換する。使えないプロファイル（壊れている・成分数が合わない・Lab データ）は `/Alternate`、無ければ成分数のデバイス空間。CalGray / CalRGB は Gamma・Matrix を適用して XYZ 経由、Lab と同じく白色点を D65 へスケールする。DeviceCMYK は従来どおり素朴な変換（既定の CMYK プロファイルは持たない）
+  - **shading**（`shading.rs`）: 7 種すべて。型 1 は画素ごとに関数を評価、型 2 / 3 は媒介変数の 1024 段の色表を引く（`/Extend`、半径が負になる側は捨てる）。メッシュ（型 4–7）は頂点の色を RGB にして（関数付きなら媒介変数を補間して色表）三角形をグーローで塗り、パッチ（Coons は内側の制御点を補って tensor として）は 4 px 程度の三角形に分ける。メッシュのデータは型 4 / 5 が頂点ごと、6 / 7 がパッチごとにバイト境界へ揃える。`sh` は現在のクリップ（の bbox）を、shading パターンは塗る範囲を、デバイス画素の画像として描き（`/BBox` で切り、パターンでは `/Background` も）、それを塗り・線・文字・ステンシルマスクの「源」にする。解析した shading はドキュメントごとにキャッシュ。ヒットテストとハイライトは shading が実際に覆う画素だけを使う
+  - **パターン**: インタプリタが色に名前の指すパターンを解決して載せ（`Color.pattern_def`）、パターン空間（その内容が始まったときの CTM: ページの既定空間、フォームの空間、グリフの空間）を `GState.pattern_ctm` に持つ。タイリングパターンは 1 セルをほぼデバイス解像度（最大 400 万画素）で、レンダラが入れ子のラスタで内容を走らせて描き（`Content::draw_stream`）、シェーダの繰り返しで敷き詰める。セルはパターン・行列・色ごとにキャッシュ。`/BBox` が刻みより大きければ内容をずらして重ね描きして回り込ませ、uncolored（PaintType 2）は `/Pattern` 空間の基底の色で塗り直す。パターンと soft mask の入れ子は 6 段まで
+  - **透明度**: 16 のブレンドモードすべて（tiny-skia の合成をそのまま使う）。`/Group /S /Transparency` を持つフォームは自前のビットマップに描いてから、それを描いたときの α・ブレンド・soft mask・クリップで合成する（入れ子 8 段まで。それより深いものは直接描く）。**非 isolated** のグループは下地の複製から描き始め、グループ自身の被覆（α）を別のビットマップにためて、終わりに下地の寄与を取り除く（ISO 32000 11.4.8 の `Cn + (Cn − C0)(α0/αg − α0)`）。knockout は普通のグループとして描いて注記。**soft mask** は `gs` の時点の CTM とグループ（`/G`）を `GState.smask` に持ち、レンダラが最初に使うときにビットマップ全体へ描いて（Luminosity は `/BC` を下地に、Alpha は透明に。`/TR` を適用）マスクにし、パスごと（グループ・CTM 単位）にキャッシュ、クリップのマスクと掛け合わせる。ページは透明な下地に描いて最後に白い紙に載せる（何も描かれていない所ではブレンドが効かない）
+  - **画像**: JPEG 2000・JBIG2・CCITT は純 Rust の **hayro-jpeg2000 / hayro-jbig2 / hayro-ccitt**（Apache-2.0 / MIT、wasm 可）。JPX は辞書の色空間が成分数に合えばそれを、合わなければ画像自身の空間（ICC は moxcms）を使い、`/SMaskInData` を α に、`/Indexed` ではパレットを解決せずに番号のまま読む。JBIG2（`/JBIG2Globals`）と CCITT（K / Columns / Rows / BlackIs1 / EncodedByteAlign / EndOfLine / EndOfBlock。壊れたデータは読めた行まで）は 1 bit のサンプルにして、通常の `/Decode`・色空間・ステンシルの経路に流す。**巨大な二値画像**（スキャン本の 2 万 × 4.5 万画素の Group 4 マスクなど）は、ラン単位で k × k ブロックの 1 の割合に数えながら復号する縮小デコードで、全体のビットマップを持たない（要求された縮小率を、上限 3200 万画素に収まるまで引き上げる）。Adobe の YCCK JPEG は libjpeg と同じく CMYK にしてから他の CMYK JPEG と同様にそのまま使う（反転は `/Decode` が補う）
+  - 注記に残るもの: knockout グループ、深すぎる入れ子、読めない関数・shading・プロファイル、壊れた画像。描画しないもの（後回し）: オーバープリント、注釈の外観ストリーム、オプショナルコンテンツ（非表示のレイヤー）、`/Matte`、既定の CMYK プロファイル（Acrobat / MuPDF の CMYK の色とは差が出る）、埋め込みのない CID フォント（枠で描く。M9 の範囲）
+  - 検証: `tests/fixtures/paint.pdf`（色・shading・パターン・透明度・画像形式の 5 ページ。make.sh が生成し、JPX / JBIG2 / CCITT / YCCK のデータは opj_compress・jbig2enc・Pillow・ImageMagick で作ったものを埋め込む）の画素を MuPDF（`mutool draw`）と突き合わせ、ずれはアンチエイリアスの縁だけ。ローカルの 549 冊の蔵書から 61 冊 × 3 ページを描いて MuPDF と比べ、差の大きいものを調べて上の非 isolated グループ・YCCK・巨大な二値画像を直した
 - **Renderer trait**
 
 ```rust
@@ -541,10 +550,10 @@ UI は同じものを使い、起動経路（静的ホスティング or `pdfi s
 | Flate | `flate2` + `miniz_oxide` or `zlib-rs` | MIT/Apache, Zlib | |
 | LZW | `weezl` | MIT/Apache | |
 | JPEG | `zune-jpeg` | MIT/Apache/Zlib | M8 で採用 |
-| JPEG 2000 | `hayro-jpeg2000`（純 Rust）/ OpenJPEG | Apache/MIT / BSD-2 | 要評価。wasm では純 Rust 優先 |
-| JBIG2 | 純 Rust 実装を評価、なければ自前 | — | **jbig2dec は AGPL のため不可** |
-| CCITT | `fax` | MIT | 要評価 |
-| ICC | `moxcms` / `qcms` | 要確認 / MIT | |
+| JPEG 2000 | `hayro-jpeg2000`（純 Rust）/ OpenJPEG | Apache/MIT / BSD-2 | M12 で `hayro-jpeg2000` を採用（既定機能の `image` は外す） |
+| JBIG2 | `hayro-jbig2`（純 Rust） | Apache/MIT | M12 で採用。**jbig2dec は AGPL のため不可** |
+| CCITT | `hayro-ccitt` / `fax` | Apache/MIT / MIT | M12 で `hayro-ccitt` を採用 |
+| ICC | `moxcms` / `qcms` | BSD-3 or Apache / MIT | M12 で `moxcms` を採用（rust-version 1.85 に合う 0.8 系） |
 | フォント | `skrifa` / `read-fonts`, `ttf-parser` | MIT/Apache | M9 で TrueType / OpenType に `ttf-parser`、CFF / Type 1 に `hayro-font`（MIT/Apache）を採用 |
 | 代替フォント | PDFium 同梱の Foxit 標準フォント / Liberation 等 | BSD / OFL | M9 で Foxit フォント（BSD-3、`crates/pdfi-font/assets/LICENSE_FOXIT`）を採用。**URW base35 は AGPL のため不可**。`pdf-standard-fonts` crate も AGPL のため不可 |
 | 標準 14 の幅・グリフ名 | Adobe Core14 AFM、Adobe Glyph List | 再配布可 / BSD-3 | M9 で表に生成して内蔵 |
