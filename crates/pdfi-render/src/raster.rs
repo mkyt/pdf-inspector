@@ -9,14 +9,14 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use pdfi_content::Content;
-use pdfi_content::device::{ClipPath, Device, GlyphRun, ImageData, PathEl};
+use pdfi_content::device::{ClipPath, Device, GlyphRun, Group, ImageData, PathEl, SoftMask};
 use pdfi_content::font::GlyphSource;
 use pdfi_content::geom::{Matrix, apply, mul, scale_of, translate};
 use pdfi_content::interp::{Color, GState, Kind, Resources};
 use pdfi_syntax::{DictExt, ObjId, Object, PdfFile};
 use tiny_skia::{
-    FillRule, FilterQuality, LineCap, LineJoin, Mask, MaskType, Paint, PathBuilder, Pattern,
-    Pixmap, SpreadMode, Stroke, StrokeDash, Transform,
+    BlendMode, FillRule, FilterQuality, LineCap, LineJoin, Mask, MaskType, Paint, PathBuilder,
+    Pattern, Pixmap, SpreadMode, Stroke, StrokeDash, Transform,
 };
 
 use crate::DocRender;
@@ -38,6 +38,15 @@ const MAX_DEPTH: u32 = 6;
 const CELLS: usize = 8;
 /// Pixels of a pattern cell (larger cells are rendered coarser).
 const CELL_PIXELS: f64 = (1 << 22) as f64;
+
+/// Soft masks kept per pass.
+const SMASKS: usize = 4;
+/// Transparency groups painted into bitmaps of their own (deeper ones
+/// are painted straight through).
+const MAX_GROUPS: usize = 8;
+
+/// A soft mask: its group and the CTM it is painted in.
+type SoftKey = (ObjId, [u64; 6]);
 
 /// A tiling pattern's cell as rendered: the pattern, its matrix to the
 /// device, the cell's size, and the color of an uncolored pattern.
@@ -78,6 +87,13 @@ pub struct Raster<'a> {
     pub hits: Vec<u32>,
     /// `None`: the clip covers the whole pixmap.
     masks: Vec<(Arc<ClipPath>, Option<Mask>)>,
+    /// Rendered soft masks (`None`: could not be rendered).
+    smasks: Vec<(SoftKey, Option<Arc<Mask>>)>,
+    /// The last soft mask combined with a clip mask.
+    combined: Option<((usize, SoftKey), Mask)>,
+    /// Open transparency groups: the bitmaps they paint over (`None`:
+    /// painted straight through), and whether they are isolated.
+    groups: Vec<(Option<Pixmap>, bool)>,
     spaces: Vec<(Arc<Object>, Arc<Space>)>,
     /// Rendered cells of tiling patterns.
     cells: Vec<(CellKey, Arc<Pixmap>)>,
@@ -305,6 +321,9 @@ impl<'a> Raster<'a> {
             cancel,
             depth: 0,
             cells: Vec::new(),
+            smasks: Vec::new(),
+            combined: None,
+            groups: Vec::new(),
             pix,
             base,
             kept,
@@ -392,27 +411,156 @@ impl<'a> Raster<'a> {
     /// Paint with the clip of `g`; in probe mode, record whether anything
     /// was covered.
     fn draw(&mut self, g: &GState, f: impl FnOnce(&mut Pixmap, Option<&Mask>)) {
-        if let Mode::Paint = self.mode {
-            if g.soft_mask.is_some() {
-                self.note("soft masks are ignored");
-            }
-            if g.blend != "Normal" && g.blend != "Compatible" {
-                self.note(format!("blend mode /{} is drawn as /Normal", g.blend));
-            }
-        }
         let k = self.mask(&g.clip_path);
+        let soft = match (&self.mode, &g.smask) {
+            (Mode::Paint, Some(sm)) => self.soft_mask(sm),
+            _ => None,
+        };
         let probe = matches!(self.mode, Mode::Probe);
         if probe {
             self.pix.fill(tiny_skia::Color::TRANSPARENT);
         }
-        let mask = k.and_then(|k| self.masks[k].1.as_ref());
-        f(&mut self.pix, mask);
+        let clip = k.and_then(|k| self.masks[k].1.as_ref());
+        match (soft, clip) {
+            (None, clip) => f(&mut self.pix, clip),
+            (Some((_, sm)), None) => f(&mut self.pix, Some(&sm)),
+            (Some((key, sm)), Some(c)) => {
+                // The soft mask times the clip (kept for the next paint).
+                let ck = (Arc::as_ptr(&self.masks[k.unwrap_or(0)].0) as usize, key);
+                if self.combined.as_ref().is_none_or(|(k, _)| *k != ck) {
+                    let mut m = (*sm).clone();
+                    for (v, c) in m.data_mut().iter_mut().zip(c.data()) {
+                        *v = ((*v as u32 * *c as u32 + 127) / 255) as u8;
+                    }
+                    self.combined = Some((ck, m));
+                }
+                let m = self.combined.as_ref().map(|(_, m)| m);
+                f(&mut self.pix, m);
+            }
+        }
         if probe
             && self.pix.pixels().iter().any(|p| p.alpha() > 0)
             && self.hits.last() != Some(&self.op)
         {
             self.hits.push(self.op);
         }
+    }
+
+    /// The blend mode to paint with (by mode).
+    fn blend(&mut self, g: &GState) -> BlendMode {
+        if !matches!(self.mode, Mode::Paint) {
+            return BlendMode::SourceOver;
+        }
+        let b = match g.blend.as_str() {
+            "Normal" | "Compatible" => return BlendMode::SourceOver,
+            "Multiply" => BlendMode::Multiply,
+            "Screen" => BlendMode::Screen,
+            "Overlay" => BlendMode::Overlay,
+            "Darken" => BlendMode::Darken,
+            "Lighten" => BlendMode::Lighten,
+            "ColorDodge" => BlendMode::ColorDodge,
+            "ColorBurn" => BlendMode::ColorBurn,
+            "HardLight" => BlendMode::HardLight,
+            "SoftLight" => BlendMode::SoftLight,
+            "Difference" => BlendMode::Difference,
+            "Exclusion" => BlendMode::Exclusion,
+            "Hue" => BlendMode::Hue,
+            "Saturation" => BlendMode::Saturation,
+            "Color" => BlendMode::Color,
+            "Luminosity" => BlendMode::Luminosity,
+            other => {
+                self.note(format!("unknown blend mode /{other} is drawn as /Normal"));
+                return BlendMode::SourceOver;
+            }
+        };
+        if self.groups.iter().any(|(_, isolated)| !isolated) {
+            self.note("blend modes in non-isolated groups are drawn as in isolated ones");
+        }
+        b
+    }
+
+    /// A soft mask rendered over the bitmap (cached).
+    fn soft_mask(&mut self, sm: &SoftMask) -> Option<(SoftKey, Arc<Mask>)> {
+        let key = (sm.id, sm.ctm.map(f64::to_bits));
+        if let Some((_, m)) = self.smasks.iter().find(|(k, _)| *k == key) {
+            return m.clone().map(|m| (key, m));
+        }
+        let m = self.render_soft_mask(sm).map(Arc::new);
+        if m.is_none() {
+            self.note("a soft mask could not be painted and is ignored");
+        }
+        if self.smasks.len() >= SMASKS {
+            self.smasks.remove(0);
+        }
+        self.smasks.push((key, m.clone()));
+        m.map(|m| (key, m))
+    }
+
+    fn render_soft_mask(&mut self, sm: &SoftMask) -> Option<Mask> {
+        let s = sm.group.as_stream()?;
+        if self.depth >= MAX_DEPTH {
+            return None;
+        }
+        let d = &s.dict;
+        let file = self.file;
+        let matrix = d
+            .get_key("Matrix")
+            .and_then(|m| crate::function::nums(file, Some(m)))
+            .and_then(|m| <[f64; 6]>::try_from(m).ok())
+            .unwrap_or([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+        let bbox = d
+            .get_key("BBox")
+            .and_then(|b| pdfi_model::Rect::read(file, b));
+        let mut pix = Pixmap::new(self.pix.width(), self.pix.height())?;
+        if sm.luminosity {
+            // The backdrop, in the group's color space (black by default).
+            let space = d
+                .get_key("Group")
+                .and_then(|gr| pdfi_model::resolve(file, gr).1.as_dict().cloned())
+                .and_then(|gr| {
+                    gr.get_key("CS")
+                        .map(|cs| color::parse(file, &self.cache.profiles, cs))
+                });
+            let rgb = match (&sm.backdrop, space) {
+                (Some(bc), Some(space)) => space.to_rgb(bc, &mut Approx::default()),
+                _ => None,
+            }
+            .unwrap_or([0.0; 3]);
+            pix.fill(rgb_color(rgb, 1.0));
+        }
+        let base = mul(&mul(&matrix, &sm.ctm), &self.base);
+        let pix = self.sub_draw(pix, base, sm.id, s, bbox, Kind::Form);
+        let transfer = sm
+            .transfer
+            .as_ref()
+            .and_then(|t| crate::function::Function::parse(file, t));
+        let lut: Vec<u8> = (0..=255u8)
+            .map(|v| match &transfer {
+                Some(f) => f
+                    .eval(&[v as f64 / 255.0])
+                    .and_then(|o| o.first().copied())
+                    .map_or(v, |o| (o.clamp(0.0, 1.0) * 255.0 + 0.5) as u8),
+                None => v,
+            })
+            .collect();
+        let data = pix
+            .pixels()
+            .iter()
+            .map(|p| {
+                let v = if sm.luminosity {
+                    // Over an opaque backdrop: premultiplied is plain.
+                    let l = 0.3 * p.red() as f32 + 0.59 * p.green() as f32 + 0.11 * p.blue() as f32;
+                    (l + 0.5).min(255.0) as u8
+                } else {
+                    p.alpha()
+                };
+                lut[v as usize]
+            })
+            .collect();
+        Mask::from_vec(
+            data,
+            tiny_skia::IntSize::from_wh(pix.width(), pix.height())?,
+        )
     }
 
     fn space(&mut self, def: &Arc<Object>) -> Arc<Space> {
@@ -620,7 +768,7 @@ impl<'a> Raster<'a> {
                 for i in 0..nx {
                     for j in 0..ny {
                         let base = mul(&translate(-i as f64 * xs, -j as f64 * ys), &cell);
-                        pix = self.sub_draw(pix, base, id, s, Some(bbox));
+                        pix = self.sub_draw(pix, base, id, s, Some(bbox), Kind::Pattern);
                     }
                 }
                 if let Some(rgb) = color {
@@ -670,6 +818,7 @@ impl<'a> Raster<'a> {
         id: ObjId,
         s: &pdfi_syntax::Stream,
         clip: Option<pdfi_model::Rect>,
+        kind: Kind,
     ) -> Pixmap {
         let mut sub = Raster::new(
             self.content,
@@ -696,7 +845,7 @@ impl<'a> Raster<'a> {
             }));
         }
         self.content
-            .draw_stream(id, s, g, Kind::Pattern, &mut sub, self.cancel);
+            .draw_stream(id, s, g, kind, &mut sub, self.cancel);
         for (n, k) in std::mem::take(&mut sub.notes) {
             *self.notes.entry(n).or_default() += k;
         }
@@ -875,7 +1024,8 @@ impl Device for Raster<'_> {
             return;
         };
         let ts = to_transform(&self.base);
-        let paint = src.paint(1.0, ts);
+        let mut paint = src.paint(1.0, ts);
+        paint.blend_mode = self.blend(g);
         let rule = if even_odd {
             FillRule::EvenOdd
         } else {
@@ -906,7 +1056,8 @@ impl Device for Raster<'_> {
             return;
         };
         let ts = to_transform(&m);
-        let paint = src.paint(1.0, ts);
+        let mut paint = src.paint(1.0, ts);
+        paint.blend_mode = self.blend(g);
         self.draw(g, |pix, mask| {
             pix.stroke_path(&p, &paint, &stroke, ts, mask)
         });
@@ -957,7 +1108,8 @@ impl Device for Raster<'_> {
             } else {
                 1.0
             };
-            let paint = src.paint(faint, to_transform(&self.base));
+            let mut paint = src.paint(faint, to_transform(&self.base));
+            paint.blend_mode = self.blend(g);
             let ts = to_transform(&self.base);
             self.draw(g, |pix, mask| {
                 pix.fill_path(&p, &paint, FillRule::Winding, ts, mask)
@@ -1038,6 +1190,11 @@ impl Device for Raster<'_> {
         );
         let paint = Paint {
             shader,
+            blend_mode: if pattern {
+                BlendMode::SourceOver
+            } else {
+                self.blend(g)
+            },
             ..Paint::default()
         };
         let r = tiny_skia::Rect::from_ltrb(0.0, 0.0, 1.0, 1.0).expect("unit rect");
@@ -1064,7 +1221,8 @@ impl Device for Raster<'_> {
         };
         cover.fill_rect(r, &paint, ts, None);
         let mut stencil = Mask::from_pixmap(cover.as_ref(), MaskType::Alpha);
-        let fill = src.paint(1.0, Transform::identity());
+        let mut fill = src.paint(1.0, Transform::identity());
+        fill.blend_mode = self.blend(g);
         let Some(rect) =
             tiny_skia::Rect::from_ltrb(area.0 as f32, area.1 as f32, area.2 as f32, area.3 as f32)
         else {
@@ -1077,6 +1235,36 @@ impl Device for Raster<'_> {
                 }
             }
             p.fill_rect(rect, &fill, Transform::identity(), Some(&stencil))
+        });
+    }
+
+    fn begin_group(&mut self, group: &Group, _g: &GState) {
+        let own = matches!(self.mode, Mode::Paint) && self.groups.len() < MAX_GROUPS;
+        if own && group.knockout {
+            self.note("knockout groups are drawn as ordinary ones");
+        }
+        let parent = own
+            .then(|| Pixmap::new(self.pix.width(), self.pix.height()))
+            .flatten()
+            .map(|layer| std::mem::replace(&mut self.pix, layer));
+        if parent.is_none() && matches!(self.mode, Mode::Paint) {
+            self.note("transparency groups nested too deeply are painted straight through");
+        }
+        self.groups.push((parent, group.isolated));
+    }
+
+    fn end_group(&mut self, g: &GState) {
+        let Some((Some(parent), _)) = self.groups.pop() else {
+            return;
+        };
+        let layer = std::mem::replace(&mut self.pix, parent);
+        let paint = tiny_skia::PixmapPaint {
+            opacity: g.fill_alpha.clamp(0.0, 1.0) as f32,
+            blend_mode: self.blend(g),
+            quality: FilterQuality::Nearest,
+        };
+        self.draw(g, |pix, mask| {
+            pix.draw_pixmap(0, 0, layer.as_ref(), &paint, Transform::identity(), mask)
         });
     }
 
@@ -1124,7 +1312,8 @@ impl Device for Raster<'_> {
             }
             (_, src) => src.with_alpha(g.fill_alpha as f32),
         };
-        let paint = src.paint(1.0, Transform::identity());
+        let mut paint = src.paint(1.0, Transform::identity());
+        paint.blend_mode = self.blend(g);
         let r =
             tiny_skia::Rect::from_ltrb(area.0 as f32, area.1 as f32, area.2 as f32, area.3 as f32);
         let Some(r) = r else { return };

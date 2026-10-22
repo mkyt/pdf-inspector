@@ -638,6 +638,28 @@ page(b"""/Pattern cs /P1 scn 0 300 200 100 re f
 q 1 0 0 1 0 0 cm /Fm Do Q
 """, b"<< /ColorSpace << /PU [/Pattern /DeviceRGB] >> /Pattern << /P1 40 0 R /P2 41 0 R /P3 42 0 R /P4 43 0 R >> /XObject << /Fm 44 0 R >> >>")
 
+# Page 4: transparency. Multiply and Screen; a transparency group and a
+# plain form painted with ca 0.5 (the group's overlap is not darker);
+# soft masks: luminosity (a gradient), alpha (a circle), with a white
+# backdrop (/BC), with an inverting transfer function (/TR).
+def form(bbox, content, group=b"/Group << /S /Transparency /CS /DeviceGray >>", res=b"<< >>"):
+    return (b"<< /Type /XObject /Subtype /Form /BBox [%s] %s /Resources %s /Length %%d >>" % (bbox, group, res), content)
+streams[50] = form(b"0 200 100 300", b"/S sh", res=b"<< /Shading << /S << /ShadingType 2 /ColorSpace /DeviceGray /Coords [0 0 100 0] /Function << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >> >> >> >>")
+streams[51] = form(b"100 200 200 300", circle(150, 250, 40) + b" f")
+streams[52] = form(b"200 200 300 300", b"0 g 220 220 60 60 re f")
+streams[53] = form(b"300 200 400 300", b"1 g 320 220 60 60 re f")
+streams[55] = form(b"200 300 300 400", b"0 g 200 300 70 70 re f 230 330 70 70 re f", group=b"/Group << /S /Transparency >>")
+streams[56] = form(b"300 300 400 400", b"0 g 300 300 70 70 re f 330 330 70 70 re f", group=b"")
+page(b"""1 1 0 rg 0 300 70 70 re f q /Mul gs 0 1 1 rg 30 330 70 70 re f Q
+1 0 0 rg 100 300 70 70 re f q /Scr gs 0 0 1 rg 130 330 70 70 re f Q
+q /Half gs /Grp Do Q
+q /Half gs /Plain Do Q
+q /SmL gs 1 0 0 rg 0 200 100 100 re f Q
+q /SmA gs 0 0 1 rg 100 200 100 100 re f Q
+q /SmB gs 0 0.5 0 rg 200 200 100 100 re f Q
+q /SmT gs 0.5 0 0.5 rg 300 200 100 100 re f Q
+""", b"<< /ExtGState << /Mul << /BM /Multiply >> /Scr << /BM /Screen >> /Half << /ca 0.5 >> /SmL << /SMask << /S /Luminosity /G 50 0 R >> >> /SmA << /SMask << /S /Alpha /G 51 0 R >> >> /SmB << /SMask << /S /Luminosity /G 52 0 R /BC [1] >> >> /SmT << /SMask << /S /Luminosity /G 53 0 R /TR << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >> >> >> >> /XObject << /Grp 55 0 R /Plain 56 0 R >> >>")
+
 objs[2] = b"<< /Type /Pages /Kids [%s] /Count %d /MediaBox [0 0 400 400] >>" % (b" ".join(b"%d 0 R" % n for n in pages), len(pages))
 out = bytearray(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")
 offsets = {}

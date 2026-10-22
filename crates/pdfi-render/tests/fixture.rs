@@ -242,7 +242,6 @@ fn notes_for_what_is_left_out() {
     let d = Doc::new("content.pdf");
     let o = d.render(Target::Page(0), &opts(0.5));
     let notes: Vec<&str> = o.notes.iter().map(|(n, _)| n.as_str()).collect();
-    assert!(notes.iter().any(|n| n.contains("blend mode")), "{notes:?}");
     assert!(
         notes.iter().any(|n| n.contains("drawn with Foxit Sans")),
         "{notes:?}"
@@ -501,4 +500,35 @@ fn tiling_patterns() {
     for (x, y) in [(0, 0), (12, 7), (49, 49), (30, 20)] {
         assert_eq!(px(&t, x, y), px(&o, 190 + x, 90 + y));
     }
+}
+
+#[test]
+fn transparency() {
+    let d = Doc::new("paint.pdf");
+    let o = d.render(Target::Page(3), &opts(1.0));
+    // Multiply: yellow × cyan is green; cyan alone over the paper stays.
+    assert_eq!(px(&o, 50, 50), [0, 255, 0, 255]);
+    assert_eq!(px(&o, 90, 40), [0, 255, 255, 255]);
+    // Screen: red + blue is magenta; blue alone stays blue (nothing was
+    // painted under it).
+    assert_eq!(px(&o, 150, 50), [255, 0, 255, 255]);
+    assert_eq!(px(&o, 190, 10), [0, 0, 255, 255]);
+    // ca 0.5 on a group: one even gray; on a plain form, a darker overlap.
+    assert!(near(px(&o, 250, 50), [128, 128, 128, 255], 2));
+    assert!(near(px(&o, 215, 85), [128, 128, 128, 255], 2));
+    assert!(near(px(&o, 350, 50), [64, 64, 64, 255], 2));
+    // Luminosity mask: a gradient from opaque red to nothing.
+    assert!(near(px(&o, 2, 150), [255, 5, 5, 255], 6));
+    assert!(near(px(&o, 50, 150), [255, 128, 128, 255], 6));
+    assert!(near(px(&o, 98, 150), [255, 250, 250, 255], 6));
+    // Alpha mask: a blue circle.
+    assert_eq!(px(&o, 150, 150), [0, 0, 255, 255]);
+    assert_eq!(px(&o, 105, 105), WHITE);
+    // White backdrop with a black square: a hole.
+    assert_eq!(px(&o, 205, 150), [0, 128, 0, 255]);
+    assert_eq!(px(&o, 250, 150), WHITE);
+    // Inverting transfer function: a hole where the group is white.
+    assert_eq!(px(&o, 305, 150), [128, 0, 128, 255]);
+    assert_eq!(px(&o, 350, 150), WHITE);
+    assert!(o.notes.is_empty(), "{:?}", o.notes);
 }

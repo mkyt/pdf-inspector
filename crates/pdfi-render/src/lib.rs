@@ -284,15 +284,13 @@ pub fn render(
             "at most {MAX_SIDE} pixels a side and {MAX_PIXELS} pixels per bitmap"
         )));
     }
-    let mut pix = Pixmap::new(width + 2 * MARGIN, height + 2 * MARGIN)
+    let pix = Pixmap::new(width + 2 * MARGIN, height + 2 * MARGIN)
         .ok_or_else(|| Error::TooLarge("bitmap".into()))?;
+    // Pages are painted on a transparent backdrop and then put on white
+    // paper (blend modes see nothing where nothing was painted).
+    let paper = o.layer == Layer::Content && a.kind == Kind::Page;
     let mode = match &o.layer {
-        Layer::Content => {
-            if a.kind == Kind::Page {
-                pix.fill(tiny_skia::Color::WHITE);
-            }
-            Mode::Paint
-        }
+        Layer::Content => Mode::Paint,
         Layer::Highlight(ops) => {
             let mut ops = ops.clone();
             ops.sort_unstable();
@@ -306,6 +304,18 @@ pub fn render(
     let mut dev = Raster::new(content, cache, cancel, pix, base, MARGIN, mode);
     let drawn = content.draw(a, o.until, &mut dev, cancel);
     let notes = dev.notes.into_iter().collect();
+    if paper {
+        for p in dev.pix.pixels_mut() {
+            let w = 255 - p.alpha();
+            *p = tiny_skia::PremultipliedColorU8::from_rgba(
+                p.red() + w,
+                p.green() + w,
+                p.blue() + w,
+                255,
+            )
+            .unwrap_or(*p);
+        }
+    }
     let full = dev.pix.take_demultiplied();
     let stride = (width + 2 * MARGIN) as usize * 4;
     let mut rgba = Vec::with_capacity(width as usize * height as usize * 4);

@@ -122,6 +122,29 @@ impl GlyphRun<'_> {
     }
 }
 
+/// A soft mask set by `gs` (`/SMask` of an `/ExtGState`).
+#[derive(Debug, PartialEq)]
+pub struct SoftMask {
+    /// `/S /Luminosity` (else `/Alpha`).
+    pub luminosity: bool,
+    /// The transparency group (a form XObject) and its object.
+    pub id: ObjId,
+    pub group: Arc<Object>,
+    /// `/BC`: the backdrop color, in the group's color space.
+    pub backdrop: Option<Vec<f64>>,
+    /// `/TR`: the transfer function (`None`: identity).
+    pub transfer: Option<Object>,
+    /// The CTM when the mask was set (the group is painted in it).
+    pub ctm: Matrix,
+}
+
+/// A transparency group (a form XObject with `/Group << /S /Transparency >>`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Group {
+    pub isolated: bool,
+    pub knockout: bool,
+}
+
 /// An image to paint in the unit square of user space.
 #[derive(Clone, Copy, Debug)]
 pub enum ImageData<'a> {
@@ -155,4 +178,11 @@ pub trait Device {
     /// `sh`: fill the current clip with a shading (`id`: its object, for
     /// the data of mesh shadings).
     fn shading(&mut self, _id: Option<ObjId>, _shading: &Object, _g: &GState) {}
+
+    /// A transparency group starts: what follows (until
+    /// [`Device::end_group`]) is painted into the group, which is then
+    /// composited with `g`'s alpha, blend mode, soft mask and clip.
+    fn begin_group(&mut self, _group: &Group, _g: &GState) {}
+
+    fn end_group(&mut self, _g: &GState) {}
 }

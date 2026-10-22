@@ -19,7 +19,7 @@ use std::sync::Arc;
 use pdfi_model::{Rect, resolve};
 use pdfi_syntax::{Dict, DictExt, Name, Node, ObjId, Object, PdfFile, Severity, Stream};
 
-use crate::device::{ClipPath, Device, Glyph, GlyphRun, ImageData, PathEl};
+use crate::device::{ClipPath, Device, Glyph, GlyphRun, Group, ImageData, PathEl, SoftMask};
 use crate::font::{Font, FontKind};
 use crate::geom::{
     IDENTITY, Matrix, add_point, apply, grow, intersect, mul, scale_of, transform, translate,
@@ -122,6 +122,8 @@ pub struct GState {
     pub blend: String,
     /// `None` or a description of the soft mask.
     pub soft_mask: Option<String>,
+    /// The soft mask itself, when it can be painted.
+    pub smask: Option<Arc<SoftMask>>,
     /// `/ExtGState` resources applied, in order.
     pub ext_gstates: Vec<String>,
     pub text: TextState,
@@ -148,6 +150,7 @@ impl GState {
             fill_alpha: 1.0,
             blend: "Normal".into(),
             soft_mask: None,
+            smask: None,
             ext_gstates: Vec::new(),
             text: TextState {
                 char_spacing: 0.0,
@@ -1677,7 +1680,38 @@ impl<'r> Interp<'r> {
                                 .map_or("mask".into(), |s| format!("/{} mask", name_text(s))),
                         ),
                         _ => Some("mask".into()),
-                    }
+                    };
+                    g.smask = match &*v {
+                        Object::Dict(sd) => {
+                            let group = sd.get_key("G").map(|o| resolve(f, o));
+                            match group {
+                                Some((Some(id), o)) if o.as_stream().is_some() => {
+                                    Some(Arc::new(SoftMask {
+                                        luminosity: sd.get_name("S").is_none_or(|s| s != "Alpha"),
+                                        id,
+                                        group: Arc::new((*o).clone()),
+                                        backdrop: sd.get_key("BC").and_then(|b| {
+                                            resolve(f, b).1.as_array().map(|a| a.iter().map(num).collect())
+                                        }),
+                                        transfer: sd
+                                            .get_key("TR")
+                                            .map(|t| (*resolve(f, t).1).clone())
+                                            .filter(|t| !matches!(t, Object::Name(n) if n == "Identity")),
+                                        ctm: g.ctm,
+                                    }))
+                                }
+                                _ => {
+                                    rec.error(
+                                        i,
+                                        "SoftMask",
+                                        format!("/SMask of /ExtGState /{name} has no group form XObject (/G)"),
+                                    );
+                                    None
+                                }
+                            }
+                        }
+                        _ => None,
+                    };
                 }
                 b"Font" => {
                     if let Some([fo, size]) = v.as_array() {
@@ -1856,7 +1890,36 @@ impl<'r> Interp<'r> {
                 }));
             }
         }
+        // A transparency group: painted on its own, then composited with
+        // the alpha, blend mode and soft mask it is painted with.
+        let group = s
+            .dict
+            .get_key("Group")
+            .and_then(|gr| resolve(f, gr).1.as_dict().cloned())
+            .filter(|gr| gr.get_name("S").is_some_and(|n| n == "Transparency"))
+            .map(|gr| {
+                let flag = |k: &str| {
+                    gr.get_key(k)
+                        .is_some_and(|v| matches!(&*resolve(f, v).1, Object::Bool(true)))
+                };
+                Group {
+                    isolated: flag("I"),
+                    knockout: flag("K"),
+                }
+            });
+        let mut g = g;
+        if let (Some(gr), Some(d)) = (&group, rec.device.as_deref_mut()) {
+            d.begin_group(gr, &self.s.g);
+            g.fill_alpha = 1.0;
+            g.stroke_alpha = 1.0;
+            g.blend = "Normal".into();
+            g.soft_mask = None;
+            g.smask = None;
+        }
         let inner = self.run_sub(env, i, id, s, &res, g, Kind::Form, rec);
+        if let (Some(_), Some(d)) = (&group, rec.device.as_deref_mut()) {
+            d.end_group(&self.s.g);
+        }
         match (inner, bbox_t) {
             (Some(a), Some(b)) => intersect(&a, &b),
             (a, b) => a.or(b),
