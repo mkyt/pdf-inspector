@@ -1,7 +1,12 @@
 import { createContext, useContext } from "react";
 import type { DocId, NodeView, ObjRef, Span } from "./protocol/generated";
 
-export type Target = { kind: "trailer" } | { kind: "object"; id: ObjRef };
+export type Target =
+  | { kind: "document" }
+  | { kind: "trailer" }
+  | { kind: "object"; id: ObjRef }
+  /** A page by 0-based index. */
+  | { kind: "page"; index: number };
 
 /** An entry picked in the structure tree, shown in the schema panel. */
 export interface Selection {
@@ -31,6 +36,14 @@ export function useNav(): Nav {
   return n;
 }
 
-export const sameTarget = (a: Target, b: Target) =>
-  a.kind === b.kind &&
-  (a.kind === "trailer" || (b.kind === "object" && a.id.num === b.id.num && a.id.generation === b.id.generation));
+export function sameTarget(a: Target, b: Target): boolean {
+  switch (a.kind) {
+    case "document":
+    case "trailer":
+      return a.kind === b.kind;
+    case "object":
+      return b.kind === "object" && a.id.num === b.id.num && a.id.generation === b.id.generation;
+    case "page":
+      return b.kind === "page" && a.index === b.index;
+  }
+}

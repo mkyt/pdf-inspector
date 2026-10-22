@@ -8,6 +8,7 @@
 > - v2.3: M2 実装で確定した事項を §4.8 / §4.9 に追記（TS 型生成は ts-rs、バイナリフレーム形式、ジョブ実行器、トークンの渡し方）
 > - v2.4: M3 実装で確定した事項を §5.3 / §7 に追記（JS 側 ByteSource、Worker ホストのスケジューリング、ファイルを開く経路、適合テストの形）
 > - v2.5: M4（macOS）を後回しにして M5 を先に実装。確定した事項を §4.2 / §4.8 に追記（codegen の形、述語の扱い、型推論、validation のスコープとジョブ、プロトコル v2）
+> - v2.6: M6 実装で確定した事項を §4.3 / §4.8 に追記（ページ索引、継承属性の出所、メタ情報、インベントリと被参照グラフ、プロトコル v3）
 
 ## 1. ゴール
 
@@ -165,6 +166,15 @@ pub struct Node { pub obj: Object, pub span: Option<Span> }  // 編集で作っ�
 - `Resources`: Font / XObject / ColorSpace / Pattern / Shading / ExtGState / Properties
 - その他: Outline、Name tree / Number tree、Annotation、AcroForm、EmbeddedFiles、Signature（構造のみ）、StructTree
 - **インベントリ**（全フォント・全画像・被参照グラフ）は全オブジェクト走査が要るので**ジョブ**として構築し、結果を範囲取得
+- **M6 で確定した形**:
+  - `pdfi-model` は `pdfi-syntax` だけに依存し（XMP 用に `quick-xml`）、`DocModel`（ドキュメントごとの索引）を `on(&PdfFile)` で `Model` にして使う。DocSchema と同じ形
+  - **ページ索引**: ページツリーのノードごとに「子と、そこまでのページ数の累積」（`ends`）を初回に作って記憶し、index → ページは各段で二分探索。子の数は `/Count`（Page は 1）を信じ、`/Count` が無いノードだけ中を数える。`/Count` と子の合計の食い違い、直接オブジェクトの子、循環は Issue として報告（ドキュメント単位、重複は 1 回）。ページ → index は `/Parent` を遡って累積し、最後に index → ページで一致を確かめる（誤った `/Parent` で誤った番号を出さない）
+  - **継承属性**: Resources / MediaBox / CropBox / Rotate を、ページ自身 → index で辿った祖先（近い順）で探し、出所を `Page | Inherited(node) | Default(of) | Missing` で返す。CropBox の既定は MediaBox、Bleed / Trim / ArtBox（継承しない）の既定は CropBox。Rotate は 90 の倍数でなければ報告して 0/90/180/270 に正規化。一覧の「サイズ」は CropBox ∩ MediaBox
+  - ページラベル（`/PageLabels` の number tree）はドキュメントごとに一度だけ範囲表にする。name tree / number tree は `/Limits` で降りる検索と全件の巡回（上限付き）
+  - **リンク先**: 明示的な配列、名前（`/Names /Dests` の name tree → カタログの `/Dests`）、`/D` を持つ辞書を解決し、ページは index まで引く。アクションは GoTo / URI を解釈、他は `/S` の種類と主な引数だけ
+  - **メタ情報**: Info の文字列はテキストとして復号し、PDF 日付は ISO 8601 にする。カタログの `/Metadata` は 16 MB まで復号して XMP をフラットな木（深さ付き、2 万ノードまで）と `rdf:Description` のプロパティ（Alt は x-default、Seq / Bag は連結）にする。Info と XMP の対応キー（Title ↔ dc:title、ModDate ↔ xmp:ModifyDate など 8 組）を比べ、日付は時刻として比べる。不一致は warning
+  - **インベントリ**（`inventory::Builder`）: ① 全 live オブジェクトを走査して参照（被参照グラフの辺）を集め、フォント（`/Type /Font` か、フォントの `/Subtype` + `/BaseFont` 等）と画像 XObject を記録 ② 全ページの（継承込みの）リソースから使用フォント・画像を集める。Form XObject の中はフォームごとに一度だけ辿って記憶。被参照グラフは対象番号ごとの CSR（`starts` + `sources`）、trailer からの参照は `TRAILER`。参照元のどこから指しているか（`/Resources/Font/F1`）は要求時に元オブジェクトを読み直して求める。誰からも参照されない live オブジェクト（ObjStm / XRef stream / 線形化辞書を除く）も記録
+  - 3000 ページ（`/Kids` 3000 のフラットな木）の合成ファイルで、最初のページ引きが約 13 ms（子 3000 個の読み込み）、以降は即時。インベントリは約 0.25 s（native release）
 
 ### 4.4 pdfi-font / pdfi-image
 
@@ -262,6 +272,7 @@ impl Session {
   - ジョブは `step()` を繰り返す有界な作業単位。実行は `Executor` trait（server: ジョブごとのスレッド、wasm: `QueueExecutor` を協調的に回す）
   - ファイルアクセスは `SourceProvider` trait で注入（pdfi-api 自体は fs に触れない）
   - `Cancel(RequestId)` はトランスポート層で未着手のリクエストを破棄する。`Batch` はネスト不可
+- **M6 で追加（プロトコル v3）**: `Document { doc }`（Info・カタログの宣言・XMP の有無・ページ数・モデルの問題）、`Xmp { doc, range }`（プロパティと木の範囲取得）、`Pages { doc, range }`、`Page { doc, index }`（`PageDetail`: 祖先、ボックスと出所、Rotate、リソース一覧、contents、注釈数、問題）、`PageIndex { doc, id }`、`Annotations { doc, page, range }`、`Outline { doc, parent, range }`、`JobKind::Inventory` とその結果を読む `Fonts` / `Images` / `Referrers { id }` / `Unreferenced`（ジョブ前は `ErrorCode::NotReady`）。`DocSummary.pages` と `DocSummary.inventory`（`InventoryStats`。リロード後も UI が件数を知れる）
 - **M5 で追加（プロトコル v2）**: `Schema { doc, root }`（型・推論の出所・仕様の参照・問題一覧）、`JobKind::Validate { root }`、`JobDiagnostics { job, range }`。`NodeView.schema`（キー定義 `KeyDoc`・値の型・そのエントリの問題）、`ObjectSummary.schema_type`、`DiagnosticInfo.path`（`/Pages/Kids[3]`）、`DocSummary.pdf_version`（Catalog の `/Version` を反映した実効バージョン）
 
 Rust API（論理的な操作一覧）:

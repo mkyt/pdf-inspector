@@ -32,6 +32,9 @@ export function SummaryCard({ summary: s }: { summary: DocSummary }) {
           {bytesText(s.info.size)}
         </Badge>
         <Badge size="sm" variant="default">
+          {s.pages.toLocaleString()} pages
+        </Badge>
+        <Badge size="sm" variant="default">
           {s.live_objects.toLocaleString()} objects
         </Badge>
         <Badge size="sm" variant="default">

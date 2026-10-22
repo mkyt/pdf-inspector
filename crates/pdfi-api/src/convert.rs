@@ -15,33 +15,7 @@ pub fn name_text(n: &syn::Name) -> String {
     String::from_utf8_lossy(&out[1..]).into_owned()
 }
 
-/// Decode a text string: UTF-16BE or UTF-8 with BOM, PDFDocEncoding otherwise
-/// (approximated by Latin-1 plus the 0x80..0x9f punctuation block).
-pub fn text_of(bytes: &[u8]) -> String {
-    if let Some(rest) = bytes.strip_prefix(&[0xfe, 0xff]) {
-        let units: Vec<u16> = rest
-            .chunks(2)
-            .map(|c| u16::from_be_bytes([c[0], *c.get(1).unwrap_or(&0)]))
-            .collect();
-        return String::from_utf16_lossy(&units);
-    }
-    if let Some(rest) = bytes.strip_prefix(&[0xef, 0xbb, 0xbf]) {
-        return String::from_utf8_lossy(rest).into_owned();
-    }
-    bytes.iter().map(|&b| pdfdoc_char(b)).collect()
-}
-
-fn pdfdoc_char(b: u8) -> char {
-    const HIGH: [char; 32] = [
-        '•', '†', '‡', '…', '—', '–', 'ƒ', '⁄', '‹', '›', '−', '‰', '„', '“', '”', '‘', '’', '‚',
-        '™', 'ﬁ', 'ﬂ', 'Ł', 'Œ', 'Š', 'Ÿ', 'Ž', 'ı', 'ł', 'œ', 'š', 'ž', '\u{fffd}',
-    ];
-    match b {
-        0x80..=0x9f => HIGH[(b - 0x80) as usize],
-        0xa0 => '€',
-        _ => b as char,
-    }
-}
+pub use pdfi_model::text::decode as text_of;
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
@@ -201,13 +175,6 @@ pub fn key_doc(k: &schema::KeyDef) -> KeyDoc {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn text_strings() {
-        assert_eq!(text_of(b"\xfe\xff\x00A\x00B"), "AB");
-        assert_eq!(text_of(b"\xef\xbb\xbf\xe3\x81\x82"), "あ");
-        assert_eq!(text_of(b"a\x84b"), "a—b");
-    }
 
     #[test]
     fn names_are_escaped() {

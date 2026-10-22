@@ -1,4 +1,4 @@
-import type { ObjRef, Span, Value, XrefEntry } from "./protocol/generated";
+import type { AttrOrigin, Destination, LinkTarget, ObjRef, Rect, Span, Value, XrefEntry } from "./protocol/generated";
 
 export const refText = (r: ObjRef) => `${r.num} ${r.generation} R`;
 export const objText = (r: ObjRef) => `${r.num} ${r.generation} obj`;
@@ -88,4 +88,52 @@ export function bytesAsText(data: Uint8Array): string {
     );
   }
   return out;
+}
+
+export const rectText = (r: Rect | null) => (r ? `[${r.x0} ${r.y0} ${r.x1} ${r.y1}]` : "—");
+
+const num = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, ""));
+
+/** `612 × 792 pt`. */
+export const sizeText = (r: Rect | null) => (r ? `${num(r.x1 - r.x0)} × ${num(r.y1 - r.y0)} pt` : "—");
+
+/** Page number as shown to people (1-based), with the label when it differs. */
+export function pageText(index: number, label?: string | null): string {
+  const n = String(index + 1);
+  return label && label !== n ? `${n} (${label})` : n;
+}
+
+export function originText(o: AttrOrigin): string {
+  switch (o.kind) {
+    case "page":
+      return "on the page";
+    case "inherited":
+      return `inherited from ${objText(o.from)}`;
+    case "default":
+      return o.of === "0" ? "default" : `default (= ${o.of})`;
+    case "missing":
+      return "missing";
+  }
+}
+
+export function destText(d: Destination): string {
+  const where =
+    d.page_index !== null
+      ? `page ${d.page_index + 1}`
+      : d.remote_page !== null
+        ? `page ${d.remote_page + 1} of another file`
+        : (d.error ?? "?");
+  const fit = d.fit ? ` /${d.fit}${d.params.map((p) => ` ${p ?? "null"}`).join("")}` : "";
+  return `${d.named !== null ? `“${d.named}” → ` : ""}${where}${fit}`;
+}
+
+export function linkText(l: LinkTarget): string {
+  switch (l.kind) {
+    case "dest":
+      return destText(l.dest);
+    case "uri":
+      return l.uri;
+    case "action":
+      return l.detail ? `${l.action}: ${l.detail}` : l.action;
+  }
 }

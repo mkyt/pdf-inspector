@@ -18,6 +18,11 @@ import { useCallback, useEffect, useMemo, useState, type DragEvent } from "react
 import { api, useBackend } from "./api";
 import type { ConnectionState } from "./backend/backend";
 import { DiagnosticsPanel } from "./components/DiagnosticsPanel";
+import { DocumentPanel } from "./components/DocumentPanel";
+import { FontsPanel, ImagesPanel } from "./components/InventoryPanels";
+import { OutlinePanel } from "./components/OutlinePanel";
+import { PageList } from "./components/PageList";
+import { PageView } from "./components/PageView";
 import { HexView } from "./components/HexView";
 import { Inspector } from "./components/Inspector";
 import { ObjectList } from "./components/ObjectList";
@@ -26,6 +31,7 @@ import { SchemaPanel } from "./components/SchemaPanel";
 import { ValidatePanel } from "./components/ValidatePanel";
 import { SummaryCard } from "./components/SummaryCard";
 import { XrefPanel } from "./components/XrefPanel";
+import { DocContext, type DocState } from "./doc";
 import { useJob } from "./jobs";
 import { NavContext, sameTarget, type Nav, type Selection, type Target } from "./nav";
 import type { DocId, Span } from "./protocol/generated";
@@ -155,11 +161,13 @@ function Shell() {
 function DocView({ doc }: { doc: DocId }) {
   const backend = useBackend();
   const summary = useQuery({ queryKey: ["doc", doc, "summary"], queryFn: () => api.summary(backend, doc) });
-  const [history, setHistory] = useState<Target[]>([{ kind: "trailer" }]);
+  const [history, setHistory] = useState<Target[]>([{ kind: "document" }]);
   const [hexSpan, setHexSpan] = useState<Span | null>(null);
-  const [tab, setTab] = useState<string | null>("objects");
+  const [tab, setTab] = useState<string | null>("pages");
   const [selection, setSelection] = useState<Selection | null>(null);
   const [validation, setValidation] = useJob(doc);
+  const [inventoryJob, setInventoryJob] = useJob(doc);
+  const [inventoryError, setInventoryError] = useState<string | null>(null);
 
   const open = useCallback((t: Target) => {
     setHistory((h) => (sameTarget(h[h.length - 1], t) ? h : [...h.slice(-99), t]));
@@ -183,6 +191,25 @@ function DocView({ doc }: { doc: DocId }) {
     [doc, history, open, hexSpan, selection],
   );
 
+  const docState: DocState | null = useMemo(
+    () =>
+      summary.data
+        ? {
+            summary: summary.data,
+            inventory: {
+              stats: summary.data.inventory,
+              job: inventoryJob,
+              error: inventoryError,
+              start: () => {
+                setInventoryError(null);
+                api.startJob(backend, doc, { kind: "inventory" }).then(setInventoryJob, (e) => setInventoryError(String(e)));
+              },
+            },
+          }
+        : null,
+    [summary.data, inventoryJob, inventoryError, backend, doc, setInventoryJob],
+  );
+
   if (summary.error) {
     return (
       <Alert color="red" m="md" title="Cannot load document">
@@ -190,78 +217,98 @@ function DocView({ doc }: { doc: DocId }) {
       </Alert>
     );
   }
-  if (!summary.data) return null;
+  if (!summary.data || !docState) return null;
   const s = summary.data;
+  const t = nav.target;
 
   return (
-    <NavContext.Provider value={nav}>
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        <div
-          style={{
-            width: 380,
-            borderRight: "1px solid var(--mantine-color-default-border)",
-            display: "flex",
-            flexDirection: "column",
-            minHeight: 0,
-          }}
-        >
-          <SummaryCard summary={s} />
-          <Tabs value={tab} onChange={setTab} style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-            <Tabs.List>
-              <Tabs.Tab value="objects">Objects</Tabs.Tab>
-              <Tabs.Tab value="xref">XRef</Tabs.Tab>
-              <Tabs.Tab value="validate">Validate</Tabs.Tab>
-              <Tabs.Tab value="diagnostics">
-                Diagnostics {s.diagnostics > 0 && <Badge size="xs" color="orange">{s.diagnostics}</Badge>}
-              </Tabs.Tab>
-            </Tabs.List>
-            <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-              {tab === "objects" && <ObjectList total={s.xref_entries} />}
-              {tab === "xref" && <XrefPanel summary={s} />}
-              {tab === "validate" && <ValidatePanel job={validation} setJob={setValidation} />}
-              {tab === "diagnostics" && <DiagnosticsPanel total={s.diagnostics} />}
+    <DocContext.Provider value={docState}>
+      <NavContext.Provider value={nav}>
+        <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+          <div
+            style={{
+              width: 380,
+              borderRight: "1px solid var(--mantine-color-default-border)",
+              display: "flex",
+              flexDirection: "column",
+              minHeight: 0,
+            }}
+          >
+            <SummaryCard summary={s} />
+            <Tabs value={tab} onChange={setTab} style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+              <Tabs.List>
+                <Tabs.Tab value="pages">Pages</Tabs.Tab>
+                <Tabs.Tab value="outline">Outline</Tabs.Tab>
+                <Tabs.Tab value="fonts">Fonts</Tabs.Tab>
+                <Tabs.Tab value="images">Images</Tabs.Tab>
+                <Tabs.Tab value="objects">Objects</Tabs.Tab>
+                <Tabs.Tab value="xref">XRef</Tabs.Tab>
+                <Tabs.Tab value="validate">Validate</Tabs.Tab>
+                <Tabs.Tab value="diagnostics">
+                  Diagnostics {s.diagnostics > 0 && <Badge size="xs" color="orange">{s.diagnostics}</Badge>}
+                </Tabs.Tab>
+              </Tabs.List>
+              <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+                {tab === "pages" && <PageList />}
+                {tab === "outline" && <OutlinePanel />}
+                {tab === "fonts" && <FontsPanel />}
+                {tab === "images" && <ImagesPanel />}
+                {tab === "objects" && <ObjectList total={s.xref_entries} />}
+                {tab === "xref" && <XrefPanel summary={s} />}
+                {tab === "validate" && <ValidatePanel job={validation} setJob={setValidation} />}
+                {tab === "diagnostics" && <DiagnosticsPanel total={s.diagnostics} />}
+              </div>
+            </Tabs>
+          </div>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+            <Group px="sm" py={4} gap="xs" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+              <Tooltip label="Back">
+                <ActionIcon variant="subtle" disabled={!nav.canBack} onClick={nav.back} aria-label="Back">
+                  ←
+                </ActionIcon>
+              </Tooltip>
+              <Button size="compact-xs" variant={t.kind === "document" ? "light" : "subtle"} onClick={() => open({ kind: "document" })}>
+                Document
+              </Button>
+              <Button size="compact-xs" variant={t.kind === "trailer" ? "light" : "subtle"} onClick={() => open({ kind: "trailer" })}>
+                Trailer
+              </Button>
+              {s.root && (
+                <Button size="compact-xs" variant="subtle" onClick={() => open({ kind: "object", id: s.root! })}>
+                  Catalog
+                </Button>
+              )}
+              {s.info_dict && (
+                <Button size="compact-xs" variant="subtle" onClick={() => open({ kind: "object", id: s.info_dict! })}>
+                  Info
+                </Button>
+              )}
+            </Group>
+            <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+              {t.kind === "document" ? (
+                <DocumentPanel />
+              ) : t.kind === "page" ? (
+                <PageView key={t.index} index={t.index} />
+              ) : (
+                <Inspector />
+              )}
             </div>
-          </Tabs>
-        </div>
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-          <Group px="sm" py={4} gap="xs" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
-            <Tooltip label="Back">
-              <ActionIcon variant="subtle" disabled={!nav.canBack} onClick={nav.back} aria-label="Back">
-                ←
-              </ActionIcon>
-            </Tooltip>
-            <Button size="compact-xs" variant="subtle" onClick={() => open({ kind: "trailer" })}>
-              Trailer
-            </Button>
-            {s.root && (
-              <Button size="compact-xs" variant="subtle" onClick={() => open({ kind: "object", id: s.root! })}>
-                Catalog
-              </Button>
-            )}
-            {s.info_dict && (
-              <Button size="compact-xs" variant="subtle" onClick={() => open({ kind: "object", id: s.info_dict! })}>
-                Info
-              </Button>
-            )}
-          </Group>
-          <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-            <Inspector />
+            <div style={{ height: 280, borderTop: "1px solid var(--mantine-color-default-border)" }}>
+              <HexView size={s.info.size} />
+            </div>
           </div>
-          <div style={{ height: 280, borderTop: "1px solid var(--mantine-color-default-border)" }}>
-            <HexView size={s.info.size} />
+          <div
+            style={{
+              width: 300,
+              flexShrink: 0,
+              borderLeft: "1px solid var(--mantine-color-default-border)",
+              overflow: "auto",
+            }}
+          >
+            <SchemaPanel />
           </div>
         </div>
-        <div
-          style={{
-            width: 300,
-            flexShrink: 0,
-            borderLeft: "1px solid var(--mantine-color-default-border)",
-            overflow: "auto",
-          }}
-        >
-          <SchemaPanel />
-        </div>
-      </div>
-    </NavContext.Provider>
+      </NavContext.Provider>
+    </DocContext.Provider>
   );
 }

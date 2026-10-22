@@ -1,12 +1,16 @@
 import { createContext, useContext } from "react";
 import type { Backend, Reply } from "./backend/backend";
 import type {
+  AnnotInfo,
   BytesInfo,
   DirListing,
   DocId,
   DocInfo,
   DocSummary,
   DiagnosticInfo,
+  DocumentView,
+  FontInfo,
+  ImageInfo,
   JobInfo,
   JobKind,
   NodePath,
@@ -16,10 +20,15 @@ import type {
   ObjRef,
   ObjectSummary,
   ObjectView,
+  OutlineItem,
   Page,
+  PageDetail,
+  PageSummary,
   Range,
+  Referrer,
   Request,
   ResponseBody,
+  XmpView,
   XrefRow,
 } from "./protocol/generated";
 
@@ -88,6 +97,28 @@ export const api = {
     (await call(b, "schema", { op: "schema", doc, root })).body,
   jobDiagnostics: async (b: Backend, job: number, range: Range, signal?: AbortSignal): Promise<Page<DiagnosticInfo>> =>
     (await call(b, "diagnostics", { op: "jobDiagnostics", job, range }, signal)).body,
+  document: async (b: Backend, doc: DocId): Promise<DocumentView> =>
+    (await call(b, "document", { op: "document", doc })).body,
+  xmp: async (b: Backend, doc: DocId, range: Range): Promise<XmpView> =>
+    (await call(b, "xmp", { op: "xmp", doc, range })).body,
+  pages: async (b: Backend, doc: DocId, range: Range, signal?: AbortSignal): Promise<Page<PageSummary>> =>
+    (await call(b, "pages", { op: "pages", doc, range }, signal)).body,
+  page: async (b: Backend, doc: DocId, index: number): Promise<PageDetail> =>
+    (await call(b, "pageDetail", { op: "page", doc, index })).body,
+  pageIndex: async (b: Backend, doc: DocId, id: ObjRef): Promise<number | null> =>
+    (await call(b, "pageIndex", { op: "pageIndex", doc, id })).body.index,
+  annotations: async (b: Backend, doc: DocId, page: number, range: Range): Promise<Page<AnnotInfo>> =>
+    (await call(b, "annotations", { op: "annotations", doc, page, range })).body,
+  outline: async (b: Backend, doc: DocId, parent: ObjRef | null, range: Range): Promise<Page<OutlineItem>> =>
+    (await call(b, "outline", { op: "outline", doc, parent, range })).body,
+  fonts: async (b: Backend, doc: DocId, range: Range, signal?: AbortSignal): Promise<Page<FontInfo>> =>
+    (await call(b, "fonts", { op: "fonts", doc, range }, signal)).body,
+  images: async (b: Backend, doc: DocId, range: Range, signal?: AbortSignal): Promise<Page<ImageInfo>> =>
+    (await call(b, "images", { op: "images", doc, range }, signal)).body,
+  referrers: async (b: Backend, doc: DocId, id: ObjRef, range: Range): Promise<Page<Referrer>> =>
+    (await call(b, "referrers", { op: "referrers", doc, id, range })).body,
+  unreferenced: async (b: Backend, doc: DocId, range: Range, signal?: AbortSignal): Promise<Page<ObjRef>> =>
+    (await call(b, "objRefs", { op: "unreferenced", doc, range }, signal)).body,
   rawBytes: async (b: Backend, doc: DocId, offset: number, len: number, signal?: AbortSignal): Promise<Bytes> =>
     bytes(await call(b, "bytes", { op: "rawBytes", doc, offset, len }, signal)),
   streamData: async (

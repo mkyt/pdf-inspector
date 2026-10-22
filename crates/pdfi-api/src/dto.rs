@@ -115,6 +115,10 @@ pub struct DocSummary {
     pub diagnostics: u64,
     /// Effective version: the header's, or the catalog's `/Version` if later.
     pub pdf_version: Option<String>,
+    /// Number of pages, by the page tree's counts.
+    pub pages: u32,
+    /// What the inventory job found, once it has run.
+    pub inventory: Option<InventoryStats>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -408,6 +412,10 @@ pub enum JobKind {
     /// trailer, or from `root` (not following `/Parent` or other pages).
     /// Issues are read with `JobDiagnostics`.
     Validate { root: Option<ObjRef> },
+    /// Scan every object and page for fonts, images and references; the
+    /// results are read with `Fonts`, `Images`, `Referrers` and
+    /// `Unreferenced`.
+    Inventory,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -450,4 +458,302 @@ pub enum JobResult {
         /// very many).
         kept: u64,
     },
+    Inventory(InventoryStats),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct InventoryStats {
+    pub objects: u64,
+    /// Objects that failed to load.
+    pub failed: u64,
+    pub pages: u64,
+    pub fonts: u64,
+    pub images: u64,
+    pub forms: u64,
+    /// Edges of the reference graph.
+    pub references: u64,
+    pub unreferenced: u64,
+}
+
+impl InventoryStats {
+    pub fn of(inv: &pdfi_model::inventory::Inventory) -> Self {
+        Self {
+            objects: inv.objects,
+            failed: inv.failed,
+            pages: inv.pages,
+            fonts: inv.fonts.len() as u64,
+            images: inv.images.len() as u64,
+            forms: inv.forms,
+            references: inv.refs.edges() as u64,
+            unreferenced: inv.unreferenced.len() as u64,
+        }
+    }
+}
+
+// ------------------------------------------------------------------ model
+
+/// A rectangle in default user space, normalized (`x0 <= x1`, `y0 <= y1`).
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct Rect {
+    pub x0: f64,
+    pub y0: f64,
+    pub x1: f64,
+    pub y1: f64,
+}
+
+/// Where a page attribute comes from.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum AttrOrigin {
+    Page,
+    /// From this ancestor in the page tree.
+    Inherited {
+        from: ObjRef,
+    },
+    /// Not given: the default value, or that of the named box.
+    Default {
+        of: String,
+    },
+    Missing,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct PageSummary {
+    /// 0-based.
+    pub index: u32,
+    pub id: Option<ObjRef>,
+    pub label: Option<String>,
+    /// The visible area (crop box clipped to the media box).
+    pub size: Option<Rect>,
+    pub rotate: i64,
+    pub annots: u32,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct PageBox {
+    pub name: String,
+    pub rect: Option<Rect>,
+    pub origin: AttrOrigin,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct ContentInfo {
+    pub id: Option<ObjRef>,
+    pub raw_len: Option<u64>,
+    pub filters: Vec<String>,
+    pub error: Option<String>,
+}
+
+/// One named resource: `/Font /F1`, `/XObject /Im3`, ...
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct ResourceItem {
+    pub category: String,
+    pub name: String,
+    pub id: Option<ObjRef>,
+    /// `Type1 Helvetica`, `Image 640×480 DeviceRGB`, ...
+    pub detail: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct PageDetail {
+    pub index: u32,
+    pub id: ObjRef,
+    pub label: Option<String>,
+    /// Page tree nodes from the root down to the page's parent.
+    pub ancestors: Vec<ObjRef>,
+    /// MediaBox, CropBox, BleedBox, TrimBox, ArtBox.
+    pub boxes: Vec<PageBox>,
+    pub rotate: i64,
+    pub rotate_origin: AttrOrigin,
+    pub user_unit: f64,
+    /// The resource dictionary, when it is an indirect object.
+    pub resources: Option<ObjRef>,
+    pub resources_origin: AttrOrigin,
+    pub resource_items: Vec<ResourceItem>,
+    pub resources_truncated: bool,
+    pub contents: Vec<ContentInfo>,
+    pub annots: u32,
+    pub issues: Vec<DiagnosticInfo>,
+}
+
+/// A destination, resolved to a page of this document where possible.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct Destination {
+    /// The name it was looked up by (named destinations).
+    pub named: Option<String>,
+    pub page: Option<ObjRef>,
+    pub page_index: Option<u32>,
+    /// Page number in another file (`GoToR`).
+    pub remote_page: Option<i64>,
+    /// `XYZ`, `Fit`, `FitH`, ...
+    pub fit: Option<String>,
+    /// Parameters after the fit type; `null` for null.
+    pub params: Vec<Option<f64>>,
+    pub error: Option<String>,
+}
+
+/// Where an outline item, link or open action goes.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum LinkTarget {
+    Dest {
+        dest: Destination,
+    },
+    Uri {
+        uri: String,
+    },
+    /// Another action, by its `/S` type.
+    Action {
+        action: String,
+        detail: Option<String>,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct OutlineItem {
+    pub id: ObjRef,
+    pub title: String,
+    /// Open descendants when positive; closed when negative.
+    pub count: Option<i64>,
+    pub has_children: bool,
+    pub link: Option<LinkTarget>,
+    /// 1 italic, 2 bold.
+    pub flags: i64,
+    /// RGB, 0..1.
+    pub color: Option<Vec<f64>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct AnnotInfo {
+    /// Position in the page's `/Annots`.
+    pub index: u32,
+    pub id: Option<ObjRef>,
+    pub subtype: Option<String>,
+    pub rect: Option<Rect>,
+    pub contents: Option<String>,
+    /// `/NM`.
+    pub name: Option<String>,
+    pub flags: i64,
+    /// Has a normal appearance stream.
+    pub appearance: bool,
+    pub link: Option<LinkTarget>,
+    /// `/Parent` of a pop-up, `/IRT` of a reply.
+    pub parent: Option<ObjRef>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct InfoEntry {
+    pub key: String,
+    pub text: String,
+    /// ISO 8601, for values that are PDF dates.
+    pub date: Option<String>,
+}
+
+/// An entry of the catalog, summarized (`AcroForm`: `3 top-level fields`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct Feature {
+    pub key: String,
+    pub text: String,
+    pub obj: Option<ObjRef>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct DocumentView {
+    pub catalog: Option<ObjRef>,
+    pub info: Option<ObjRef>,
+    pub info_entries: Vec<InfoEntry>,
+    /// The catalog's XMP metadata stream.
+    pub metadata: Option<ObjRef>,
+    pub pages: u32,
+    pub features: Vec<Feature>,
+    /// Problems of the page tree, outline and metadata (also Info / XMP
+    /// disagreements).
+    pub issues: Vec<DiagnosticInfo>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub enum XmpNodeKind {
+    Element,
+    Attribute,
+}
+
+/// A node of the XMP tree; children follow their parent with a greater
+/// `depth`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct XmpNode {
+    pub depth: u32,
+    pub kind: XmpNodeKind,
+    pub name: String,
+    pub namespace: Option<String>,
+    pub value: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct XmpProperty {
+    pub name: String,
+    pub namespace: String,
+    pub value: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct XmpView {
+    pub id: ObjRef,
+    /// Length of the decoded packet.
+    pub len: u64,
+    pub nodes: Page<XmpNode>,
+    /// The tree has more nodes than were kept.
+    pub truncated: bool,
+    pub properties: Vec<XmpProperty>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct FontInfo {
+    pub id: ObjRef,
+    pub base_font: Option<String>,
+    pub subtype: Option<String>,
+    pub encoding: Option<String>,
+    /// `FontFile`, `FontFile2`, `FontFile3/Type1C`, ...; `None`: not
+    /// embedded.
+    pub embedded: Option<String>,
+    pub font_file: Option<ObjRef>,
+    pub to_unicode: bool,
+    pub descendant: Option<ObjRef>,
+    pub subset: bool,
+    /// One of the standard 14 fonts.
+    pub standard: bool,
+    /// Pages using it through their resources.
+    pub page_count: u32,
+    /// The first of those pages (0-based).
+    pub pages: Vec<u32>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct ImageInfo {
+    pub id: ObjRef,
+    pub width: Option<i64>,
+    pub height: Option<i64>,
+    pub bits: Option<i64>,
+    pub color_space: Option<String>,
+    pub filters: Vec<String>,
+    pub raw_len: u64,
+    pub image_mask: bool,
+    pub smask: Option<ObjRef>,
+    pub mask: bool,
+    pub interpolate: bool,
+    pub page_count: u32,
+    pub pages: Vec<u32>,
+}
+
+/// An object (or the trailer) that refers to another one.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct Referrer {
+    pub from: NodeRoot,
+    /// Schema type, or `/Type`.
+    pub type_name: Option<String>,
+    /// Where in it: `/Resources/Font/F1`, ...
+    pub paths: Vec<String>,
 }

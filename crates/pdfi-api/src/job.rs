@@ -6,6 +6,7 @@ use std::io::Read;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+use pdfi_model::inventory::Builder;
 use pdfi_schema::{Severity, Walk};
 use pdfi_syntax::{ObjId, ObjLocation, Object};
 
@@ -64,6 +65,8 @@ impl<T: Executor + ?Sized> Executor for Arc<T> {
 const STEP: usize = 256;
 /// Objects validated per step (each may load what it refers to).
 const VALIDATE_STEP: usize = 32;
+/// Pages scanned per inventory step.
+const PAGE_STEP: usize = 32;
 /// Issues a validation job keeps for `JobDiagnostics`.
 const MAX_KEPT: usize = 100_000;
 
@@ -79,6 +82,8 @@ pub(crate) struct Job {
 enum Work {
     Check(CheckWork),
     Validate(ValidateWork),
+    /// `None` once finished.
+    Inventory(Option<Builder>),
 }
 
 struct ValidateWork {
@@ -128,10 +133,12 @@ impl Job {
                     counts: [0; 3],
                 })
             }
+            JobKind::Inventory => Work::Inventory(Some(Builder::new(&doc.model.on(&doc.file)))),
         };
         let total = match &work {
             Work::Check(w) => w.ids.len() as u64,
             Work::Validate(w) => w.walk.pending() as u64,
+            Work::Inventory(b) => b.as_ref().map_or(0, Builder::total),
         };
         Self {
             info: Mutex::new(JobInfo {
@@ -185,6 +192,10 @@ impl Job {
             Work::Validate(w) => {
                 let (done, total, r) = self.validate_step(w);
                 (done, Some(total), r)
+            }
+            Work::Inventory(b) => {
+                let (done, r) = self.inventory_step(b);
+                (done, None, r)
             }
         };
         drop(work);
@@ -261,6 +272,21 @@ impl Job {
             kept,
         };
         (done, total, Some(result))
+    }
+
+    fn inventory_step(&self, b: &mut Option<Builder>) -> (u64, Option<JobResult>) {
+        let d = &self.doc;
+        let Some(w) = b else {
+            return (0, None);
+        };
+        if w.step(&d.model.on(&d.file), STEP, PAGE_STEP) {
+            return (w.done(), None);
+        }
+        let done = w.done();
+        let inv = b.take().expect("builder").finish();
+        let result = JobResult::Inventory(crate::dto::InventoryStats::of(&inv));
+        *lock(&d.inventory) = Some(Arc::new(inv));
+        (done, Some(result))
     }
 
     fn check_step(&self, w: &mut CheckWork) -> (u64, Option<JobResult>) {

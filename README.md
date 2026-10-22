@@ -8,11 +8,12 @@ PDF の内部構造を調べ、編集するためのツール群。設計は [do
 |---|---|
 | `crates/pdfi-syntax` | ByteSource、lexer / parser、xref（table / stream / hybrid / Prev チェーン）、ObjStm、filters、暗号（RC4 / AES-128 / AES-256）、破損時の復旧、書き出し |
 | `crates/pdfi-schema` | Arlington PDF Model（`schema/arlington/` に vendoring）を build 時に静的テーブル化。参照を辿る型推論と validation |
+| `crates/pdfi-model` | 意味層: ページ（`/Count` による index 引き・継承属性とその出所・ボックス・ラベル）、Info / XMP（不一致の検出）、しおり、注釈、リンク先、フォント・画像・被参照グラフのインベントリ（ジョブ） |
 | `crates/pdfi-api` | フロントとの境界。`Session` が `Request` → `Response` / `Event` を処理（範囲 API、ジョブ、Batch、バイナリ別フレーム）。TS 型を生成 |
 | `crates/pdfi-server` | `pdfi serve` のローカルサーバー（axum + WebSocket、Web UI 内蔵、トークン / Host / Origin / 許可ルート検査） |
 | `crates/pdfi-wasm` | ブラウザ完結モード用の wasm バインディング（Worker から `Session` を駆動、Blob から直接読む） |
 | `crates/pdfi-cli` | `pdfi` コマンド |
-| `apps/web` | Web UI（Vite + React + Mantine）。オブジェクト一覧・ツリー・hex・ストリーム表示、スキーマ型・キー定義・問題の表示と検証ジョブ。サーバー / ブラウザ完結の両モード |
+| `apps/web` | Web UI（Vite + React + Mantine）。Document / Pages / Outline / Fonts / Images 画面、オブジェクト一覧・ツリー・hex・ストリーム表示、被参照一覧、スキーマ型・キー定義・問題の表示と検証ジョブ。サーバー / ブラウザ完結の両モード |
 
 ## 使い方
 
@@ -24,6 +25,11 @@ target/release/pdfi obj file.pdf 12 [0]
 target/release/pdfi stream file.pdf 12 [--raw] [-o out.bin]
 target/release/pdfi check file.pdf [--decode] [-v]
 target/release/pdfi validate file.pdf [--obj N] [-v]   # Arlington PDF Model で検証
+target/release/pdfi pages file.pdf [--from N] [--count M]
+target/release/pdfi page file.pdf N                    # 継承属性・ボックス・リソース・注釈
+target/release/pdfi outline file.pdf
+target/release/pdfi meta file.pdf                      # Info / XMP / カタログ
+target/release/pdfi inventory file.pdf [--refs N]      # フォント・画像（--refs: N を参照するオブジェクト）
 target/release/pdfi rewrite in.pdf out.pdf [--reserialize]
 ```
 

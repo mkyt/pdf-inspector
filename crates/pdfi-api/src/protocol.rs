@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 2;
+pub const PROTOCOL_VERSION: u32 = 3;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct ClientMessage {
@@ -68,6 +68,60 @@ pub enum Request {
     Schema {
         doc: DocId,
         root: NodeRoot,
+    },
+    /// Info, XMP, page count and what the catalog declares.
+    Document {
+        doc: DocId,
+    },
+    /// The catalog's XMP metadata: properties and a page of the tree.
+    Xmp {
+        doc: DocId,
+        range: Range,
+    },
+    Pages {
+        doc: DocId,
+        range: Range,
+    },
+    /// One page (0-based) with its inherited attributes resolved.
+    Page {
+        doc: DocId,
+        index: u32,
+    },
+    /// Index of a page object (`None` if it is not a page of the tree).
+    PageIndex {
+        doc: DocId,
+        id: ObjRef,
+    },
+    Annotations {
+        doc: DocId,
+        page: u32,
+        range: Range,
+    },
+    /// Outline items under `parent` (`None`: the top level).
+    Outline {
+        doc: DocId,
+        parent: Option<ObjRef>,
+        range: Range,
+    },
+    /// Fonts found by the `Inventory` job (`NotReady` before it ran).
+    Fonts {
+        doc: DocId,
+        range: Range,
+    },
+    Images {
+        doc: DocId,
+        range: Range,
+    },
+    /// Objects referring to `id` (needs the inventory).
+    Referrers {
+        doc: DocId,
+        id: ObjRef,
+        range: Range,
+    },
+    /// Live objects nothing refers to (needs the inventory).
+    Unreferenced {
+        doc: DocId,
+        range: Range,
     },
     RawBytes {
         doc: DocId,
@@ -128,6 +182,17 @@ pub enum ResponseBody {
     Xref(Page<XrefRow>),
     Diagnostics(Page<DiagnosticInfo>),
     Schema(ObjectSchema),
+    Document(DocumentView),
+    Xmp(XmpView),
+    Pages(Page<PageSummary>),
+    PageDetail(PageDetail),
+    PageIndex { index: Option<u32> },
+    Annotations(Page<AnnotInfo>),
+    Outline(Page<OutlineItem>),
+    Fonts(Page<FontInfo>),
+    Images(Page<ImageInfo>),
+    Referrers(Page<Referrer>),
+    ObjRefs(Page<ObjRef>),
     Bytes(BytesInfo),
     Job(JobInfo),
     Batch { responses: Vec<Response> },
@@ -154,6 +219,8 @@ pub enum ErrorCode {
     Forbidden,
     Unsupported,
     TooLarge,
+    /// Needs a job to run first (the inventory).
+    NotReady,
     Io,
     Parse,
     Cancelled,

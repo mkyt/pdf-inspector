@@ -5,17 +5,20 @@ import { bytesAsText, objText, spanText, valueText } from "../format";
 import { useNav } from "../nav";
 import type { NodeRoot, ObjRef, ObjectView, Span } from "../protocol/generated";
 import { severityColor } from "./DiagnosticsPanel";
+import { ImagePreview } from "./ImagePreview";
 import { IssueList } from "./Issues";
+import { Referrers } from "./Referrers";
 import { StreamPanel } from "./StreamPanel";
 import { NodeChildren } from "./Tree";
 
 /** Source bytes shown in the "Source" tab. */
 const MAX_SOURCE = 1 << 20;
 
+/** The trailer or an object: structure, schema type, stream data, source. */
 export function Inspector() {
   const nav = useNav();
   const t = nav.target;
-  if (t.kind === "trailer") {
+  if (t.kind !== "object") {
     return (
       <Stack p="sm" gap="xs">
         <Group gap="sm">
@@ -77,6 +80,9 @@ function ObjectInspector({ id }: { id: ObjRef }) {
         </Alert>
       ))}
       <SchemaIssues root={{ kind: "object", id: o.id }} />
+      {o.value.type === "dict" && o.value.type_name === "Page" && <PageLink id={o.id} />}
+      <Referrers id={o.id} />
+      {o.stream && <ImagePreview id={o.id} info={o.stream} />}
       <Tabs defaultValue="structure" keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="structure">Structure</Tabs.Tab>
@@ -96,6 +102,30 @@ function ObjectInspector({ id }: { id: ObjRef }) {
         </Tabs.Panel>
       </Tabs>
     </Stack>
+  );
+}
+
+/** For page objects: open the page view. */
+function PageLink({ id }: { id: ObjRef }) {
+  const backend = useBackend();
+  const nav = useNav();
+  const q = useQuery({
+    queryKey: ["doc", nav.doc, "pageIndex", id.num, id.generation],
+    queryFn: () => api.pageIndex(backend, nav.doc, id),
+  });
+  if (q.data === undefined) return null;
+  if (q.data === null) {
+    return (
+      <Text size="xs" c="orange">
+        A /Page that the page tree does not reach.
+      </Text>
+    );
+  }
+  const index = q.data;
+  return (
+    <Anchor size="xs" onClick={() => nav.open({ kind: "page", index })}>
+      Page {index + 1} of the document →
+    </Anchor>
   );
 }
 

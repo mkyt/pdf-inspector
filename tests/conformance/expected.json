@@ -5,7 +5,7 @@
       "ok": {
         "backend": null,
         "filesystem": null,
-        "protocol": 2,
+        "protocol": 3,
         "type": "hello",
         "version": "0.1.0"
       }
@@ -16,7 +16,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 999, backend speaks 2"
+        "message": "client speaks protocol 999, backend speaks 3"
       }
     }
   },
@@ -37,8 +37,10 @@
           "generation": 0,
           "num": 7
         },
+        "inventory": null,
         "live_objects": 11,
         "object_slots": 13,
+        "pages": 3,
         "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
@@ -81,8 +83,10 @@
           "generation": 0,
           "num": 7
         },
+        "inventory": null,
         "live_objects": 11,
         "object_slots": 13,
+        "pages": 3,
         "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
@@ -1273,8 +1277,10 @@
           "generation": 0,
           "num": 8
         },
+        "inventory": null,
         "live_objects": 13,
         "object_slots": 14,
+        "pages": 3,
         "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
@@ -1609,8 +1615,10 @@
           "generation": 0,
           "num": 2
         },
+        "inventory": null,
         "live_objects": 12,
         "object_slots": 13,
+        "pages": 3,
         "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
@@ -1662,8 +1670,10 @@
           "generation": 0,
           "num": 2
         },
+        "inventory": null,
         "live_objects": 12,
         "object_slots": 13,
+        "pages": 3,
         "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
@@ -1762,8 +1772,10 @@
           "generation": 0,
           "num": 2
         },
+        "inventory": null,
         "live_objects": 12,
         "object_slots": 13,
+        "pages": 3,
         "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
@@ -1826,8 +1838,10 @@
           "generation": 0,
           "num": 7
         },
+        "inventory": null,
         "live_objects": 12,
         "object_slots": 15,
+        "pages": 3,
         "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
@@ -1881,8 +1895,10 @@
           "generation": 0,
           "num": 7
         },
+        "inventory": null,
         "live_objects": 12,
         "object_slots": 15,
+        "pages": 3,
         "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
@@ -2088,8 +2104,10 @@
           "generation": 0,
           "num": 7
         },
+        "inventory": null,
         "live_objects": 11,
         "object_slots": 13,
+        "pages": 3,
         "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
@@ -2132,8 +2150,10 @@
           "generation": 0,
           "num": 7
         },
+        "inventory": null,
         "live_objects": 11,
         "object_slots": 13,
+        "pages": 3,
         "pdf_version": "1.7",
         "recovered": false,
         "revisions": [
@@ -2196,8 +2216,10 @@
           "generation": 0,
           "num": 7
         },
+        "inventory": null,
         "live_objects": 11,
         "object_slots": 13,
+        "pages": 3,
         "pdf_version": "1.7",
         "recovered": true,
         "revisions": [
@@ -2240,8 +2262,10 @@
           "generation": 0,
           "num": 7
         },
+        "inventory": null,
         "live_objects": 11,
         "object_slots": 13,
+        "pages": 3,
         "pdf_version": "1.7",
         "recovered": true,
         "revisions": [
@@ -2865,8 +2889,10 @@
           "generation": 0,
           "num": 4
         },
+        "inventory": null,
         "live_objects": 4,
         "object_slots": 5,
+        "pages": 1,
         "pdf_version": "1.3",
         "recovered": false,
         "revisions": [
@@ -2909,8 +2935,10 @@
           "generation": 0,
           "num": 4
         },
+        "inventory": null,
         "live_objects": 4,
         "object_slots": 5,
+        "pages": 1,
         "pdf_version": "1.3",
         "recovered": false,
         "revisions": [
@@ -3654,6 +3682,1640 @@
     "blobs": [],
     "response": {
       "ok": {
+        "diagnostics": 0,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 9,
+          "name": "model.pdf",
+          "path": null,
+          "size": 7314
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 80
+        },
+        "inventory": null,
+        "live_objects": 40,
+        "object_slots": 91,
+        "pages": 5,
+        "pdf_version": "1.7",
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 91,
+            "index": 0,
+            "kind": "table",
+            "offset": 5415,
+            "span": {
+              "end": 7292,
+              "start": 5415
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 91
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 0,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 9,
+          "name": "model.pdf",
+          "path": null,
+          "size": 7314
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 80
+        },
+        "inventory": null,
+        "live_objects": 40,
+        "object_slots": 91,
+        "pages": 5,
+        "pdf_version": "1.7",
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 91,
+            "index": 0,
+            "kind": "table",
+            "offset": 5415,
+            "span": {
+              "end": 7292,
+              "start": 5415
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 91
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "catalog": {
+          "generation": 0,
+          "num": 1
+        },
+        "features": [
+          {
+            "key": "Outlines",
+            "obj": {
+              "generation": 0,
+              "num": 30
+            },
+            "text": "2 top-level items"
+          },
+          {
+            "key": "PageMode",
+            "obj": null,
+            "text": "/UseOutlines"
+          },
+          {
+            "key": "Lang",
+            "obj": null,
+            "text": "en"
+          },
+          {
+            "key": "PageLabels",
+            "obj": null,
+            "text": "2 ranges"
+          },
+          {
+            "key": "Names/Dests",
+            "obj": {
+              "generation": 0,
+              "num": 40
+            },
+            "text": "2 entries"
+          },
+          {
+            "key": "OpenAction",
+            "obj": null,
+            "text": "page 1"
+          }
+        ],
+        "info": {
+          "generation": 0,
+          "num": 80
+        },
+        "info_entries": [
+          {
+            "date": null,
+            "key": "Title",
+            "text": "Model fixture"
+          },
+          {
+            "date": null,
+            "key": "Author",
+            "text": "pdf-inspector"
+          },
+          {
+            "date": null,
+            "key": "Producer",
+            "text": "make.sh"
+          },
+          {
+            "date": "2024-01-31T12:34:56+09:00",
+            "key": "CreationDate",
+            "text": "D:20240131123456+09'00'"
+          },
+          {
+            "date": "2024-02-01T00:00:00Z",
+            "key": "ModDate",
+            "text": "D:20240201000000Z"
+          },
+          {
+            "date": null,
+            "key": "Trapped",
+            "text": "/False"
+          }
+        ],
+        "issues": [
+          {
+            "code": "InfoXmp",
+            "message": "/Info /Producer (make.sh) differs from XMP pdf:Producer (something else)",
+            "obj": {
+              "generation": 0,
+              "num": 50
+            },
+            "path": null,
+            "severity": "warning",
+            "span": null
+          },
+          {
+            "code": "InfoXmp",
+            "message": "/Info /ModDate (D:20240201000000Z) differs from XMP xmp:ModifyDate (2024-02-02T00:00:00Z)",
+            "obj": {
+              "generation": 0,
+              "num": 50
+            },
+            "path": null,
+            "severity": "warning",
+            "span": null
+          },
+          {
+            "code": "PageTree",
+            "message": "page tree node 4 0 has no valid /Count",
+            "obj": {
+              "generation": 0,
+              "num": 4
+            },
+            "path": null,
+            "severity": "warning",
+            "span": null
+          }
+        ],
+        "metadata": {
+          "generation": 0,
+          "num": 50
+        },
+        "pages": 5,
+        "type": "document"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "error": null,
+        "id": {
+          "generation": 0,
+          "num": 50
+        },
+        "len": 600,
+        "nodes": {
+          "items": [
+            {
+              "depth": 0,
+              "kind": "element",
+              "name": "x:xmpmeta",
+              "namespace": "adobe:ns:meta/",
+              "value": null
+            },
+            {
+              "depth": 1,
+              "kind": "element",
+              "name": "rdf:RDF",
+              "namespace": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+              "value": null
+            },
+            {
+              "depth": 2,
+              "kind": "element",
+              "name": "rdf:Description",
+              "namespace": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+              "value": null
+            },
+            {
+              "depth": 3,
+              "kind": "attribute",
+              "name": "rdf:about",
+              "namespace": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+              "value": ""
+            },
+            {
+              "depth": 3,
+              "kind": "attribute",
+              "name": "pdf:Producer",
+              "namespace": "http://ns.adobe.com/pdf/1.3/",
+              "value": "something else"
+            },
+            {
+              "depth": 3,
+              "kind": "element",
+              "name": "dc:title",
+              "namespace": "http://purl.org/dc/elements/1.1/",
+              "value": null
+            },
+            {
+              "depth": 4,
+              "kind": "element",
+              "name": "rdf:Alt",
+              "namespace": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+              "value": null
+            },
+            {
+              "depth": 5,
+              "kind": "element",
+              "name": "rdf:li",
+              "namespace": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+              "value": "Model fixture"
+            },
+            {
+              "depth": 6,
+              "kind": "attribute",
+              "name": "xml:lang",
+              "namespace": "http://www.w3.org/XML/1998/namespace",
+              "value": "x-default"
+            },
+            {
+              "depth": 3,
+              "kind": "element",
+              "name": "xmp:CreateDate",
+              "namespace": "http://ns.adobe.com/xap/1.0/",
+              "value": "2024-01-31T03:34:56Z"
+            },
+            {
+              "depth": 3,
+              "kind": "element",
+              "name": "xmp:ModifyDate",
+              "namespace": "http://ns.adobe.com/xap/1.0/",
+              "value": "2024-02-02T00:00:00Z"
+            }
+          ],
+          "offset": 0,
+          "total": 11
+        },
+        "properties": [
+          {
+            "name": "pdf:Producer",
+            "namespace": "http://ns.adobe.com/pdf/1.3/",
+            "value": "something else"
+          },
+          {
+            "name": "dc:title",
+            "namespace": "http://purl.org/dc/elements/1.1/",
+            "value": "Model fixture"
+          },
+          {
+            "name": "xmp:CreateDate",
+            "namespace": "http://ns.adobe.com/xap/1.0/",
+            "value": "2024-01-31T03:34:56Z"
+          },
+          {
+            "name": "xmp:ModifyDate",
+            "namespace": "http://ns.adobe.com/xap/1.0/",
+            "value": "2024-02-02T00:00:00Z"
+          }
+        ],
+        "truncated": false,
+        "type": "xmp"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "annots": 4,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 10
+            },
+            "index": 0,
+            "label": "i",
+            "rotate": 90,
+            "size": {
+              "x0": 10.0,
+              "x1": 602.0,
+              "y0": 10.0,
+              "y1": 782.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 11
+            },
+            "index": 1,
+            "label": "ii",
+            "rotate": 90,
+            "size": {
+              "x0": 10.0,
+              "x1": 602.0,
+              "y0": 10.0,
+              "y1": 782.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 12
+            },
+            "index": 2,
+            "label": "A-1",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 300.0,
+              "y0": 0.0,
+              "y1": 300.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 13
+            },
+            "index": 3,
+            "label": "A-2",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 14
+            },
+            "index": 4,
+            "label": "A-3",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          }
+        ],
+        "offset": 0,
+        "total": 5,
+        "type": "pages"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "ancestors": [
+          {
+            "generation": 0,
+            "num": 2
+          },
+          {
+            "generation": 0,
+            "num": 3
+          }
+        ],
+        "annots": 0,
+        "boxes": [
+          {
+            "name": "MediaBox",
+            "origin": {
+              "from": {
+                "generation": 0,
+                "num": 2
+              },
+              "kind": "inherited"
+            },
+            "rect": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "name": "CropBox",
+            "origin": {
+              "from": {
+                "generation": 0,
+                "num": 3
+              },
+              "kind": "inherited"
+            },
+            "rect": {
+              "x0": 10.0,
+              "x1": 602.0,
+              "y0": 10.0,
+              "y1": 782.0
+            }
+          },
+          {
+            "name": "BleedBox",
+            "origin": {
+              "kind": "default",
+              "of": "CropBox"
+            },
+            "rect": {
+              "x0": 10.0,
+              "x1": 602.0,
+              "y0": 10.0,
+              "y1": 782.0
+            }
+          },
+          {
+            "name": "TrimBox",
+            "origin": {
+              "kind": "default",
+              "of": "CropBox"
+            },
+            "rect": {
+              "x0": 10.0,
+              "x1": 602.0,
+              "y0": 10.0,
+              "y1": 782.0
+            }
+          },
+          {
+            "name": "ArtBox",
+            "origin": {
+              "kind": "default",
+              "of": "CropBox"
+            },
+            "rect": {
+              "x0": 10.0,
+              "x1": 602.0,
+              "y0": 10.0,
+              "y1": 782.0
+            }
+          }
+        ],
+        "contents": [
+          {
+            "error": null,
+            "filters": [
+              "FlateDecode"
+            ],
+            "id": {
+              "generation": 0,
+              "num": 16
+            },
+            "raw_len": 39
+          }
+        ],
+        "id": {
+          "generation": 0,
+          "num": 11
+        },
+        "index": 1,
+        "issues": [],
+        "label": "ii",
+        "resource_items": [
+          {
+            "category": "Font",
+            "detail": "Type1 Helvetica",
+            "id": {
+              "generation": 0,
+              "num": 20
+            },
+            "name": "F1"
+          },
+          {
+            "category": "Font",
+            "detail": "TrueType ABCDEF+Embedded",
+            "id": {
+              "generation": 0,
+              "num": 21
+            },
+            "name": "F2"
+          }
+        ],
+        "resources": null,
+        "resources_origin": {
+          "from": {
+            "generation": 0,
+            "num": 2
+          },
+          "kind": "inherited"
+        },
+        "resources_truncated": false,
+        "rotate": 90,
+        "rotate_origin": {
+          "from": {
+            "generation": 0,
+            "num": 3
+          },
+          "kind": "inherited"
+        },
+        "type": "pageDetail",
+        "user_unit": 1.0
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "ancestors": [
+          {
+            "generation": 0,
+            "num": 2
+          },
+          {
+            "generation": 0,
+            "num": 4
+          }
+        ],
+        "annots": 0,
+        "boxes": [
+          {
+            "name": "MediaBox",
+            "origin": {
+              "from": {
+                "generation": 0,
+                "num": 2
+              },
+              "kind": "inherited"
+            },
+            "rect": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "name": "CropBox",
+            "origin": {
+              "kind": "default",
+              "of": "MediaBox"
+            },
+            "rect": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "name": "BleedBox",
+            "origin": {
+              "kind": "default",
+              "of": "CropBox"
+            },
+            "rect": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "name": "TrimBox",
+            "origin": {
+              "kind": "default",
+              "of": "CropBox"
+            },
+            "rect": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "name": "ArtBox",
+            "origin": {
+              "kind": "default",
+              "of": "CropBox"
+            },
+            "rect": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          }
+        ],
+        "contents": [
+          {
+            "error": null,
+            "filters": [],
+            "id": {
+              "generation": 0,
+              "num": 18
+            },
+            "raw_len": 11
+          },
+          {
+            "error": null,
+            "filters": [],
+            "id": {
+              "generation": 0,
+              "num": 19
+            },
+            "raw_len": 19
+          }
+        ],
+        "id": {
+          "generation": 0,
+          "num": 13
+        },
+        "index": 3,
+        "issues": [
+          {
+            "code": "Rotate",
+            "message": "/Rotate 45 is not a multiple of 90",
+            "obj": {
+              "generation": 0,
+              "num": 13
+            },
+            "path": null,
+            "severity": "error",
+            "span": null
+          }
+        ],
+        "label": "A-2",
+        "resource_items": [
+          {
+            "category": "Font",
+            "detail": "Type1 Helvetica",
+            "id": {
+              "generation": 0,
+              "num": 20
+            },
+            "name": "F1"
+          },
+          {
+            "category": "Font",
+            "detail": "TrueType ABCDEF+Embedded",
+            "id": {
+              "generation": 0,
+              "num": 21
+            },
+            "name": "F2"
+          }
+        ],
+        "resources": null,
+        "resources_origin": {
+          "from": {
+            "generation": 0,
+            "num": 2
+          },
+          "kind": "inherited"
+        },
+        "resources_truncated": false,
+        "rotate": 0,
+        "rotate_origin": {
+          "kind": "page"
+        },
+        "type": "pageDetail",
+        "user_unit": 1.0
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "ancestors": [
+          {
+            "generation": 0,
+            "num": 2
+          },
+          {
+            "generation": 0,
+            "num": 4
+          }
+        ],
+        "annots": 0,
+        "boxes": [
+          {
+            "name": "MediaBox",
+            "origin": {
+              "from": {
+                "generation": 0,
+                "num": 2
+              },
+              "kind": "inherited"
+            },
+            "rect": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "name": "CropBox",
+            "origin": {
+              "kind": "default",
+              "of": "MediaBox"
+            },
+            "rect": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "name": "BleedBox",
+            "origin": {
+              "kind": "default",
+              "of": "CropBox"
+            },
+            "rect": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "name": "TrimBox",
+            "origin": {
+              "kind": "default",
+              "of": "CropBox"
+            },
+            "rect": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "name": "ArtBox",
+            "origin": {
+              "kind": "default",
+              "of": "CropBox"
+            },
+            "rect": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          }
+        ],
+        "contents": [],
+        "id": {
+          "generation": 0,
+          "num": 14
+        },
+        "index": 4,
+        "issues": [],
+        "label": "A-3",
+        "resource_items": [
+          {
+            "category": "Font",
+            "detail": "Type1 Helvetica",
+            "id": {
+              "generation": 0,
+              "num": 20
+            },
+            "name": "F1"
+          },
+          {
+            "category": "Font",
+            "detail": "Type0 CIDFont-Identity",
+            "id": {
+              "generation": 0,
+              "num": 25
+            },
+            "name": "F4"
+          },
+          {
+            "category": "XObject",
+            "detail": "Image 2×2 DeviceRGB",
+            "id": {
+              "generation": 0,
+              "num": 60
+            },
+            "name": "Im1"
+          },
+          {
+            "category": "XObject",
+            "detail": "Form",
+            "id": {
+              "generation": 0,
+              "num": 64
+            },
+            "name": "Fm1"
+          }
+        ],
+        "resources": null,
+        "resources_origin": {
+          "kind": "page"
+        },
+        "resources_truncated": false,
+        "rotate": 0,
+        "rotate_origin": {
+          "kind": "default",
+          "of": "0"
+        },
+        "type": "pageDetail",
+        "user_unit": 1.0
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "notFound",
+        "message": "no page 99; the document has 5"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "index": 2,
+        "type": "pageIndex"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "index": null,
+        "type": "pageIndex"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "appearance": false,
+            "contents": null,
+            "error": null,
+            "flags": 0,
+            "id": null,
+            "index": 0,
+            "link": {
+              "dest": {
+                "error": null,
+                "fit": "XYZ",
+                "named": null,
+                "page": {
+                  "generation": 0,
+                  "num": 12
+                },
+                "page_index": 2,
+                "params": [
+                  0.0,
+                  792.0,
+                  null
+                ],
+                "remote_page": null
+              },
+              "kind": "dest"
+            },
+            "name": null,
+            "parent": null,
+            "rect": {
+              "x0": 72.0,
+              "x1": 200.0,
+              "y0": 700.0,
+              "y1": 720.0
+            },
+            "subtype": "Link"
+          },
+          {
+            "appearance": false,
+            "contents": null,
+            "error": null,
+            "flags": 0,
+            "id": {
+              "generation": 0,
+              "num": 70
+            },
+            "index": 1,
+            "link": {
+              "kind": "uri",
+              "uri": "https://example.com/"
+            },
+            "name": null,
+            "parent": null,
+            "rect": {
+              "x0": 72.0,
+              "x1": 200.0,
+              "y0": 650.0,
+              "y1": 670.0
+            },
+            "subtype": "Link"
+          },
+          {
+            "appearance": false,
+            "contents": "Note",
+            "error": null,
+            "flags": 4,
+            "id": {
+              "generation": 0,
+              "num": 71
+            },
+            "index": 2,
+            "link": null,
+            "name": "note-1",
+            "parent": null,
+            "rect": {
+              "x0": 300.0,
+              "x1": 320.0,
+              "y0": 700.0,
+              "y1": 720.0
+            },
+            "subtype": "Text"
+          },
+          {
+            "appearance": false,
+            "contents": null,
+            "error": null,
+            "flags": 0,
+            "id": {
+              "generation": 0,
+              "num": 72
+            },
+            "index": 3,
+            "link": null,
+            "name": null,
+            "parent": {
+              "generation": 0,
+              "num": 71
+            },
+            "rect": {
+              "x0": 320.0,
+              "x1": 500.0,
+              "y0": 600.0,
+              "y1": 700.0
+            },
+            "subtype": "Popup"
+          }
+        ],
+        "offset": 0,
+        "total": 4,
+        "type": "annotations"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "color": null,
+            "count": 1,
+            "flags": 0,
+            "has_children": true,
+            "id": {
+              "generation": 0,
+              "num": 31
+            },
+            "link": {
+              "dest": {
+                "error": null,
+                "fit": "Fit",
+                "named": "chap1",
+                "page": {
+                  "generation": 0,
+                  "num": 10
+                },
+                "page_index": 0,
+                "params": [],
+                "remote_page": null
+              },
+              "kind": "dest"
+            },
+            "title": "Chapter 1"
+          },
+          {
+            "color": null,
+            "count": null,
+            "flags": 0,
+            "has_children": false,
+            "id": {
+              "generation": 0,
+              "num": 33
+            },
+            "link": {
+              "kind": "uri",
+              "uri": "https://example.com/"
+            },
+            "title": "Web"
+          }
+        ],
+        "offset": 0,
+        "total": 2,
+        "type": "outline"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "color": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "count": null,
+            "flags": 2,
+            "has_children": false,
+            "id": {
+              "generation": 0,
+              "num": 32
+            },
+            "link": {
+              "dest": {
+                "error": null,
+                "fit": "FitH",
+                "named": null,
+                "page": {
+                  "generation": 0,
+                  "num": 11
+                },
+                "page_index": 1,
+                "params": [
+                  700.0
+                ],
+                "remote_page": null
+              },
+              "kind": "dest"
+            },
+            "title": "Section 1.1"
+          }
+        ],
+        "offset": 0,
+        "total": 1,
+        "type": "outline"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "notReady",
+        "message": "the inventory has not been built; run the inventory job"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "events": [
+      {
+        "doc": 9,
+        "done": 40,
+        "job": 7,
+        "total": 45,
+        "type": "jobProgress"
+      },
+      {
+        "info": {
+          "doc": 9,
+          "done": 45,
+          "job": 7,
+          "kind": {
+            "kind": "inventory"
+          },
+          "result": {
+            "failed": 0,
+            "fonts": 5,
+            "forms": 1,
+            "images": 3,
+            "kind": "inventory",
+            "objects": 40,
+            "pages": 5,
+            "references": 60,
+            "unreferenced": 1
+          },
+          "state": "completed",
+          "total": 45
+        },
+        "type": "jobDone"
+      }
+    ],
+    "response": {
+      "ok": {
+        "doc": 9,
+        "done": 0,
+        "job": 7,
+        "kind": {
+          "kind": "inventory"
+        },
+        "result": null,
+        "state": "running",
+        "total": 45,
+        "type": "job"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "base_font": "Helvetica",
+            "descendant": null,
+            "embedded": null,
+            "encoding": "/WinAnsiEncoding",
+            "font_file": null,
+            "id": {
+              "generation": 0,
+              "num": 20
+            },
+            "page_count": 5,
+            "pages": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "standard": true,
+            "subset": false,
+            "subtype": "Type1",
+            "to_unicode": false
+          },
+          {
+            "base_font": "ABCDEF+Embedded",
+            "descendant": null,
+            "embedded": "FontFile2",
+            "encoding": "/WinAnsiEncoding + Differences",
+            "font_file": {
+              "generation": 0,
+              "num": 23
+            },
+            "id": {
+              "generation": 0,
+              "num": 21
+            },
+            "page_count": 4,
+            "pages": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "standard": false,
+            "subset": true,
+            "subtype": "TrueType",
+            "to_unicode": true
+          },
+          {
+            "base_font": "CIDFont-Identity",
+            "descendant": {
+              "generation": 0,
+              "num": 26
+            },
+            "embedded": "FontFile2",
+            "encoding": "/Identity-H",
+            "font_file": {
+              "generation": 0,
+              "num": 23
+            },
+            "id": {
+              "generation": 0,
+              "num": 25
+            },
+            "page_count": 1,
+            "pages": [
+              4
+            ],
+            "standard": false,
+            "subset": false,
+            "subtype": "Type0",
+            "to_unicode": false
+          },
+          {
+            "base_font": "CIDFont",
+            "descendant": null,
+            "embedded": "FontFile2",
+            "encoding": null,
+            "font_file": {
+              "generation": 0,
+              "num": 23
+            },
+            "id": {
+              "generation": 0,
+              "num": 26
+            },
+            "page_count": 0,
+            "pages": [],
+            "standard": false,
+            "subset": false,
+            "subtype": "CIDFontType2",
+            "to_unicode": false
+          },
+          {
+            "base_font": "Courier",
+            "descendant": null,
+            "embedded": null,
+            "encoding": null,
+            "font_file": null,
+            "id": {
+              "generation": 0,
+              "num": 28
+            },
+            "page_count": 1,
+            "pages": [
+              4
+            ],
+            "standard": true,
+            "subset": false,
+            "subtype": "Type1",
+            "to_unicode": false
+          }
+        ],
+        "offset": 0,
+        "total": 5,
+        "type": "fonts"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "bits": 8,
+            "color_space": "DeviceRGB",
+            "filters": [],
+            "height": 2,
+            "id": {
+              "generation": 0,
+              "num": 60
+            },
+            "image_mask": false,
+            "interpolate": false,
+            "mask": false,
+            "page_count": 1,
+            "pages": [
+              4
+            ],
+            "raw_len": 12,
+            "smask": null,
+            "width": 2
+          },
+          {
+            "bits": 8,
+            "color_space": "ICCBased (3)",
+            "filters": [],
+            "height": 1,
+            "id": {
+              "generation": 0,
+              "num": 61
+            },
+            "image_mask": false,
+            "interpolate": true,
+            "mask": false,
+            "page_count": 1,
+            "pages": [
+              4
+            ],
+            "raw_len": 3,
+            "smask": {
+              "generation": 0,
+              "num": 63
+            },
+            "width": 1
+          },
+          {
+            "bits": 8,
+            "color_space": "DeviceGray",
+            "filters": [],
+            "height": 1,
+            "id": {
+              "generation": 0,
+              "num": 63
+            },
+            "image_mask": false,
+            "interpolate": false,
+            "mask": false,
+            "page_count": 0,
+            "pages": [],
+            "raw_len": 1,
+            "smask": null,
+            "width": 1
+          }
+        ],
+        "offset": 0,
+        "total": 3,
+        "type": "images"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "from": {
+              "id": {
+                "generation": 0,
+                "num": 2
+              },
+              "kind": "object"
+            },
+            "paths": [
+              "/Kids[1]"
+            ],
+            "type_name": "PageTreeNodeRoot"
+          },
+          {
+            "from": {
+              "id": {
+                "generation": 0,
+                "num": 10
+              },
+              "kind": "object"
+            },
+            "paths": [
+              "/Annots[0]/Dest[0]"
+            ],
+            "type_name": "PageObject"
+          },
+          {
+            "from": {
+              "id": {
+                "generation": 0,
+                "num": 41
+              },
+              "kind": "object"
+            },
+            "paths": [
+              "/Names[3]/D[0]"
+            ],
+            "type_name": null
+          }
+        ],
+        "offset": 0,
+        "total": 3,
+        "type": "referrers"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "from": {
+              "kind": "trailer"
+            },
+            "paths": [
+              "/Root"
+            ],
+            "type_name": "FileTrailer"
+          }
+        ],
+        "offset": 0,
+        "total": 1,
+        "type": "referrers"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "generation": 0,
+            "num": 90
+          }
+        ],
+        "offset": 0,
+        "total": 1,
+        "type": "objRefs"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 0,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 9,
+          "name": "model.pdf",
+          "path": null,
+          "size": 7314
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 80
+        },
+        "inventory": {
+          "failed": 0,
+          "fonts": 5,
+          "forms": 1,
+          "images": 3,
+          "objects": 40,
+          "pages": 5,
+          "references": 60,
+          "unreferenced": 1
+        },
+        "live_objects": 40,
+        "object_slots": 91,
+        "pages": 5,
+        "pdf_version": "1.7",
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 91,
+            "index": 0,
+            "kind": "table",
+            "offset": 5415,
+            "span": {
+              "end": 7292,
+              "start": 5415
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 91
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "catalog": {
+          "generation": 0,
+          "num": 1
+        },
+        "features": [
+          {
+            "key": "Outlines",
+            "obj": {
+              "generation": 0,
+              "num": 9
+            },
+            "text": "0 top-level items"
+          }
+        ],
+        "info": {
+          "generation": 0,
+          "num": 7
+        },
+        "info_entries": [
+          {
+            "date": null,
+            "key": "Title",
+            "text": "Fixture (test)"
+          },
+          {
+            "date": null,
+            "key": "Author",
+            "text": "AB"
+          },
+          {
+            "date": null,
+            "key": "Producer",
+            "text": "pdf-inspector"
+          }
+        ],
+        "issues": [],
+        "metadata": null,
+        "pages": 3,
+        "type": "document"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 4
+            },
+            "index": 1,
+            "label": null,
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 5
+            },
+            "index": 2,
+            "label": null,
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          }
+        ],
+        "offset": 1,
+        "total": 3,
+        "type": "pages"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "notFound",
+        "message": "the catalog has no /Metadata stream"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
         "docs": [
           {
             "doc": 1,
@@ -3702,6 +5364,12 @@
             "name": "schema.pdf",
             "path": null,
             "size": 583
+          },
+          {
+            "doc": 9,
+            "name": "model.pdf",
+            "path": null,
+            "size": 7314
           }
         ],
         "type": "docs"
@@ -3780,6 +5448,12 @@
             "name": "schema.pdf",
             "path": null,
             "size": 583
+          },
+          {
+            "doc": 9,
+            "name": "model.pdf",
+            "path": null,
+            "size": 7314
           }
         ],
         "type": "docs"

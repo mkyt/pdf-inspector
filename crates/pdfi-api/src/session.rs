@@ -5,6 +5,8 @@ use std::io::{self, Read};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
+use pdfi_model::DocModel;
+use pdfi_model::inventory::Inventory;
 use pdfi_schema::{self as schema, Container, DocSchema, Origin};
 use pdfi_syntax::{
     self as syn, ByteSource, DictExt, ObjLocation, Object, OpenOptions, PdfFile, Recovery,
@@ -13,6 +15,7 @@ use pdfi_syntax::{
 use crate::convert::{self, value_of};
 use crate::dto::*;
 use crate::job::{Executor, Job};
+use crate::model;
 use crate::protocol::*;
 use crate::source::SourceProvider;
 
@@ -56,6 +59,9 @@ pub(crate) struct Doc {
     /// Object numbers present in the xref, ascending.
     nums: OnceLock<Vec<u32>>,
     pub schema: DocSchema,
+    pub model: DocModel,
+    /// Set by the inventory job.
+    pub inventory: Mutex<Option<Arc<Inventory>>>,
 }
 
 impl Doc {
@@ -180,6 +186,8 @@ impl Session {
             key: path.map(|p| (p, password, recover)),
             nums: OnceLock::new(),
             schema: DocSchema::new(),
+            model: DocModel::new(),
+            inventory: Mutex::default(),
         });
         lock(&self.docs).insert(id, doc.clone());
         self.bus.emit(&Event::DocOpened {
@@ -302,6 +310,46 @@ impl Session {
                     },
                 )))
             }
+            Request::Document { doc } => {
+                Ok(ResponseBody::Document(model::document(&*self.doc(doc)?)))
+            }
+            Request::Xmp { doc, range } => {
+                Ok(ResponseBody::Xmp(model::xmp(&*self.doc(doc)?, range)?))
+            }
+            Request::Pages { doc, range } => {
+                Ok(ResponseBody::Pages(model::pages(&*self.doc(doc)?, range)))
+            }
+            Request::Page { doc, index } => Ok(ResponseBody::PageDetail(model::page_detail(
+                &*self.doc(doc)?,
+                index,
+            )?)),
+            Request::PageIndex { doc, id } => Ok(ResponseBody::PageIndex {
+                index: model::page_index(&*self.doc(doc)?, id),
+            }),
+            Request::Annotations { doc, page, range } => Ok(ResponseBody::Annotations(
+                model::annotations(&*self.doc(doc)?, page, range)?,
+            )),
+            Request::Outline { doc, parent, range } => Ok(ResponseBody::Outline(model::outline(
+                &*self.doc(doc)?,
+                parent,
+                range,
+            ))),
+            Request::Fonts { doc, range } => {
+                Ok(ResponseBody::Fonts(model::fonts(&*self.doc(doc)?, range)?))
+            }
+            Request::Images { doc, range } => Ok(ResponseBody::Images(model::images(
+                &*self.doc(doc)?,
+                range,
+            )?)),
+            Request::Referrers { doc, id, range } => Ok(ResponseBody::Referrers(model::referrers(
+                &*self.doc(doc)?,
+                id,
+                range,
+            )?)),
+            Request::Unreferenced { doc, range } => Ok(ResponseBody::ObjRefs(model::unreferenced(
+                &*self.doc(doc)?,
+                range,
+            )?)),
             Request::RawBytes { doc, offset, len } => {
                 let d = self.doc(doc)?;
                 let len = check_chunk(len)?;
@@ -399,7 +447,11 @@ fn push_blob(blobs: &mut Vec<Vec<u8>>, data: Vec<u8>, mut info: BytesInfo) -> Re
     ResponseBody::Bytes(info)
 }
 
-fn page<T>(total: u64, range: Range, items: impl FnOnce(usize, usize) -> Vec<T>) -> Page<T> {
+pub(crate) fn page<T>(
+    total: u64,
+    range: Range,
+    items: impl FnOnce(usize, usize) -> Vec<T>,
+) -> Page<T> {
     let offset = range.offset.min(total);
     let n = (total - offset).min(range.limit.min(MAX_PAGE) as u64) as usize;
     Page {
@@ -453,6 +505,8 @@ fn summary(d: &Doc) -> DocSummary {
             0 => None,
             v => Some(schema::version_text(v)),
         },
+        pages: d.model.on(f).page_count().min(u32::MAX as u64) as u32,
+        inventory: lock(&d.inventory).as_deref().map(InventoryStats::of),
     }
 }
 

@@ -8,6 +8,7 @@ pub mod conformance;
 mod convert;
 pub mod dto;
 pub mod job;
+mod model;
 pub mod protocol;
 mod session;
 pub mod source;

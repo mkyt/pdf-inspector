@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -8,9 +7,10 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use pdfi_syntax::xref::{XrefEntry, XrefKind};
 use pdfi_syntax::{
-    DictExt, FileSource, ObjId, ObjLocation, Object, OpenOptions, PdfFile, Recovery, Severity,
-    write,
+    FileSource, ObjId, ObjLocation, Object, OpenOptions, PdfFile, Recovery, Severity, write,
 };
+
+mod model;
 
 #[derive(Parser)]
 #[command(name = "pdfi", about = "Inspect PDF internals")]
@@ -81,6 +81,35 @@ enum Cmd {
         #[arg(short, long)]
         verbose: bool,
     },
+    /// List pages: label, object, visible size, rotation, annotations.
+    Pages {
+        #[command(flatten)]
+        f: FileArgs,
+        /// First page (1-based).
+        #[arg(long, default_value_t = 1)]
+        from: u64,
+        #[arg(long)]
+        count: Option<u64>,
+    },
+    /// One page (1-based): inherited attributes, boxes, resources, contents,
+    /// annotations.
+    Page {
+        #[command(flatten)]
+        f: FileArgs,
+        number: u64,
+    },
+    /// Print the outline (bookmarks).
+    Outline(FileArgs),
+    /// Info dictionary, XMP metadata and what the catalog declares.
+    Meta(FileArgs),
+    /// Fonts and images with the pages using them; with --refs, the objects
+    /// referring to one object.
+    Inventory {
+        #[command(flatten)]
+        f: FileArgs,
+        #[arg(long)]
+        refs: Option<u32>,
+    },
     /// Rewrite as a plain file (object streams expanded, decrypted).
     Rewrite {
         #[command(flatten)]
@@ -129,6 +158,11 @@ fn main() -> Result<()> {
     match cli.cmd {
         Cmd::Info(a) => info(&open(&a)?),
         Cmd::Validate { f, obj, verbose } => validate(&open(&f)?, obj, verbose),
+        Cmd::Pages { f, from, count } => model::pages(&open(&f)?, from.saturating_sub(1), count),
+        Cmd::Page { f, number } => model::page(&open(&f)?, number),
+        Cmd::Outline(f) => model::outline(&open(&f)?),
+        Cmd::Meta(f) => model::meta(&open(&f)?),
+        Cmd::Inventory { f, refs } => model::inventory(&open(&f)?, refs),
         Cmd::Xref { f, rev } => xref(&open(&f)?, rev),
         Cmd::Obj { f, num, generation } => {
             let file = open(&f)?;
@@ -303,38 +337,12 @@ fn info(file: &PdfFile) -> Result<()> {
             i.v, i.r, i.key_bits, i.stream_method, i.string_method, sec.auth, i.permissions
         );
     }
-    match count_pages(file) {
-        Ok(n) => println!("pages:      {n}"),
-        Err(e) => println!("pages:      error: {e}"),
-    }
+    println!(
+        "pages:      {}",
+        pdfi_model::DocModel::new().on(file).page_count()
+    );
     print_diags(file, false, None);
     Ok(())
-}
-
-fn count_pages(file: &PdfFile) -> Result<usize> {
-    let root = file.resolve(file.trailer().get_key("Root").context("no /Root")?)?;
-    let root = root.as_dict().context("/Root is not a dictionary")?;
-    let mut stack = vec![root.get_key("Pages").context("no /Pages")?.clone()];
-    let mut seen = HashSet::new();
-    let mut n = 0;
-    while let Some(o) = stack.pop() {
-        if let Object::Ref(id) = o {
-            if !seen.insert(id) {
-                continue;
-            }
-        }
-        let o = file.resolve(&o)?;
-        let Some(d) = o.as_dict() else { continue };
-        match d.get_key("Kids") {
-            Some(kids) if !d.type_is("Page") => {
-                if let Object::Array(a) = file.resolve(kids)? {
-                    stack.extend(a.into_iter().rev().map(|k| k.obj));
-                }
-            }
-            _ => n += 1,
-        }
-    }
-    Ok(n)
 }
 
 fn xref(file: &PdfFile, rev: Option<usize>) -> Result<()> {
@@ -411,9 +419,7 @@ fn check(a: &FileArgs, decode: bool, verbose: bool) -> Result<()> {
             }
         }
     }
-    let pages = count_pages(&file)
-        .map(|n| n.to_string())
-        .unwrap_or_else(|e| format!("error: {e}"));
+    let pages = pdfi_model::DocModel::new().on(&file).page_count();
     println!(
         "{}: open {:.2?}, total {:.2?}; objects ok {ok} failed {failed} missing {missing}; pages {pages}{}",
         a.file.display(),

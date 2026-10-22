@@ -1,7 +1,8 @@
-import { Badge, Group, NumberInput, Text } from "@mantine/core";
+import { Badge, Group, NumberInput, SegmentedControl, Text } from "@mantine/core";
 import { useState } from "react";
 import { api, useBackend } from "../api";
-import { entryGeneration, entryText } from "../format";
+import { useDoc } from "../doc";
+import { entryGeneration, entryText, objText } from "../format";
 import { useNav } from "../nav";
 import { PagedList } from "./PagedList";
 import { Row } from "./Row";
@@ -10,8 +11,11 @@ import classes from "./Row.module.css";
 export function ObjectList({ total }: { total: number }) {
   const backend = useBackend();
   const nav = useNav();
+  const { inventory } = useDoc();
   const [goto, setGoto] = useState<string | number>("");
+  const [only, setOnly] = useState<"all" | "unreferenced">("all");
   const current = nav.target.kind === "object" ? nav.target.id.num : null;
+  const orphans = inventory.stats && only === "unreferenced";
 
   return (
     <>
@@ -34,51 +38,80 @@ export function ObjectList({ total }: { total: number }) {
           {total.toLocaleString()} entries
         </Text>
       </Group>
-      <PagedList
-        total={total}
-        queryKey={["doc", nav.doc, "objects"]}
-        fetchPage={(r, signal) => api.objects(backend, nav.doc, r, signal)}
-        renderRow={(o) => {
-          const free = o.entry.kind === "free";
-          return (
-            <Row
-              active={o.num === current}
-              onClick={
-                free
-                  ? undefined
-                  : () => nav.open({ kind: "object", id: { num: o.num, generation: entryGeneration(o.entry) } })
-              }
-            >
-              <Text size="xs" className={classes.mono} w={64} ta="right" c={free ? "dimmed" : undefined}>
-                {o.num} {entryGeneration(o.entry)}
-              </Text>
-              {o.error ? (
-                <Badge size="xs" color="red" variant="light">
-                  error
-                </Badge>
-              ) : (
-                o.kind && (
-                  <Text size="xs" c="dimmed" w={70}>
-                    {o.kind}
-                  </Text>
-                )
-              )}
-              <Text
-                size="xs"
-                fw={500}
-                style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}
-                title={[o.type_name && `/${o.type_name}`, o.subtype && `/${o.subtype}`].filter(Boolean).join(" ")}
-              >
-                {o.schema_type ?? (o.type_name && `/${o.type_name}`)}
-                {!o.schema_type && o.subtype && ` /${o.subtype}`}
-              </Text>
-              <Text size="xs" c="dimmed" className={classes.mono}>
-                {entryText(o.entry)}
+      {inventory.stats && (
+        <SegmentedControl
+          size="xs"
+          mx={6}
+          mb={4}
+          value={only}
+          onChange={(v) => setOnly(v as typeof only)}
+          data={[
+            { value: "all", label: "All" },
+            { value: "unreferenced", label: `Unreferenced (${inventory.stats.unreferenced.toLocaleString()})` },
+          ]}
+        />
+      )}
+      {orphans ? (
+        <PagedList
+          total={inventory.stats!.unreferenced}
+          empty="Every object is referred to."
+          queryKey={["doc", nav.doc, "unreferenced"]}
+          fetchPage={(r, signal) => api.unreferenced(backend, nav.doc, r, signal)}
+          renderRow={(id) => (
+            <Row active={id.num === current} onClick={() => nav.open({ kind: "object", id })}>
+              <Text size="xs" className={classes.mono}>
+                {objText(id)}
               </Text>
             </Row>
-          );
-        }}
-      />
+          )}
+        />
+      ) : (
+        <PagedList
+          total={total}
+          queryKey={["doc", nav.doc, "objects"]}
+          fetchPage={(r, signal) => api.objects(backend, nav.doc, r, signal)}
+          renderRow={(o) => {
+            const free = o.entry.kind === "free";
+            return (
+              <Row
+                active={o.num === current}
+                onClick={
+                  free
+                    ? undefined
+                    : () => nav.open({ kind: "object", id: { num: o.num, generation: entryGeneration(o.entry) } })
+                }
+              >
+                <Text size="xs" className={classes.mono} w={64} ta="right" c={free ? "dimmed" : undefined}>
+                  {o.num} {entryGeneration(o.entry)}
+                </Text>
+                {o.error ? (
+                  <Badge size="xs" color="red" variant="light">
+                    error
+                  </Badge>
+                ) : (
+                  o.kind && (
+                    <Text size="xs" c="dimmed" w={70}>
+                      {o.kind}
+                    </Text>
+                  )
+                )}
+                <Text
+                  size="xs"
+                  fw={500}
+                  style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}
+                  title={[o.type_name && `/${o.type_name}`, o.subtype && `/${o.subtype}`].filter(Boolean).join(" ")}
+                >
+                  {o.schema_type ?? (o.type_name && `/${o.type_name}`)}
+                  {!o.schema_type && o.subtype && ` /${o.subtype}`}
+                </Text>
+                <Text size="xs" c="dimmed" className={classes.mono}>
+                  {entryText(o.entry)}
+                </Text>
+              </Row>
+            );
+          }}
+        />
+      )}
     </>
   );
 }

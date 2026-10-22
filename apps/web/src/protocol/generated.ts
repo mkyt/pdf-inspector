@@ -1,6 +1,6 @@
 // Generated from crates/pdfi-api by `UPDATE_TS=1 cargo test -p pdfi-api`. Do not edit.
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 export type DocId = number;
 export type JobId = number;
@@ -38,7 +38,15 @@ xref_entries: number, live_objects: number, recovered: boolean, revisions: Array
 /**
  * Effective version: the header's, or the catalog's `/Version` if later.
  */
-pdf_version: string | null, };
+pdf_version: string | null, 
+/**
+ * Number of pages, by the page tree's counts.
+ */
+pages: number, 
+/**
+ * What the inventory job found, once it has run.
+ */
+inventory: InventoryStats | null, };
 
 export type EncryptionInfo = { filter: string, v: number, r: number, key_bits: number, stream_method: string, string_method: string, permissions: number, authenticated: boolean, };
 
@@ -180,6 +188,162 @@ value_type: string | null,
  */
 issues: Array<DiagnosticInfo>, };
 
+export type Rect = { x0: number, y0: number, x1: number, y1: number, };
+
+export type AttrOrigin = { "kind": "page" } | { "kind": "inherited", from: ObjRef, } | { "kind": "default", of: string, } | { "kind": "missing" };
+
+export type PageSummary = { 
+/**
+ * 0-based.
+ */
+index: number, id: ObjRef | null, label: string | null, 
+/**
+ * The visible area (crop box clipped to the media box).
+ */
+size: Rect | null, rotate: number, annots: number, error: string | null, };
+
+export type PageBox = { name: string, rect: Rect | null, origin: AttrOrigin, };
+
+export type ContentInfo = { id: ObjRef | null, raw_len: number | null, filters: Array<string>, error: string | null, };
+
+export type ResourceItem = { category: string, name: string, id: ObjRef | null, 
+/**
+ * `Type1 Helvetica`, `Image 640×480 DeviceRGB`, ...
+ */
+detail: string, };
+
+export type PageDetail = { index: number, id: ObjRef, label: string | null, 
+/**
+ * Page tree nodes from the root down to the page's parent.
+ */
+ancestors: Array<ObjRef>, 
+/**
+ * MediaBox, CropBox, BleedBox, TrimBox, ArtBox.
+ */
+boxes: Array<PageBox>, rotate: number, rotate_origin: AttrOrigin, user_unit: number, 
+/**
+ * The resource dictionary, when it is an indirect object.
+ */
+resources: ObjRef | null, resources_origin: AttrOrigin, resource_items: Array<ResourceItem>, resources_truncated: boolean, contents: Array<ContentInfo>, annots: number, issues: Array<DiagnosticInfo>, };
+
+export type Destination = { 
+/**
+ * The name it was looked up by (named destinations).
+ */
+named: string | null, page: ObjRef | null, page_index: number | null, 
+/**
+ * Page number in another file (`GoToR`).
+ */
+remote_page: number | null, 
+/**
+ * `XYZ`, `Fit`, `FitH`, ...
+ */
+fit: string | null, 
+/**
+ * Parameters after the fit type; `null` for null.
+ */
+params: Array<number | null>, error: string | null, };
+
+export type LinkTarget = { "kind": "dest", dest: Destination, } | { "kind": "uri", uri: string, } | { "kind": "action", action: string, detail: string | null, };
+
+export type OutlineItem = { id: ObjRef, title: string, 
+/**
+ * Open descendants when positive; closed when negative.
+ */
+count: number | null, has_children: boolean, link: LinkTarget | null, 
+/**
+ * 1 italic, 2 bold.
+ */
+flags: number, 
+/**
+ * RGB, 0..1.
+ */
+color: Array<number> | null, };
+
+export type AnnotInfo = { 
+/**
+ * Position in the page's `/Annots`.
+ */
+index: number, id: ObjRef | null, subtype: string | null, rect: Rect | null, contents: string | null, 
+/**
+ * `/NM`.
+ */
+name: string | null, flags: number, 
+/**
+ * Has a normal appearance stream.
+ */
+appearance: boolean, link: LinkTarget | null, 
+/**
+ * `/Parent` of a pop-up, `/IRT` of a reply.
+ */
+parent: ObjRef | null, error: string | null, };
+
+export type InfoEntry = { key: string, text: string, 
+/**
+ * ISO 8601, for values that are PDF dates.
+ */
+date: string | null, };
+
+export type Feature = { key: string, text: string, obj: ObjRef | null, };
+
+export type DocumentView = { catalog: ObjRef | null, info: ObjRef | null, info_entries: Array<InfoEntry>, 
+/**
+ * The catalog's XMP metadata stream.
+ */
+metadata: ObjRef | null, pages: number, features: Array<Feature>, 
+/**
+ * Problems of the page tree, outline and metadata (also Info / XMP
+ * disagreements).
+ */
+issues: Array<DiagnosticInfo>, };
+
+export type XmpNodeKind = "element" | "attribute";
+
+export type XmpNode = { depth: number, kind: XmpNodeKind, name: string, namespace: string | null, value: string | null, };
+
+export type XmpProperty = { name: string, namespace: string, value: string, };
+
+export type XmpView = { id: ObjRef, 
+/**
+ * Length of the decoded packet.
+ */
+len: number, nodes: Page<XmpNode>, 
+/**
+ * The tree has more nodes than were kept.
+ */
+truncated: boolean, properties: Array<XmpProperty>, error: string | null, };
+
+export type FontInfo = { id: ObjRef, base_font: string | null, subtype: string | null, encoding: string | null, 
+/**
+ * `FontFile`, `FontFile2`, `FontFile3/Type1C`, ...; `None`: not
+ * embedded.
+ */
+embedded: string | null, font_file: ObjRef | null, to_unicode: boolean, descendant: ObjRef | null, subset: boolean, 
+/**
+ * One of the standard 14 fonts.
+ */
+standard: boolean, 
+/**
+ * Pages using it through their resources.
+ */
+page_count: number, 
+/**
+ * The first of those pages (0-based).
+ */
+pages: Array<number>, };
+
+export type ImageInfo = { id: ObjRef, width: number | null, height: number | null, bits: number | null, color_space: string | null, filters: Array<string>, raw_len: number, image_mask: boolean, smask: ObjRef | null, mask: boolean, interpolate: boolean, page_count: number, pages: Array<number>, };
+
+export type Referrer = { from: NodeRoot, 
+/**
+ * Schema type, or `/Type`.
+ */
+type_name: string | null, 
+/**
+ * Where in it: `/Resources/Font/F1`, ...
+ */
+paths: Array<string>, };
+
 export type BytesInfo = { part: number, offset: number, len: number, 
 /**
  * Length of the whole data, when known without decoding all of it.
@@ -194,7 +358,7 @@ eof: boolean,
  */
 stopped_at: string | null, errors: Array<string>, };
 
-export type JobKind = { "kind": "checkObjects", decode_streams: boolean, } | { "kind": "validate", root: ObjRef | null, };
+export type JobKind = { "kind": "checkObjects", decode_streams: boolean, } | { "kind": "validate", root: ObjRef | null, } | { "kind": "inventory" };
 
 export type JobState = "running" | "completed" | "cancelled";
 
@@ -205,7 +369,17 @@ export type JobResult = { "kind": "checkObjects", ok: number, failed: number, mi
  * Issues kept for `JobDiagnostics` (the first ones, when there are
  * very many).
  */
-kept: number, };
+kept: number, } | { "kind": "inventory" } & InventoryStats;
+
+export type InventoryStats = { objects: number, 
+/**
+ * Objects that failed to load.
+ */
+failed: number, pages: number, fonts: number, images: number, forms: number, 
+/**
+ * Edges of the reference graph.
+ */
+references: number, unreferenced: number, };
 
 export type ClientMessage = { id: number, request: Request, };
 
@@ -213,7 +387,7 @@ export type Request = { "op": "hello", protocol: number, } | { "op": "listDir", 
 /**
  * Ignore the cross-reference data and rebuild it by scanning.
  */
-recover: boolean, } | { "op": "docs" } | { "op": "close", doc: number, } | { "op": "summary", doc: number, } | { "op": "objects", doc: number, range: Range, } | { "op": "object", doc: number, id: ObjRef, } | { "op": "children", doc: number, path: NodePath, range: Range, } | { "op": "xref", doc: number, revision: number | null, range: Range, } | { "op": "diagnostics", doc: number, range: Range, } | { "op": "schema", doc: number, root: NodeRoot, } | { "op": "rawBytes", doc: number, offset: number, len: number, } | { "op": "streamData", doc: number, id: ObjRef, 
+recover: boolean, } | { "op": "docs" } | { "op": "close", doc: number, } | { "op": "summary", doc: number, } | { "op": "objects", doc: number, range: Range, } | { "op": "object", doc: number, id: ObjRef, } | { "op": "children", doc: number, path: NodePath, range: Range, } | { "op": "xref", doc: number, revision: number | null, range: Range, } | { "op": "diagnostics", doc: number, range: Range, } | { "op": "schema", doc: number, root: NodeRoot, } | { "op": "document", doc: number, } | { "op": "xmp", doc: number, range: Range, } | { "op": "pages", doc: number, range: Range, } | { "op": "page", doc: number, index: number, } | { "op": "pageIndex", doc: number, id: ObjRef, } | { "op": "annotations", doc: number, page: number, range: Range, } | { "op": "outline", doc: number, parent: ObjRef | null, range: Range, } | { "op": "fonts", doc: number, range: Range, } | { "op": "images", doc: number, range: Range, } | { "op": "referrers", doc: number, id: ObjRef, range: Range, } | { "op": "unreferenced", doc: number, range: Range, } | { "op": "rawBytes", doc: number, offset: number, len: number, } | { "op": "streamData", doc: number, id: ObjRef, 
 /**
  * Decrypt and apply filters; otherwise the bytes as stored.
  */
@@ -221,7 +395,7 @@ decoded: boolean, offset: number, len: number, } | { "op": "startJob", doc: numb
 
 export type Response = { "ok": ResponseBody } | { "err": ApiError };
 
-export type ResponseBody = { "type": "hello" } & HelloInfo | { "type": "dir" } & DirListing | { "type": "doc" } & DocSummary | { "type": "docs", docs: Array<DocInfo>, } | { "type": "objects" } & Page<ObjectSummary> | { "type": "object" } & ObjectView | { "type": "children" } & Page<NodeView> | { "type": "xref" } & Page<XrefRow> | { "type": "diagnostics" } & Page<DiagnosticInfo> | { "type": "schema" } & ObjectSchema | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "batch", responses: Array<Response>, } | { "type": "empty" };
+export type ResponseBody = { "type": "hello" } & HelloInfo | { "type": "dir" } & DirListing | { "type": "doc" } & DocSummary | { "type": "docs", docs: Array<DocInfo>, } | { "type": "objects" } & Page<ObjectSummary> | { "type": "object" } & ObjectView | { "type": "children" } & Page<NodeView> | { "type": "xref" } & Page<XrefRow> | { "type": "diagnostics" } & Page<DiagnosticInfo> | { "type": "schema" } & ObjectSchema | { "type": "document" } & DocumentView | { "type": "xmp" } & XmpView | { "type": "pages" } & Page<PageSummary> | { "type": "pageDetail" } & PageDetail | { "type": "pageIndex", index: number | null, } | { "type": "annotations" } & Page<AnnotInfo> | { "type": "outline" } & Page<OutlineItem> | { "type": "fonts" } & Page<FontInfo> | { "type": "images" } & Page<ImageInfo> | { "type": "referrers" } & Page<Referrer> | { "type": "objRefs" } & Page<ObjRef> | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "batch", responses: Array<Response>, } | { "type": "empty" };
 
 export type HelloInfo = { protocol: number, backend: string, version: string, 
 /**
@@ -229,7 +403,7 @@ export type HelloInfo = { protocol: number, backend: string, version: string,
  */
 filesystem: boolean, };
 
-export type ErrorCode = "badRequest" | "versionMismatch" | "noSuchDoc" | "noSuchJob" | "notFound" | "forbidden" | "unsupported" | "tooLarge" | "io" | "parse" | "cancelled" | "internal";
+export type ErrorCode = "badRequest" | "versionMismatch" | "noSuchDoc" | "noSuchJob" | "notFound" | "forbidden" | "unsupported" | "tooLarge" | "notReady" | "io" | "parse" | "cancelled" | "internal";
 
 export type ApiError = { code: ErrorCode, message: string, };
 
