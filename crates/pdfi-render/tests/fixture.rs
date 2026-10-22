@@ -412,3 +412,28 @@ fn text() {
     assert_eq!(d.hits(Target::Page(0), cx as f64, cy as f64).len(), 1);
     assert!(d.hits(Target::Page(0), 415.0, cy as f64).is_empty());
 }
+
+/// The color at the center of cell `(col, row)` of a page drawn at 0.5
+/// pixel per point in 100-point cells.
+fn cell(o: &Output, col: u32, row: u32) -> [u8; 4] {
+    px(o, col * 50 + 25, row * 50 + 25)
+}
+
+#[test]
+fn icc_cal_and_tint_colors() {
+    let d = Doc::new("paint.pdf");
+    let o = d.render(Target::Page(0), &opts(0.5));
+    // Linear gray profile: 0.5 is 188 in sRGB.
+    assert!(near(cell(&o, 0, 0), [188, 188, 188, 255], 3));
+    // The profile swaps red and blue (fills and images).
+    assert!(near(cell(&o, 1, 0), [0, 0, 255, 255], 3));
+    assert!(near(cell(&o, 2, 1), [0, 0, 255, 255], 3));
+    assert!(near(cell(&o, 3, 1), [0, 255, 0, 255], 3));
+    // CalGray with gamma 2.2.
+    assert!(near(cell(&o, 2, 0), [128, 128, 128, 255], 3));
+    // Calculator and sampled tint transforms.
+    assert_eq!(cell(&o, 3, 0), [255, 0, 0, 255]);
+    assert_eq!(cell(&o, 0, 1), [255, 255, 0, 255]);
+    assert_eq!(cell(&o, 1, 1), [255, 0, 0, 255]);
+    assert!(o.notes.is_empty(), "{:?}", o.notes);
+}

@@ -13,7 +13,7 @@ use zune_jpeg::zune_core::bytestream::ZCursor;
 use zune_jpeg::zune_core::colorspace::ColorSpace as JpegSpace;
 use zune_jpeg::zune_core::options::DecoderOptions;
 
-use crate::color::{self, Approx, Space};
+use crate::color::{self, Approx, Profiles, Space};
 
 /// Largest image decoded (pixels).
 pub const MAX_PIXELS: u64 = 1 << 25;
@@ -136,11 +136,12 @@ fn params(
 /// Decode an image XObject (and its `/SMask` or `/Mask`).
 pub fn decode_xobject(
     file: &PdfFile,
+    profiles: &Profiles,
     id: Option<ObjId>,
     s: &Stream,
 ) -> Result<Decoded, ImageError> {
     let d = &s.dict;
-    let p = params(file, d, false, |o| color::parse(file, o))?;
+    let p = params(file, d, false, |o| color::parse(file, profiles, o))?;
     let raw = file.decode_stream(id.unwrap_or(ObjId::new(0, 0)), s, Some(MAX_DATA));
     let mut out = samples(&p, raw.data, raw.stopped_at.as_ref())?;
     if p.stencil {
@@ -157,7 +158,7 @@ pub fn decode_xobject(
         let (mid, mo) = resolve(file, mask);
         match &*mo {
             Object::Stream(ms) => {
-                if let Ok(m) = decode_xobject(file, mid, ms) {
+                if let Ok(m) = decode_xobject(file, profiles, mid, ms) {
                     let (w, h) = (m.pixmap.width(), m.pixmap.height());
                     let a: Vec<u8> = m.pixmap.pixels().iter().map(|c| c.alpha()).collect();
                     apply_alpha(&mut out.pixmap, &a, w, h);
@@ -179,16 +180,17 @@ pub fn decode_xobject(
 /// Decode an inline image; named color spaces come from `res`.
 pub fn decode_inline(
     file: &PdfFile,
+    profiles: &Profiles,
     d: &Dict,
     data: &[u8],
     res: &Resources,
 ) -> Result<Decoded, ImageError> {
     let p = params(file, d, true, |o| match o {
         Object::Name(n) if !is_inline_space(n) => match res.lookup(file, "ColorSpace", n) {
-            Lookup::Found(_, cs) => color::parse(file, &cs),
+            Lookup::Found(_, cs) => color::parse(file, profiles, &cs),
             Lookup::Missing => Space::Unknown(1),
         },
-        o => color::parse(file, o),
+        o => color::parse(file, profiles, o),
     })?;
     let specs = filters::filter_specs(d);
     let chain = filters::build_chain(&specs);
@@ -388,6 +390,15 @@ fn samples(p: &Params, data: Vec<u8>, stopped: Option<&Name>) -> Result<Decoded,
     let stride = (w * n * bpc as usize).div_ceil(8);
     let mut row = vec![0u16; w * n];
     let mut c = vec![0.0; n];
+    // ICC profiles convert a row at a time.
+    let icc = match (&space, &table) {
+        (Space::Icc(icc), None) => Some(icc),
+        _ => None,
+    };
+    let (mut src, mut dst) = match icc {
+        Some(_) => (vec![0f32; w * n], vec![0f32; w * 3]),
+        None => (Vec::new(), Vec::new()),
+    };
     for y in 0..h {
         let Some(r) = data.get(y * stride..(y + 1) * stride) else {
             // Missing rows stay transparent.
@@ -398,6 +409,17 @@ fn samples(p: &Params, data: Vec<u8>, stopped: Option<&Name>) -> Result<Decoded,
         if let Some(t) = &table {
             for (px, &s) in line.chunks_exact_mut(4).zip(&row) {
                 px.copy_from_slice(&t[s as usize]);
+            }
+            continue;
+        }
+        if let Some(icc) = icc {
+            for (k, (v, &s)) in src.iter_mut().zip(&row).enumerate() {
+                *v = value(k % n, s).clamp(0.0, 1.0) as f32;
+            }
+            if icc.convert(&src, &mut dst) {
+                for (px, c) in line.chunks_exact_mut(4).zip(dst.chunks_exact(3)) {
+                    px.copy_from_slice(&rgba(Some([c[0], c[1], c[2]].map(|v| v.clamp(0.0, 1.0)))));
+                }
             }
             continue;
         }

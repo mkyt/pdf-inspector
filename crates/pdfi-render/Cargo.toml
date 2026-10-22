@@ -11,6 +11,7 @@ publish.workspace = true
 png = ["tiny-skia/png-format"]
 
 [dependencies]
+moxcms = "0.8.1"
 pdfi-content = { version = "0.1.0", path = "../pdfi-content" }
 pdfi-model = { version = "0.1.0", path = "../pdfi-model" }
 pdfi-syntax = { version = "0.1.0", path = "../pdfi-syntax" }

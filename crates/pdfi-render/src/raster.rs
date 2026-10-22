@@ -314,7 +314,7 @@ impl<'a> Raster<'a> {
         if let Some((_, s)) = self.spaces.iter().find(|(d, _)| Arc::ptr_eq(d, def)) {
             return s.clone();
         }
-        let s = Arc::new(color::parse(self.file, def));
+        let s = Arc::new(color::parse(self.file, &self.cache.profiles, def));
         if self.spaces.len() >= SPACES {
             self.spaces.remove(0);
         }
@@ -423,12 +423,14 @@ impl<'a> Raster<'a> {
                 id: Some(id),
                 stream,
             } => self.cache.image(self.file, id, stream, k),
-            ImageData::XObject { id: None, stream } => {
-                Arc::new(image::decode_xobject(self.file, None, stream).map(|d| shrink(d, k)))
-            }
-            ImageData::Inline { dict, data } => {
-                Arc::new(image::decode_inline(self.file, dict, data, res).map(|d| shrink(d, k)))
-            }
+            ImageData::XObject { id: None, stream } => Arc::new(
+                image::decode_xobject(self.file, &self.cache.profiles, None, stream)
+                    .map(|d| shrink(d, k)),
+            ),
+            ImageData::Inline { dict, data } => Arc::new(
+                image::decode_inline(self.file, &self.cache.profiles, dict, data, res)
+                    .map(|d| shrink(d, k)),
+            ),
         }
     }
 }

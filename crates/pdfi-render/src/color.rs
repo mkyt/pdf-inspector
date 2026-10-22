@@ -1,14 +1,20 @@
 //! Color spaces and their conversion to RGB.
 //!
-//! Device spaces convert directly (CMYK naively); CIE-based spaces are
-//! treated as their device counterparts (Lab converts through XYZ); ICC
-//! profiles are not read (`/Alternate`, else by component count).
+//! Device spaces convert directly (CMYK naively). CalGray, CalRGB and
+//! Lab convert through XYZ (white points scaled to D65). ICC profiles are
+//! read with moxcms and turned into transforms to sRGB (kept per
+//! document); a profile that cannot be used falls back to `/Alternate`,
+//! else to the device space of its component count.
 //! Separation and DeviceN follow their tint transforms (any function
 //! type); a transform that cannot be read is approximated by the darkest
 //! tint.
 
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
+use moxcms::{ColorProfile, DataColorSpace, Layout, TransformF32Executor, TransformOptions};
 use pdfi_model::resolve;
-use pdfi_syntax::{DictExt, Node, Object, PdfFile};
+use pdfi_syntax::{DictExt, Node, ObjId, Object, PdfFile};
 
 use crate::function::{Function, nums};
 
@@ -16,12 +22,100 @@ use crate::function::{Function, nums};
 const MAX_DEPTH: u32 = 8;
 /// Largest lookup table of an Indexed space.
 const MAX_LOOKUP: usize = 256 * 32;
+/// Largest ICC profile read.
+const MAX_PROFILE: usize = 16 << 20;
+/// D65, the white point of sRGB.
+const D65: [f64; 3] = [0.9505, 1.0, 1.089];
+
+/// A transform from an ICC profile's data to sRGB.
+#[derive(Clone)]
+pub struct Icc {
+    pub n: usize,
+    xf: Arc<TransformF32Executor>,
+}
+
+impl std::fmt::Debug for Icc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Icc({})", self.n)
+    }
+}
+
+impl PartialEq for Icc {
+    fn eq(&self, o: &Self) -> bool {
+        Arc::ptr_eq(&self.xf, &o.xf)
+    }
+}
+
+impl Icc {
+    /// Convert pixels of `n` components (0..1) to RGB triples.
+    pub fn convert(&self, src: &[f32], dst: &mut [f32]) -> bool {
+        self.xf.transform(src, dst).is_ok()
+    }
+}
+
+/// ICC profiles of a document, by stream (`None`: not usable).
+#[derive(Default)]
+pub struct Profiles {
+    map: Mutex<HashMap<ObjId, Option<Icc>>>,
+}
+
+impl Profiles {
+    fn get(
+        &self,
+        file: &PdfFile,
+        id: Option<ObjId>,
+        s: &pdfi_syntax::Stream,
+        n: usize,
+    ) -> Option<Icc> {
+        let load = || {
+            let d = file.decode_stream(id.unwrap_or(ObjId::new(0, 0)), s, Some(MAX_PROFILE));
+            if d.stopped_at.is_some() {
+                return None;
+            }
+            let p = ColorProfile::new_from_slice(&d.data).ok()?;
+            let layout = match (p.color_space, n) {
+                (DataColorSpace::Gray, 1) => Layout::Gray,
+                (DataColorSpace::Rgb, 3) => Layout::Rgb,
+                (DataColorSpace::Cmyk, 4) => Layout::Rgba,
+                _ => return None,
+            };
+            let xf = p
+                .create_transform_f32(
+                    layout,
+                    &ColorProfile::new_srgb(),
+                    Layout::Rgb,
+                    TransformOptions::default(),
+                )
+                .ok()?;
+            Some(Icc { n, xf })
+        };
+        let Some(id) = id else { return load() };
+        let mut g = self.map.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(v) = g.get(&id) {
+            return v.clone();
+        }
+        let v = load();
+        g.insert(id, v.clone());
+        v
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Space {
     Gray,
     Rgb,
     Cmyk,
+    CalGray {
+        white: [f64; 3],
+        gamma: f64,
+    },
+    CalRgb {
+        white: [f64; 3],
+        gamma: [f64; 3],
+        /// Column-major as in the dictionary: X, Y, Z of A, then B, then C.
+        matrix: [f64; 9],
+    },
+    Icc(Icc),
     Lab {
         white: [f64; 3],
         /// `a` and `b` ranges.
@@ -55,8 +149,9 @@ pub struct Approx {
 impl Space {
     pub fn components(&self) -> usize {
         match self {
-            Space::Gray | Space::Indexed { .. } => 1,
-            Space::Rgb | Space::Lab { .. } => 3,
+            Space::Gray | Space::CalGray { .. } | Space::Indexed { .. } => 1,
+            Space::Rgb | Space::CalRgb { .. } | Space::Lab { .. } => 3,
+            Space::Icc(i) => i.n,
             Space::Cmyk => 4,
             Space::Tint { n, .. } => *n,
             Space::Pattern => 0,
@@ -86,6 +181,33 @@ impl Space {
             }
             Space::Rgb => [u(at(0)), u(at(1)), u(at(2))],
             Space::Cmyk => cmyk(at(0), at(1), at(2), at(3)),
+            Space::CalGray { white, gamma } => {
+                let y = at(0).clamp(0.0, 1.0).powf(*gamma);
+                xyz_to_srgb([white[0] * y, white[1] * y, white[2] * y], white)
+            }
+            Space::CalRgb {
+                white,
+                gamma,
+                matrix: m,
+            } => {
+                let [a, b, c] = [0, 1, 2].map(|k| at(k).clamp(0.0, 1.0).powf(gamma[k]));
+                xyz_to_srgb(
+                    [
+                        m[0] * a + m[3] * b + m[6] * c,
+                        m[1] * a + m[4] * b + m[7] * c,
+                        m[2] * a + m[5] * b + m[8] * c,
+                    ],
+                    white,
+                )
+            }
+            Space::Icc(icc) => {
+                let src: Vec<f32> = (0..icc.n).map(|k| u(at(k))).collect();
+                let mut dst = [0f32; 3];
+                if !icc.convert(&src, &mut dst) {
+                    return None;
+                }
+                dst.map(|v| v.clamp(0.0, 1.0))
+            }
             Space::Lab { white, .. } => lab(at(0), at(1), at(2), white),
             Space::Indexed {
                 base,
@@ -160,8 +282,22 @@ fn lab(l: f64, a: f64, b: f64, white: &[f64; 3]) -> [f32; 3] {
             108.0 / 841.0 * (t - 4.0 / 29.0)
         }
     };
-    let (x, y, z) = (white[0] * g(fx), white[1] * g(fy), white[2] * g(fz));
-    // XYZ (D65-ish, the white point is not adapted) to linear sRGB.
+    xyz_to_srgb(
+        [white[0] * g(fx), white[1] * g(fy), white[2] * g(fz)],
+        white,
+    )
+}
+
+/// CIE XYZ relative to `white` to sRGB (the white point scaled to D65).
+fn xyz_to_srgb(xyz: [f64; 3], white: &[f64; 3]) -> [f32; 3] {
+    let k = |i: usize| {
+        if white[i] > 0.0 {
+            D65[i] / white[i]
+        } else {
+            1.0
+        }
+    };
+    let (x, y, z) = (xyz[0] * k(0), xyz[1] * k(1), xyz[2] * k(2));
     let r = 3.2406 * x - 1.5372 * y - 0.4986 * z;
     let gg = -0.9689 * x + 1.8758 * y + 0.0415 * z;
     let bb = 0.0557 * x - 0.2040 * y + 1.0570 * z;
@@ -181,115 +317,172 @@ fn num(file: &PdfFile, o: &Object) -> Option<f64> {
 }
 
 /// Parse a color space object (a name or an array).
-pub fn parse(file: &PdfFile, o: &Object) -> Space {
-    parse_at(file, o, 0)
+pub fn parse(file: &PdfFile, profiles: &Profiles, o: &Object) -> Space {
+    Parser { file, profiles }.parse(o, 0)
 }
 
-fn parse_at(file: &PdfFile, o: &Object, depth: u32) -> Space {
-    if depth > MAX_DEPTH {
-        return Space::Unknown(1);
-    }
-    let (_, r) = resolve(file, o);
-    let (family, args): (&[u8], &[Node]) = match &*r {
-        Object::Name(n) => (n.as_bytes(), &[]),
-        Object::Array(a) => match a.first().map(|n| resolve(file, &n.obj).1) {
-            Some(f) => match f.as_name() {
-                Some(n) => return parse_family(file, n.as_bytes(), &a[1..], depth),
+struct Parser<'a> {
+    file: &'a PdfFile,
+    profiles: &'a Profiles,
+}
+
+impl Parser<'_> {
+    fn parse(&self, o: &Object, depth: u32) -> Space {
+        let file = self.file;
+        if depth > MAX_DEPTH {
+            return Space::Unknown(1);
+        }
+        let (_, r) = resolve(file, o);
+        let (family, args): (&[u8], &[Node]) = match &*r {
+            Object::Name(n) => (n.as_bytes(), &[]),
+            Object::Array(a) => match a.first().map(|n| resolve(file, &n.obj).1) {
+                Some(f) => match f.as_name() {
+                    Some(n) => return self.family(n.as_bytes(), &a[1..], depth),
+                    None => return Space::Unknown(1),
+                },
                 None => return Space::Unknown(1),
             },
-            None => return Space::Unknown(1),
-        },
-        _ => return Space::Unknown(1),
-    };
-    parse_family(file, family, args, depth)
-}
+            _ => return Space::Unknown(1),
+        };
+        self.family(family, args, depth)
+    }
 
-fn parse_family(file: &PdfFile, family: &[u8], args: &[Node], depth: u32) -> Space {
-    let arg = |i: usize| args.get(i).map(|n| &n.obj);
-    match family {
-        b"DeviceGray" | b"G" | b"CalGray" => Space::Gray,
-        b"DeviceRGB" | b"RGB" | b"CalRGB" => Space::Rgb,
-        b"DeviceCMYK" | b"CMYK" => Space::Cmyk,
-        b"Pattern" => Space::Pattern,
-        b"Lab" => {
+    fn family(&self, family: &[u8], args: &[Node], depth: u32) -> Space {
+        let file = self.file;
+        let arg = |i: usize| args.get(i).map(|n| &n.obj);
+        let dict = || {
             let d = arg(0).map(|o| resolve(file, o).1);
-            let d = d.as_ref().and_then(|d| d.as_dict());
-            let white = d
+            d.and_then(|d| d.as_dict().cloned())
+        };
+        let white = |d: &Option<pdfi_syntax::Dict>| {
+            d.as_ref()
                 .and_then(|d| nums(file, d.get_key("WhitePoint")))
-                .filter(|w| w.len() == 3)
-                .map_or([0.9505, 1.0, 1.089], |w| [w[0], w[1], w[2]]);
-            let range = d
-                .and_then(|d| nums(file, d.get_key("Range")))
-                .filter(|r| r.len() == 4)
-                .map_or([-100.0, 100.0, -100.0, 100.0], |r| [r[0], r[1], r[2], r[3]]);
-            Space::Lab { white, range }
-        }
-        b"ICCBased" => {
-            let s = arg(0).map(|o| resolve(file, o).1);
-            let d = s.as_ref().and_then(|s| s.as_stream()).map(|s| &s.dict);
-            if let Some(alt) = d.and_then(|d| d.get_key("Alternate")) {
-                let a = parse_at(file, alt, depth + 1);
-                if !matches!(a, Space::Unknown(_)) {
-                    return a;
+                .filter(|w| w.len() == 3 && w[1] > 0.0)
+                .map_or(D65, |w| [w[0], w[1], w[2]])
+        };
+        match family {
+            b"DeviceGray" | b"G" => Space::Gray,
+            b"DeviceRGB" | b"RGB" => Space::Rgb,
+            b"CalGray" => {
+                let d = dict();
+                Space::CalGray {
+                    white: white(&d),
+                    gamma: d
+                        .as_ref()
+                        .and_then(|d| d.get_key("Gamma"))
+                        .and_then(|g| num(file, g))
+                        .filter(|g| *g > 0.0)
+                        .unwrap_or(1.0),
                 }
             }
-            match d.and_then(|d| d.get_key("N")).and_then(|n| num(file, n)) {
-                Some(1.0) => Space::Gray,
-                Some(4.0) => Space::Cmyk,
-                _ => Space::Rgb,
+            b"CalRGB" => {
+                let d = dict();
+                let gamma = d
+                    .as_ref()
+                    .and_then(|d| nums(file, d.get_key("Gamma")))
+                    .filter(|g| g.len() == 3 && g.iter().all(|v| *v > 0.0))
+                    .map_or([1.0; 3], |g| [g[0], g[1], g[2]]);
+                let matrix = d
+                    .as_ref()
+                    .and_then(|d| nums(file, d.get_key("Matrix")))
+                    .and_then(|m| <[f64; 9]>::try_from(m).ok())
+                    .unwrap_or([1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
+                Space::CalRgb {
+                    white: white(&d),
+                    gamma,
+                    matrix,
+                }
             }
-        }
-        b"Indexed" | b"I" => {
-            let base = arg(0).map_or(Space::Rgb, |b| parse_at(file, b, depth + 1));
-            let hival = arg(1)
-                .and_then(|h| num(file, h))
-                .unwrap_or(0.0)
-                .clamp(0.0, 255.0) as usize;
-            let lookup = match arg(2).map(|l| resolve(file, l)) {
-                Some((id, l)) => match &*l {
-                    Object::String(s) => s.bytes.clone(),
-                    Object::Stream(s) => {
-                        let id = id.unwrap_or(pdfi_syntax::ObjId::new(0, 0));
-                        file.decode_stream(id, s, Some(MAX_LOOKUP)).data
+            b"DeviceCMYK" | b"CMYK" => Space::Cmyk,
+            b"Pattern" => Space::Pattern,
+            b"Lab" => {
+                let d = dict();
+                let white = white(&d);
+                let range = d
+                    .as_ref()
+                    .and_then(|d| nums(file, d.get_key("Range")))
+                    .filter(|r| r.len() == 4)
+                    .map_or([-100.0, 100.0, -100.0, 100.0], |r| [r[0], r[1], r[2], r[3]]);
+                Space::Lab { white, range }
+            }
+            b"ICCBased" => {
+                let (id, s) = match arg(0).map(|o| resolve(file, o)) {
+                    Some((id, s)) => (id, Some(s)),
+                    None => (None, None),
+                };
+                let stream = s.as_ref().and_then(|s| s.as_stream());
+                let d = stream.map(|s| &s.dict);
+                let n = d
+                    .and_then(|d| d.get_key("N"))
+                    .and_then(|n| num(file, n))
+                    .unwrap_or(3.0) as usize;
+                if let Some(icc) = stream.and_then(|s| self.profiles.get(file, id, s, n)) {
+                    return Space::Icc(icc);
+                }
+                if let Some(alt) = d.and_then(|d| d.get_key("Alternate")) {
+                    let a = self.parse(alt, depth + 1);
+                    if !matches!(a, Space::Unknown(_)) {
+                        return a;
                     }
-                    _ => Vec::new(),
-                },
-                None => Vec::new(),
-            };
-            Space::Indexed {
-                base: Box::new(base),
-                hival,
-                lookup,
+                }
+                match n {
+                    1 => Space::Gray,
+                    4 => Space::Cmyk,
+                    _ => Space::Rgb,
+                }
             }
-        }
-        b"Separation" | b"DeviceN" => {
-            let separation = family == b"Separation";
-            let names: Vec<Vec<u8>> = if separation {
-                arg(0)
-                    .and_then(|n| resolve(file, n).1.as_name().map(|n| n.as_bytes().to_vec()))
-                    .into_iter()
-                    .collect()
-            } else {
-                arg(0)
-                    .map(|a| resolve(file, a).1)
-                    .and_then(|a| {
-                        a.as_array().map(|a| {
-                            a.iter()
-                                .filter_map(|n| n.obj.as_name().map(|n| n.as_bytes().to_vec()))
-                                .collect()
+            b"Indexed" | b"I" => {
+                let base = arg(0).map_or(Space::Rgb, |b| self.parse(b, depth + 1));
+                let hival = arg(1)
+                    .and_then(|h| num(file, h))
+                    .unwrap_or(0.0)
+                    .clamp(0.0, 255.0) as usize;
+                let lookup = match arg(2).map(|l| resolve(file, l)) {
+                    Some((id, l)) => match &*l {
+                        Object::String(s) => s.bytes.clone(),
+                        Object::Stream(s) => {
+                            let id = id.unwrap_or(pdfi_syntax::ObjId::new(0, 0));
+                            file.decode_stream(id, s, Some(MAX_LOOKUP)).data
+                        }
+                        _ => Vec::new(),
+                    },
+                    None => Vec::new(),
+                };
+                Space::Indexed {
+                    base: Box::new(base),
+                    hival,
+                    lookup,
+                }
+            }
+            b"Separation" | b"DeviceN" => {
+                let separation = family == b"Separation";
+                let names: Vec<Vec<u8>> = if separation {
+                    arg(0)
+                        .and_then(|n| resolve(file, n).1.as_name().map(|n| n.as_bytes().to_vec()))
+                        .into_iter()
+                        .collect()
+                } else {
+                    arg(0)
+                        .map(|a| resolve(file, a).1)
+                        .and_then(|a| {
+                            a.as_array().map(|a| {
+                                a.iter()
+                                    .filter_map(|n| n.obj.as_name().map(|n| n.as_bytes().to_vec()))
+                                    .collect()
+                            })
                         })
-                    })
-                    .unwrap_or_default()
-            };
-            let alternate = arg(1).map_or(Space::Gray, |a| parse_at(file, a, depth + 1));
-            Space::Tint {
-                n: names.len().max(1),
-                none: !names.is_empty() && names.iter().all(|n| n == b"None"),
-                transform: arg(2).and_then(|f| Function::parse(file, f)),
-                alternate: Box::new(alternate),
+                        .unwrap_or_default()
+                };
+                let alternate = arg(1).map_or(Space::Gray, |a| self.parse(a, depth + 1));
+                Space::Tint {
+                    n: names.len().max(1),
+                    none: !names.is_empty() && names.iter().all(|n| n == b"None"),
+                    transform: arg(2).and_then(|f| Function::parse(file, f)),
+                    alternate: Box::new(alternate),
+                }
             }
+            _ => Space::Unknown(1),
         }
-        _ => Space::Unknown(1),
     }
 }
 

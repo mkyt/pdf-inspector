@@ -166,10 +166,12 @@ struct Images {
     bytes: usize,
 }
 
-/// Per-document renderer state: decoded images (whole and reduced).
+/// Per-document renderer state: decoded images (whole and reduced), ICC
+/// profiles.
 #[derive(Default)]
 pub struct DocRender {
     images: Mutex<Images>,
+    pub(crate) profiles: color::Profiles,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -196,7 +198,7 @@ impl DocRender {
             .get_or_init(|| {
                 fresh = true;
                 Arc::new(if k <= 1 {
-                    image::decode_xobject(file, Some(id), s)
+                    image::decode_xobject(file, &self.profiles, Some(id), s)
                 } else {
                     match &*self.image(file, id, s, 1) {
                         Ok(d) => Ok(shrink(

@@ -506,6 +506,90 @@ for n in range(1, size):
 out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (size, xref)
 open("fonts.pdf", "wb").write(out)
 PY
+python3 -I - <<'PY'
+# Painting (pdfi-render, M12): one page per feature.
+import struct, zlib
+
+def s15(v):
+    return struct.pack(">i", round(v * 65536))
+
+def icc(space, tags):
+    """A minimal ICC v2 display profile (PCS XYZ) with `tags` {sig: data}."""
+    tags = dict(tags)
+    tags[b"desc"] = b"desc\0\0\0\0" + struct.pack(">I", 5) + b"test\0" + b"\0" * 8 + b"\0" * 3 + b"\0" * 67
+    tags[b"wtpt"] = b"XYZ \0\0\0\0" + s15(0.9642) + s15(1.0) + s15(0.8249)
+    body, table, off = b"", b"", 128 + 4 + 12 * len(tags)
+    for sig, data in tags.items():
+        data += b"\0" * (-len(data) % 4)
+        table += sig + struct.pack(">II", off + len(body), len(data))
+        body += data
+    size = off + len(body)
+    head = struct.pack(">I", size) + b"\0" * 4 + bytes([2, 0x10, 0, 0]) + b"mntr" + space + b"XYZ "
+    head += b"\0" * 12 + b"acsp" + b"\0" * 24 + s15(0.9642) + s15(1.0) + s15(0.8249)
+    head += b"\0" * (128 - len(head))
+    return head + struct.pack(">I", len(tags)) + table + body
+
+def curv(gamma):
+    return b"curv\0\0\0\0" + struct.pack(">IH", 1, round(gamma * 256))
+
+def xyz(x, y, z):
+    return b"XYZ \0\0\0\0" + s15(x) + s15(y) + s15(z)
+
+# Gray, linear: 0.5 is sRGB 188, not 128.
+ICC_GRAY = icc(b"GRAY", {b"kTRC": curv(1.0)})
+# RGB with the red and blue colorants swapped: red shows blue.
+ICC_SWAP = icc(b"RGB ", {
+    b"rXYZ": xyz(0.1431, 0.0606, 0.7141), b"gXYZ": xyz(0.3851, 0.7169, 0.0971),
+    b"bXYZ": xyz(0.4361, 0.2225, 0.0139),
+    b"rTRC": curv(2.2), b"gTRC": curv(2.2), b"bTRC": curv(2.2),
+})
+
+pages = []
+objs = {1: b"<< /Type /Catalog /Pages 2 0 R >>"}
+streams = {}
+
+def page(content, resources):
+    n = 100 + 10 * len(pages)
+    pages.append(n)
+    objs[n] = b"<< /Type /Page /Parent 2 0 R /Contents %d 0 R /Resources %s >>" % (n + 1, resources)
+    streams[n + 1] = (b"<< /Length %d >>", content)
+
+# Page 1: colors. ICC gray and RGB, CalGray, Separation (calculator tint
+# transform), DeviceN (sampled tint transform), an image in the ICC space.
+streams[20] = (b"<< /N 1 /Length %d >>", ICC_GRAY)
+streams[21] = (b"<< /N 3 /Alternate /DeviceRGB /Length %d >>", ICC_SWAP)
+streams[22] = (b"<< /FunctionType 4 /Domain [0 1] /Range [0 1 0 1 0 1 0 1] /Length %d >>", b"{ 0 exch dup 0 }")
+streams[23] = (b"<< /FunctionType 0 /Domain [0 1 0 1] /Range [0 1 0 1 0 1] /Size [2 2] /BitsPerSample 8 /Length %d >>",
+               bytes([0, 0, 0, 255, 0, 0, 0, 255, 0, 255, 255, 0]))
+streams[24] = (b"<< /Type /XObject /Subtype /Image /Width 2 /Height 1 /ColorSpace [/ICCBased 21 0 R] /BitsPerComponent 8 /Length %d >>",
+               bytes([255, 0, 0, 0, 255, 0]))
+page(b"""/ICCG cs 0.5 sc 0 300 100 100 re f
+/ICCR cs 1 0 0 sc 100 300 100 100 re f
+/CalG cs 0.5 sc 200 300 100 100 re f
+/Sep cs 1 scn 300 300 100 100 re f
+/DevN cs 1 1 scn 0 200 100 100 re f
+/DevN cs 1 0 scn 100 200 100 100 re f
+q 200 0 0 100 200 200 cm /Img Do Q
+""", b"<< /ColorSpace << /ICCG [/ICCBased 20 0 R] /ICCR [/ICCBased 21 0 R] /CalG [/CalGray << /WhitePoint [0.9505 1 1.089] /Gamma 2.2 >>] /Sep [/Separation /Red /DeviceCMYK 22 0 R] /DevN [/DeviceN [/A /B] /DeviceRGB 23 0 R] >> /XObject << /Img 24 0 R >> >>")
+
+objs[2] = b"<< /Type /Pages /Kids [%s] /Count %d /MediaBox [0 0 400 400] >>" % (b" ".join(b"%d 0 R" % n for n in pages), len(pages))
+out = bytearray(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")
+offsets = {}
+for n in sorted(set(objs) | set(streams)):
+    offsets[n] = len(out)
+    if n in streams:
+        d, data = streams[n]
+        out += b"%d 0 obj\n" % n + d % len(data) + b"\nstream\n" + data + b"\nendstream\nendobj\n"
+    else:
+        out += b"%d 0 obj\n" % n + objs[n] + b"\nendobj\n"
+size = max(offsets) + 1
+xref = len(out)
+out += b"xref\n0 %d\n0000000000 65535 f\r\n" % size
+for n in range(1, size):
+    out += (b"%010d 00000 n\r\n" % offsets[n]) if n in offsets else b"0000000000 00000 f\r\n"
+out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (size, xref)
+open("paint.pdf", "wb").write(out)
+PY
 qpdf --object-streams=generate base.pdf objstm.pdf
 qpdf --linearize base.pdf linearized.pdf
 qpdf --allow-weak-crypto --encrypt user owner 40 -- base.pdf rc4-40.pdf
