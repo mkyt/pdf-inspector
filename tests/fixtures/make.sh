@@ -650,6 +650,9 @@ streams[52] = form(b"200 200 300 300", b"0 g 220 220 60 60 re f")
 streams[53] = form(b"300 200 400 300", b"1 g 320 220 60 60 re f")
 streams[55] = form(b"200 300 300 400", b"0 g 200 300 70 70 re f 230 330 70 70 re f", group=b"/Group << /S /Transparency >>")
 streams[56] = form(b"300 300 400 400", b"0 g 300 300 70 70 re f 330 330 70 70 re f", group=b"")
+# Non-isolated: white multiplied onto the red under the group leaves red,
+# even at ca 0.5 (an isolated group would show pink).
+streams[57] = form(b"0 100 100 200", b"/M gs 1 g 0 100 100 100 re f", group=b"/Group << /S /Transparency >>", res=b"<< /ExtGState << /M << /BM /Multiply >> >> >>")
 page(b"""1 1 0 rg 0 300 70 70 re f q /Mul gs 0 1 1 rg 30 330 70 70 re f Q
 1 0 0 rg 100 300 70 70 re f q /Scr gs 0 0 1 rg 130 330 70 70 re f Q
 q /Half gs /Grp Do Q
@@ -658,7 +661,8 @@ q /SmL gs 1 0 0 rg 0 200 100 100 re f Q
 q /SmA gs 0 0 1 rg 100 200 100 100 re f Q
 q /SmB gs 0 0.5 0 rg 200 200 100 100 re f Q
 q /SmT gs 0.5 0 0.5 rg 300 200 100 100 re f Q
-""", b"<< /ExtGState << /Mul << /BM /Multiply >> /Scr << /BM /Screen >> /Half << /ca 0.5 >> /SmL << /SMask << /S /Luminosity /G 50 0 R >> >> /SmA << /SMask << /S /Alpha /G 51 0 R >> >> /SmB << /SMask << /S /Luminosity /G 52 0 R /BC [1] >> >> /SmT << /SMask << /S /Luminosity /G 53 0 R /TR << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >> >> >> >> /XObject << /Grp 55 0 R /Plain 56 0 R >> >>")
+1 0 0 rg 0 100 100 100 re f q /Half gs /NonIso Do Q
+""", b"<< /ExtGState << /Mul << /BM /Multiply >> /Scr << /BM /Screen >> /Half << /ca 0.5 >> /SmL << /SMask << /S /Luminosity /G 50 0 R >> >> /SmA << /SMask << /S /Alpha /G 51 0 R >> >> /SmB << /SMask << /S /Luminosity /G 52 0 R /BC [1] >> >> /SmT << /SMask << /S /Luminosity /G 53 0 R /TR << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >> >> >> >> /XObject << /Grp 55 0 R /Plain 56 0 R /NonIso 57 0 R >> >>")
 
 # Page 5: image codecs. JPEG 2000 (JP2 RGB; a raw codestream; RGBA with
 # /SMaskInData), JBIG2 (generic region; symbols with /JBIG2Globals as a

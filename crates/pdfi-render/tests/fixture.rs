@@ -530,6 +530,9 @@ fn transparency() {
     // Inverting transfer function: a hole where the group is white.
     assert_eq!(px(&o, 305, 150), [128, 0, 128, 255]);
     assert_eq!(px(&o, 350, 150), WHITE);
+    // A non-isolated group multiplies white onto the red under it: red,
+    // even composited at ca 0.5.
+    assert_eq!(px(&o, 50, 250), [255, 0, 0, 255]);
     assert!(o.notes.is_empty(), "{:?}", o.notes);
 }
 

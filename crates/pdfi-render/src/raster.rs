@@ -45,6 +45,17 @@ const SMASKS: usize = 4;
 /// are painted straight through).
 const MAX_GROUPS: usize = 8;
 
+/// An open transparency group.
+struct Layer {
+    /// The bitmap the group is composited onto (`None`: the group is
+    /// painted straight through).
+    parent: Option<Pixmap>,
+    /// Non-isolated groups start from a copy of the backdrop; this keeps
+    /// the group's own coverage (its alpha) to take the backdrop out at
+    /// the end.
+    shape: Option<Pixmap>,
+}
+
 /// A soft mask: its group and the CTM it is painted in.
 type SoftKey = (ObjId, [u64; 6]);
 
@@ -91,9 +102,8 @@ pub struct Raster<'a> {
     smasks: Vec<(SoftKey, Option<Arc<Mask>>)>,
     /// The last soft mask combined with a clip mask.
     combined: Option<((usize, SoftKey), Mask)>,
-    /// Open transparency groups: the bitmaps they paint over (`None`:
-    /// painted straight through), and whether they are isolated.
-    groups: Vec<(Option<Pixmap>, bool)>,
+    /// Open transparency groups.
+    groups: Vec<Layer>,
     spaces: Vec<(Arc<Object>, Arc<Space>)>,
     /// Rendered cells of tiling patterns.
     cells: Vec<(CellKey, Arc<Pixmap>)>,
@@ -410,7 +420,7 @@ impl<'a> Raster<'a> {
 
     /// Paint with the clip of `g`; in probe mode, record whether anything
     /// was covered.
-    fn draw(&mut self, g: &GState, f: impl FnOnce(&mut Pixmap, Option<&Mask>)) {
+    fn draw(&mut self, g: &GState, f: impl Fn(&mut Pixmap, Option<&Mask>)) {
         let k = self.mask(&g.clip_path);
         let soft = match (&self.mode, &g.smask) {
             (Mode::Paint, Some(sm)) => self.soft_mask(sm),
@@ -421,9 +431,17 @@ impl<'a> Raster<'a> {
             self.pix.fill(tiny_skia::Color::TRANSPARENT);
         }
         let clip = k.and_then(|k| self.masks[k].1.as_ref());
+        // In a non-isolated group, the group's coverage too.
+        let shape = self.groups.last_mut().and_then(|l| l.shape.as_mut());
+        let paint = |m: Option<&Mask>| {
+            f(&mut self.pix, m);
+            if let Some(s) = shape {
+                f(s, m);
+            }
+        };
         match (soft, clip) {
-            (None, clip) => f(&mut self.pix, clip),
-            (Some((_, sm)), None) => f(&mut self.pix, Some(&sm)),
+            (None, clip) => paint(clip),
+            (Some((_, sm)), None) => paint(Some(&sm)),
             (Some((key, sm)), Some(c)) => {
                 // The soft mask times the clip (kept for the next paint).
                 let ck = (Arc::as_ptr(&self.masks[k.unwrap_or(0)].0) as usize, key);
@@ -434,8 +452,7 @@ impl<'a> Raster<'a> {
                     }
                     self.combined = Some((ck, m));
                 }
-                let m = self.combined.as_ref().map(|(_, m)| m);
-                f(&mut self.pix, m);
+                paint(self.combined.as_ref().map(|(_, m)| m));
             }
         }
         if probe
@@ -451,8 +468,8 @@ impl<'a> Raster<'a> {
         if !matches!(self.mode, Mode::Paint) {
             return BlendMode::SourceOver;
         }
-        let b = match g.blend.as_str() {
-            "Normal" | "Compatible" => return BlendMode::SourceOver,
+        match g.blend.as_str() {
+            "Normal" | "Compatible" => BlendMode::SourceOver,
             "Multiply" => BlendMode::Multiply,
             "Screen" => BlendMode::Screen,
             "Overlay" => BlendMode::Overlay,
@@ -470,13 +487,9 @@ impl<'a> Raster<'a> {
             "Luminosity" => BlendMode::Luminosity,
             other => {
                 self.note(format!("unknown blend mode /{other} is drawn as /Normal"));
-                return BlendMode::SourceOver;
+                BlendMode::SourceOver
             }
-        };
-        if self.groups.iter().any(|(_, isolated)| !isolated) {
-            self.note("blend modes in non-isolated groups are drawn as in isolated ones");
         }
-        b
     }
 
     /// A soft mask rendered over the bitmap (cached).
@@ -971,6 +984,36 @@ impl<'a> Raster<'a> {
     }
 }
 
+/// The result of a non-isolated group without its backdrop (ISO 32000
+/// 11.4.8): `layer` holds the group painted over the backdrop `under`,
+/// `shape` the group's own alpha. Colors become
+/// `Cn + (Cn − C0) × (α0 / αg − α0)` with alpha `αg`.
+fn remove_backdrop(layer: &mut Pixmap, under: &Pixmap, shape: &Pixmap) {
+    let un = |p: tiny_skia::PremultipliedColorU8| {
+        let a = p.alpha() as f32 / 255.0;
+        let c = |v: u8| if a > 0.0 { v as f32 / 255.0 / a } else { 0.0 };
+        ([c(p.red()), c(p.green()), c(p.blue())], a)
+    };
+    let (under, shape) = (under.pixels(), shape.pixels());
+    for (i, p) in layer.pixels_mut().iter_mut().enumerate() {
+        let ag = shape[i].alpha() as f32 / 255.0;
+        if ag == 0.0 {
+            *p = tiny_skia::PremultipliedColorU8::TRANSPARENT;
+            continue;
+        }
+        let (cn, _) = un(*p);
+        let (c0, a0) = un(under[i]);
+        let k = a0 / ag - a0;
+        let q = |j: usize| {
+            let v = (cn[j] + (cn[j] - c0[j]) * k).clamp(0.0, 1.0);
+            (v * ag * 255.0 + 0.5) as u8
+        };
+        let a = (ag * 255.0 + 0.5) as u8;
+        *p = tiny_skia::PremultipliedColorU8::from_rgba(q(0).min(a), q(1).min(a), q(2).min(a), a)
+            .unwrap_or(tiny_skia::PremultipliedColorU8::TRANSPARENT);
+    }
+}
+
 /// Reduce an image by `k` in both directions (box filter).
 pub fn shrink(d: Decoded, k: u32) -> Decoded {
     if k <= 1 {
@@ -1228,13 +1271,28 @@ impl Device for Raster<'_> {
         else {
             return;
         };
-        self.draw(g, |p, clip| {
-            if let Some(c) = clip {
-                for (s, c) in stencil.data_mut().iter_mut().zip(c.data()) {
+        if let Some(c) = self
+            .mask(&g.clip_path)
+            .and_then(|k| self.masks[k].1.as_ref())
+        {
+            for (s, c) in stencil.data_mut().iter_mut().zip(c.data()) {
+                *s = ((*s as u32 * *c as u32 + 127) / 255) as u8;
+            }
+        }
+        // The clip is in the stencil already.
+        let unclipped = GState {
+            clip_path: None,
+            ..g.clone()
+        };
+        self.draw(&unclipped, |p, soft| match soft {
+            Some(m) => {
+                let mut both = stencil.clone();
+                for (s, c) in both.data_mut().iter_mut().zip(m.data()) {
                     *s = ((*s as u32 * *c as u32 + 127) / 255) as u8;
                 }
+                p.fill_rect(rect, &fill, Transform::identity(), Some(&both))
             }
-            p.fill_rect(rect, &fill, Transform::identity(), Some(&stencil))
+            None => p.fill_rect(rect, &fill, Transform::identity(), Some(&stencil)),
         });
     }
 
@@ -1243,21 +1301,47 @@ impl Device for Raster<'_> {
         if own && group.knockout {
             self.note("knockout groups are drawn as ordinary ones");
         }
-        let parent = own
-            .then(|| Pixmap::new(self.pix.width(), self.pix.height()))
-            .flatten()
-            .map(|layer| std::mem::replace(&mut self.pix, layer));
-        if parent.is_none() && matches!(self.mode, Mode::Paint) {
+        let (w, h) = (self.pix.width(), self.pix.height());
+        let mut layer = Layer {
+            parent: None,
+            shape: None,
+        };
+        if own {
+            // An isolated group starts transparent, a non-isolated one
+            // from what is under it.
+            let start = if group.isolated {
+                Pixmap::new(w, h)
+            } else {
+                Some(self.pix.clone())
+            };
+            let shape = if group.isolated {
+                None
+            } else {
+                Pixmap::new(w, h)
+            };
+            if let Some(start) = start.filter(|_| group.isolated || shape.is_some()) {
+                layer.parent = Some(std::mem::replace(&mut self.pix, start));
+                layer.shape = shape;
+            }
+        }
+        if layer.parent.is_none() && matches!(self.mode, Mode::Paint) {
             self.note("transparency groups nested too deeply are painted straight through");
         }
-        self.groups.push((parent, group.isolated));
+        self.groups.push(layer);
     }
 
     fn end_group(&mut self, g: &GState) {
-        let Some((Some(parent), _)) = self.groups.pop() else {
+        let Some(Layer {
+            parent: Some(parent),
+            shape,
+        }) = self.groups.pop()
+        else {
             return;
         };
-        let layer = std::mem::replace(&mut self.pix, parent);
+        let mut layer = std::mem::replace(&mut self.pix, parent);
+        if let Some(shape) = shape {
+            remove_backdrop(&mut layer, &self.pix, &shape);
+        }
         let paint = tiny_skia::PixmapPaint {
             opacity: g.fill_alpha.clamp(0.0, 1.0) as f32,
             blend_mode: self.blend(g),
