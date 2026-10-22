@@ -433,18 +433,18 @@ fn samples(
                 let j = jpeg(&data)?;
                 (width, height, data) = (j.width, j.height, j.data);
                 bpc = 8;
-                match j.components {
-                    1 => space = Some(Space::Gray),
-                    3 => {
-                        if space.as_ref().is_none_or(|s| s.components() != 3) {
-                            space = Some(Space::Rgb);
-                        }
-                    }
-                    _ => {
-                        if space.as_ref().is_none_or(|s| s.components() != 4) {
-                            space = Some(Space::Cmyk);
-                        }
-                    }
+                // The dictionary's space when it has as many components
+                // (Separation, DeviceN, ICCBased, Indexed …), else the
+                // device space of the data.
+                if space
+                    .as_ref()
+                    .is_none_or(|s| s.components() != j.components)
+                {
+                    space = Some(match j.components {
+                        1 => Space::Gray,
+                        3 => Space::Rgb,
+                        _ => Space::Cmyk,
+                    });
                 }
             }
             other => {

@@ -562,5 +562,8 @@ fn image_codecs() {
     // A YCCK JPEG (inverted, with /Decode): red | blue.
     assert_eq!(px(&o, 320, 175), [255, 0, 0, 255]);
     assert_eq!(px(&o, 380, 175), [0, 0, 255, 255]);
+    // A one-channel JPEG in /Separation /Black: no ink | full ink.
+    assert!(near(px(&o, 20, 275), WHITE, 4));
+    assert!(px(&o, 80, 275)[..3].iter().all(|&c| c < 64));
     assert!(o.notes.is_empty(), "{:?}", o.notes);
 }

@@ -731,6 +731,17 @@ ffd8ffee000e41646f626500640000000002ffdb0043000201010101010201010102020202020403
 0009ffc40014100100000000000000000000000000000000ffc4001501010100000000000000000000000000000a08ffc400
 14110100000000000000000000000000000000ffda000e040100021103110400003f00662ac1ff006fe1782a64a89fffd9
 """.replace("\n", ""))
+# A one-channel JPEG (Pillow) in a /Separation /Black space: no ink |
+# full ink, so white | black (not inverted as DeviceGray would be).
+JPEG_SEP = bytes.fromhex("""
+ffd8ffe000104a46494600010100000100010000ffdb00430001010101010101010101010101010101010101010101010101
+010101010101010101010101010101010101010101010101010101010101010101010101010101ffc0000b08000800100101
+1100ffc4001f0000010501010101010100000000000000000102030405060708090a0bffc400b51000020103030204030505
+04040000017d01020300041105122131410613516107227114328191a1082342b1c11552d1f02433627282090a161718191a
+25262728292a3435363738393a434445464748494a535455565758595a636465666768696a737475767778797a8384858687
+88898a92939495969798999aa2a3a4a5a6a7a8a9aab2b3b4b5b6b7b8b9bac2c3c4c5c6c7c8c9cad2d3d4d5d6d7d8d9dae1e2
+e3e4e5e6e7e8e9eaf1f2f3f4f5f6f7f8f9faffda0008010100003f00ff003ffaff007f8affd9
+""".replace("\n", ""))
 def image(extra, data):
     return (b"<< /Type /XObject /Subtype /Image %s /Length %%d >>" % extra, data)
 streams[60] = image(b"/Width 16 /Height 16 /Filter /JPXDecode", JP2_RGB)
@@ -741,6 +752,7 @@ streams[64] = (b"<< /Length %d >>", JB2_GLOBALS)
 streams[65] = image(b"/Width 64 /Height 64 /ImageMask true /Filter /JBIG2Decode /DecodeParms << /JBIG2Globals 64 0 R >>", JB2_PAGE)
 streams[66] = image(b"/Width 64 /Height 64 /ImageMask true /Filter /CCITTFaxDecode /DecodeParms << /K -1 /Columns 64 /Rows 64 >>", G4)
 streams[68] = image(b"/Width 16 /Height 8 /ColorSpace /DeviceCMYK /BitsPerComponent 8 /Decode [1 0 1 0 1 0 1 0] /Filter /DCTDecode", JPEG_YCCK)
+streams[69] = image(b"/Width 16 /Height 8 /ColorSpace [/Separation /Black /DeviceCMYK << /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0 0 0 1] /N 1 >>] /BitsPerComponent 8 /Filter /DCTDecode", JPEG_SEP)
 streams[67] = image(b"/Width 64 /Height 64 /ColorSpace /DeviceGray /BitsPerComponent 1 /Filter /CCITTFaxDecode /DecodeParms << /K 0 /Columns 64 >>", G3)
 page(b"""q 100 0 0 100 0 300 cm /Jp2 Do Q
 q 100 0 0 100 100 300 cm /J2k Do Q
@@ -750,7 +762,8 @@ q 1 0 0 rg 100 0 0 100 0 200 cm /Jb2g Do Q
 q 0 0 1 rg 100 0 0 100 100 200 cm /G4 Do Q
 q 100 0 0 100 200 200 cm /G3 Do Q
 q 100 0 0 50 300 200 cm /Ycck Do Q
-""", b"<< /XObject << /Ycck 68 0 R /Jp2 60 0 R /J2k 61 0 R /Jp2a 62 0 R /Jb2 63 0 R /Jb2g 65 0 R /G4 66 0 R /G3 67 0 R >> >>")
+q 100 0 0 50 0 100 cm /Sep Do Q
+""", b"<< /XObject << /Sep 69 0 R /Ycck 68 0 R /Jp2 60 0 R /J2k 61 0 R /Jp2a 62 0 R /Jb2 63 0 R /Jb2g 65 0 R /G4 66 0 R /G3 67 0 R >> >>")
 
 objs[2] = b"<< /Type /Pages /Kids [%s] /Count %d /MediaBox [0 0 400 400] >>" % (b" ".join(b"%d 0 R" % n for n in pages), len(pages))
 out = bytearray(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")
