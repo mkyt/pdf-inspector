@@ -303,7 +303,7 @@ pub fn render(
         &mul(&v.matrix, &[o.scale, 0.0, 0.0, o.scale, 0.0, 0.0]),
         &translate(MARGIN as f64 - t.x as f64, MARGIN as f64 - t.y as f64),
     );
-    let mut dev = Raster::new(content.file(), cache, pix, base, MARGIN, mode);
+    let mut dev = Raster::new(content, cache, cancel, pix, base, MARGIN, mode);
     let drawn = content.draw(a, o.until, &mut dev, cancel);
     let notes = dev.notes.into_iter().collect();
     let full = dev.pix.take_demultiplied();
@@ -349,7 +349,7 @@ pub fn hit_test(
         &[s, 0.0, 0.0, s, 0.0, 0.0],
     );
     let pix = Pixmap::new(3, 3).expect("probe pixmap");
-    let mut dev = Raster::new(content.file(), cache, pix, base, 0, Mode::Probe);
+    let mut dev = Raster::new(content, cache, cancel, pix, base, 0, Mode::Probe);
     content.draw(a, until, &mut dev, cancel);
     let mut hits = dev.hits;
     hits.reverse();

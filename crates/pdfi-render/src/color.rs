@@ -135,7 +135,8 @@ pub enum Space {
         alternate: Box<Space>,
         transform: Option<Function>,
     },
-    Pattern,
+    /// With the base space of uncolored tiling patterns.
+    Pattern(Option<Box<Space>>),
     /// Unknown: drawn as gray from the first component.
     Unknown(usize),
 }
@@ -154,7 +155,7 @@ impl Space {
             Space::Icc(i) => i.n,
             Space::Cmyk => 4,
             Space::Tint { n, .. } => *n,
-            Space::Pattern => 0,
+            Space::Pattern(base) => base.as_ref().map_or(0, |b| b.components()),
             Space::Unknown(n) => *n,
         }
     }
@@ -243,7 +244,10 @@ impl Space {
                 let g = u(1.0 - tints.iter().copied().fold(0.0, f64::max));
                 [g, g, g]
             }
-            Space::Pattern => [0.5, 0.5, 0.5],
+            Space::Pattern(base) => match base {
+                Some(b) => return b.to_rgb(c, approx),
+                None => [0.5, 0.5, 0.5],
+            },
             Space::Unknown(_) => {
                 let g = u(at(0));
                 [g, g, g]
@@ -394,7 +398,7 @@ impl Parser<'_> {
                 }
             }
             b"DeviceCMYK" | b"CMYK" => Space::Cmyk,
-            b"Pattern" => Space::Pattern,
+            b"Pattern" => Space::Pattern(arg(0).map(|b| Box::new(self.parse(b, depth + 1)))),
             b"Lab" => {
                 let d = dict();
                 let white = white(&d);

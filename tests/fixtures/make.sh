@@ -607,6 +607,37 @@ q 1 0 0 1 100 50 cm /Tensor sh Q
 q /Pattern cs /P0 scn 100 0 0 100 0 200 cm /Mask Do Q
 """, b"<< /Shading << /Ax << /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 100 0] /Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >> /Extend [true true] >> /Rad << /ShadingType 3 /ColorSpace /DeviceGray /Coords [150 350 0 150 350 50] /Function << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >> >> /Fn << /ShadingType 1 /ColorSpace /DeviceRGB /Matrix [100 0 0 100 200 300] /Function 30 0 R >> /Tri 31 0 R /Lat 32 0 R /Coons 33 0 R /Tensor 34 0 R >> /Pattern << /P0 36 0 R >> /XObject << /Mask 35 0 R >> >>")
 
+k = 0.5523
+def circle(cx, cy, r):
+    c = k * r
+    return (b"%g %g m %g %g %g %g %g %g c %g %g %g %g %g %g c %g %g %g %g %g %g c %g %g %g %g %g %g c h" % (
+        cx + r, cy, cx + r, cy + c, cx + c, cy + r, cx, cy + r,
+        cx - c, cy + r, cx - r, cy + c, cx - r, cy, cx - r, cy - c,
+        cx - c, cy - r, cx, cy - r, cx + c, cy - r, cx + r, cy - c, cx + r, cy))
+
+# Page 3: tiling patterns. Colored, uncolored (in a /Pattern space with
+# a base), rotated, a box larger than the step (wrapping), stroked, and
+# inside a form scaled by its /Matrix (pattern space is the form's).
+def tiling(extra, content):
+    return (b"<< /Type /Pattern /PatternType 1 /TilingType 1 %s /Length %%d >>" % extra, content)
+streams[40] = tiling(b"/PaintType 1 /BBox [0 0 20 20] /XStep 20 /YStep 20 /Resources << >>",
+                     b"1 0 0 rg 0 0 10 10 re f 0 0 1 rg 10 10 10 10 re f")
+streams[41] = tiling(b"/PaintType 2 /BBox [0 0 10 10] /XStep 10 /YStep 10 /Resources << >>",
+                     b"0 0 5 10 re f")
+streams[42] = tiling(b"/PaintType 1 /BBox [0 0 20 20] /XStep 20 /YStep 20 /Matrix [0.7071 0.7071 -0.7071 0.7071 0 0] /Resources << >>",
+                     b"0 0.6 0 rg 0 0 10 20 re f")
+streams[43] = tiling(b"/PaintType 1 /BBox [0 0 30 30] /XStep 20 /YStep 20 /Resources << >>",
+                     b"1 0.5 0 rg " + circle(15, 15, 15) + b" f")
+streams[44] = (b"<< /Type /XObject /Subtype /Form /BBox [0 0 100 50] /Matrix [2 0 0 2 0 0] /Resources << /Pattern << /P1 40 0 R >> >> /Length %d >>",
+               b"/Pattern cs /P1 scn 0 0 100 50 re f")
+page(b"""/Pattern cs /P1 scn 0 300 200 100 re f
+/PU cs 0 0 1 /P2 scn 200 300 200 100 re f
+/Pattern cs /P3 scn 0 200 200 100 re f
+/Pattern cs /P4 scn 200 200 200 100 re f
+/Pattern CS /P1 SCN 20 w 0 150 m 400 150 l S
+q 1 0 0 1 0 0 cm /Fm Do Q
+""", b"<< /ColorSpace << /PU [/Pattern /DeviceRGB] >> /Pattern << /P1 40 0 R /P2 41 0 R /P3 42 0 R /P4 43 0 R >> /XObject << /Fm 44 0 R >> >>")
+
 objs[2] = b"<< /Type /Pages /Kids [%s] /Count %d /MediaBox [0 0 400 400] >>" % (b" ".join(b"%d 0 R" % n for n in pages), len(pages))
 out = bytearray(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")
 offsets = {}

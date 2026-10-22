@@ -540,6 +540,46 @@ impl<'a> Content<'a> {
             cancelled: cancelled || (env.budget == 0 && cancel()),
         }
     }
+
+    /// Paint a stream that a renderer runs itself (a tiling pattern's
+    /// cell, a soft mask's group) from state `g`, with the stream's own
+    /// resources. The device's operation index is left as it is.
+    pub fn draw_stream(
+        &self,
+        id: ObjId,
+        s: &Stream,
+        g: GState,
+        kind: Kind,
+        device: &mut dyn Device,
+        cancel: &dyn Fn() -> bool,
+    ) -> Drawn {
+        let file = self.m.file;
+        let res = Resources::new(file, s.dict.get_key("Resources"));
+        let data = self.c.form_data(file, id, s);
+        let mut env = Env::new(file, self.c);
+        env.cancel = Some(cancel);
+        let mut interp = Interp::new(State::new(g), &res, kind).with_data(&data);
+        let mut rec = Rec::draw(device);
+        let mut r = OpReader::new(&data);
+        let mut sink = Issues::default();
+        let mut cancelled = false;
+        loop {
+            let i = r.count();
+            if i % 256 == 0 && cancel() {
+                cancelled = true;
+                break;
+            }
+            let Some(op) = r.next(&mut sink) else { break };
+            interp.step(&mut env, i as u32, &op, &mut rec);
+            if env.budget == 0 {
+                break;
+            }
+        }
+        Drawn {
+            ops: r.count(),
+            cancelled,
+        }
+    }
 }
 
 /// What [`Content::draw`] got through.

@@ -8,10 +8,11 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use pdfi_content::Content;
 use pdfi_content::device::{ClipPath, Device, GlyphRun, ImageData, PathEl};
 use pdfi_content::font::GlyphSource;
-use pdfi_content::geom::{Matrix, apply, mul, scale_of};
-use pdfi_content::interp::{Color, GState, Resources};
+use pdfi_content::geom::{Matrix, apply, mul, scale_of, translate};
+use pdfi_content::interp::{Color, GState, Kind, Resources};
 use pdfi_syntax::{DictExt, ObjId, Object, PdfFile};
 use tiny_skia::{
     FillRule, FilterQuality, LineCap, LineJoin, Mask, MaskType, Paint, PathBuilder, Pattern,
@@ -31,6 +32,22 @@ const SPACES: usize = 32;
 const TEXT_ALPHA: f32 = 0.35;
 /// Strokes of a highlight are at least this wide (pixels).
 const HIGHLIGHT_WIDTH: f64 = 3.0;
+/// Patterns and soft masks painted inside each other.
+const MAX_DEPTH: u32 = 6;
+/// Pattern cells kept per pass.
+const CELLS: usize = 8;
+/// Pixels of a pattern cell (larger cells are rendered coarser).
+const CELL_PIXELS: f64 = (1 << 22) as f64;
+
+/// A tiling pattern's cell as rendered: the pattern, its matrix to the
+/// device, the cell's size, and the color of an uncolored pattern.
+#[derive(Clone, Debug, PartialEq)]
+struct CellKey {
+    id: ObjId,
+    m: [u64; 4],
+    size: (u32, u32),
+    color: Option<[u8; 3]>,
+}
 
 pub enum Mode {
     Paint,
@@ -42,7 +59,11 @@ pub enum Mode {
 
 pub struct Raster<'a> {
     file: &'a PdfFile,
+    content: &'a Content<'a>,
     cache: &'a DocRender,
+    cancel: &'a dyn Fn() -> bool,
+    /// Patterns and soft masks painted inside each other.
+    depth: u32,
     pub pix: Pixmap,
     /// The content's space to pixels.
     base: Matrix,
@@ -58,6 +79,8 @@ pub struct Raster<'a> {
     /// `None`: the clip covers the whole pixmap.
     masks: Vec<(Arc<ClipPath>, Option<Mask>)>,
     spaces: Vec<(Arc<Object>, Arc<Space>)>,
+    /// Rendered cells of tiling patterns.
+    cells: Vec<(CellKey, Arc<Pixmap>)>,
     /// What was approximated or left out, and how often.
     pub notes: BTreeMap<String, u32>,
 }
@@ -191,7 +214,7 @@ enum Src {
     Solid(tiny_skia::Color),
     /// A bitmap (`ts`: its pixels to device pixels), tiled or not.
     Image {
-        pix: Pixmap,
+        pix: Arc<Pixmap>,
         ts: Transform,
         repeat: bool,
         quality: FilterQuality,
@@ -214,7 +237,7 @@ impl Src {
             } => {
                 if a < 1.0 {
                     let k = a.clamp(0.0, 1.0);
-                    for v in pix.data_mut() {
+                    for v in Arc::make_mut(&mut pix).data_mut() {
                         *v = (*v as f32 * k + 0.5) as u8;
                     }
                 }
@@ -228,8 +251,9 @@ impl Src {
         }
     }
 
-    /// The paint, its opacity multiplied by `a`.
-    fn paint(&self, a: f32) -> Paint<'_> {
+    /// The paint, its opacity multiplied by `a`, for drawing with
+    /// transform `draw` (tiny-skia moves shaders with what is drawn).
+    fn paint(&self, a: f32, draw: Transform) -> Paint<'_> {
         match self {
             Src::Solid(c) => {
                 let mut c = *c;
@@ -245,7 +269,7 @@ impl Src {
                 quality,
             } => Paint {
                 shader: Pattern::new(
-                    pix.as_ref(),
+                    (**pix).as_ref(),
                     if *repeat {
                         SpreadMode::Repeat
                     } else {
@@ -253,7 +277,7 @@ impl Src {
                     },
                     *quality,
                     a,
-                    *ts,
+                    ts.post_concat(draw.invert().unwrap_or_default()),
                 ),
                 ..Paint::default()
             },
@@ -263,8 +287,9 @@ impl Src {
 
 impl<'a> Raster<'a> {
     pub fn new(
-        file: &'a PdfFile,
+        content: &'a Content<'a>,
         cache: &'a DocRender,
+        cancel: &'a dyn Fn() -> bool,
         pix: Pixmap,
         base: Matrix,
         margin: u32,
@@ -274,8 +299,12 @@ impl<'a> Raster<'a> {
         let m = margin as f64;
         let kept = (m, m, pix.width() as f64 - m, pix.height() as f64 - m);
         Raster {
-            file,
+            file: content.file(),
+            content,
             cache,
+            cancel,
+            depth: 0,
+            cells: Vec::new(),
             pix,
             base,
             kept,
@@ -507,11 +536,171 @@ impl<'a> Raster<'a> {
         }
         let pix = sh.paint(m, area, background)?;
         Some(Src::Image {
-            pix,
+            pix: Arc::new(pix),
             ts: Transform::from_translate(area.0 as f32, area.1 as f32),
             repeat: false,
             quality: FilterQuality::Nearest,
         })
+    }
+
+    /// A tiling pattern's cell, rendered at about device resolution, as
+    /// a repeating source (`m`: pattern space to the device).
+    fn tiling(&mut self, id: ObjId, s: &pdfi_syntax::Stream, c: &Color, m: &Matrix) -> Option<Src> {
+        let d = &s.dict;
+        let Some(bbox) = d
+            .get_key("BBox")
+            .and_then(|b| pdfi_model::Rect::read(self.file, b))
+        else {
+            self.note("a tiling pattern without a valid /BBox: nothing is painted");
+            return None;
+        };
+        let num = |k: &str| {
+            d.get_key(k)
+                .and_then(|v| pdfi_model::resolve(self.file, v).1.as_f64())
+        };
+        let (xs, ys) = (
+            num("XStep").unwrap_or(0.0).abs(),
+            num("YStep").unwrap_or(0.0).abs(),
+        );
+        if !(xs > 0.0 && ys > 0.0 && xs.is_finite() && ys.is_finite()) {
+            self.note("a tiling pattern with a zero /XStep or /YStep: nothing is painted");
+            return None;
+        }
+        // An uncolored pattern takes its color from the base space.
+        let color = if d.get_i64("PaintType") == Some(2) {
+            let space = c.def.as_ref().map(|d| self.space(d));
+            let mut approx = Approx::default();
+            let rgb = match space.as_deref() {
+                Some(Space::Pattern(Some(base))) => base.to_rgb(&c.components, &mut approx),
+                _ => None,
+            };
+            let Some(rgb) = rgb else {
+                self.note(
+                    "an uncolored tiling pattern without a base color space: nothing is painted",
+                );
+                return None;
+            };
+            Some(rgb.map(|v| (v.clamp(0.0, 1.0) * 255.0 + 0.5) as u8))
+        } else {
+            None
+        };
+        // The cell's sides in device pixels.
+        let (pw, ph) = (m[0].hypot(m[1]) * xs, m[2].hypot(m[3]) * ys);
+        if !(pw.is_finite() && ph.is_finite()) || pw * ph == 0.0 {
+            return None;
+        }
+        let k = (CELL_PIXELS / (pw.max(1.0) * ph.max(1.0))).sqrt().min(1.0);
+        let (w, h) = (
+            ((pw * k).round() as u32).clamp(1, crate::MAX_SIDE),
+            ((ph * k).round() as u32).clamp(1, crate::MAX_SIDE),
+        );
+        // Pattern space to the cell's pixels: the cell starts at the
+        // box's lower left corner.
+        let (sx, sy) = (w as f64 / xs, h as f64 / ys);
+        let cell = [sx, 0.0, 0.0, sy, -bbox.x0 * sx, -bbox.y0 * sy];
+        let ts = to_transform(&mul(&invert(&cell)?, m));
+        let key = CellKey {
+            id,
+            m: [m[0], m[1], m[2], m[3]].map(f64::to_bits),
+            size: (w, h),
+            color,
+        };
+        let pix = match self.cells.iter().find(|(k, _)| *k == key) {
+            Some((_, p)) => p.clone(),
+            None => {
+                if self.depth >= MAX_DEPTH {
+                    self.note("patterns nested too deeply: nothing is painted");
+                    return None;
+                }
+                let mut pix = Pixmap::new(w, h)?;
+                // Content beyond the cell (a box larger than the step) is
+                // wrapped around.
+                let nx = (((bbox.x1 - bbox.x0) / xs).ceil() as i32).clamp(1, 3);
+                let ny = (((bbox.y1 - bbox.y0) / ys).ceil() as i32).clamp(1, 3);
+                for i in 0..nx {
+                    for j in 0..ny {
+                        let base = mul(&translate(-i as f64 * xs, -j as f64 * ys), &cell);
+                        pix = self.sub_draw(pix, base, id, s, Some(bbox));
+                    }
+                }
+                if let Some(rgb) = color {
+                    for p in pix.pixels_mut() {
+                        let a = p.alpha();
+                        let q = |v: u8| ((v as u32 * a as u32 + 127) / 255) as u8;
+                        *p = tiny_skia::PremultipliedColorU8::from_rgba(
+                            q(rgb[0]),
+                            q(rgb[1]),
+                            q(rgb[2]),
+                            a,
+                        )
+                        .unwrap_or(*p);
+                    }
+                }
+                let pix = Arc::new(pix);
+                if self.cells.len() >= CELLS {
+                    self.cells.remove(0);
+                }
+                self.cells.push((key, pix.clone()));
+                pix
+            }
+        };
+        let exact = (ts.sx.abs() - 1.0).abs() < 1e-3
+            && (ts.sy.abs() - 1.0).abs() < 1e-3
+            && ts.kx == 0.0
+            && ts.ky == 0.0;
+        Some(Src::Image {
+            pix,
+            ts,
+            repeat: true,
+            quality: if exact {
+                FilterQuality::Nearest
+            } else {
+                FilterQuality::Bilinear
+            },
+        })
+    }
+
+    /// Paint a stream (pattern cell, soft mask group) onto `pix` with a
+    /// nested raster: `base` maps its space to `pix`, `clip` (in its
+    /// space) bounds it.
+    fn sub_draw(
+        &mut self,
+        pix: Pixmap,
+        base: Matrix,
+        id: ObjId,
+        s: &pdfi_syntax::Stream,
+        clip: Option<pdfi_model::Rect>,
+    ) -> Pixmap {
+        let mut sub = Raster::new(
+            self.content,
+            self.cache,
+            self.cancel,
+            pix,
+            base,
+            0,
+            Mode::Paint,
+        );
+        sub.depth = self.depth + 1;
+        let mut g = GState::new(pdfi_content::geom::IDENTITY, clip);
+        if let Some(b) = clip {
+            g.clip_path = Some(Arc::new(ClipPath {
+                path: vec![
+                    PathEl::Move(b.x0, b.y0),
+                    PathEl::Line(b.x1, b.y0),
+                    PathEl::Line(b.x1, b.y1),
+                    PathEl::Line(b.x0, b.y1),
+                    PathEl::Close,
+                ],
+                even_odd: false,
+                parent: None,
+            }));
+        }
+        self.content
+            .draw_stream(id, s, g, Kind::Pattern, &mut sub, self.cancel);
+        for (n, k) in std::mem::take(&mut sub.notes) {
+            *self.notes.entry(n).or_default() += k;
+        }
+        sub.pix
     }
 
     /// The source of a pattern color over `area`.
@@ -547,9 +736,13 @@ impl<'a> Raster<'a> {
                 let sh = self.shading_of(key, sid, so);
                 self.shade(&sh, &m, area, true)
             }
+            Some(1) => match (pid, o) {
+                (Some(id), Object::Stream(s)) => self.tiling(*id, s, c, &m),
+                _ => None,
+            },
             _ => {
-                self.note("tiling patterns are drawn as gray");
-                Some(Src::Solid(rgb_color([0.5; 3], 1.0)))
+                self.note("a pattern of unknown /PatternType: nothing is painted");
+                None
             }
         };
         src.map(|s| s.with_alpha(alpha as f32))
@@ -681,7 +874,8 @@ impl Device for Raster<'_> {
         let Some(src) = self.source(&g.fill, g.fill_alpha, g, area) else {
             return;
         };
-        let paint = src.paint(1.0);
+        let ts = to_transform(&self.base);
+        let paint = src.paint(1.0, ts);
         let rule = if even_odd {
             FillRule::EvenOdd
         } else {
@@ -711,8 +905,8 @@ impl Device for Raster<'_> {
         let Some(src) = self.source(&g.stroke, g.stroke_alpha, g, area) else {
             return;
         };
-        let paint = src.paint(1.0);
         let ts = to_transform(&m);
+        let paint = src.paint(1.0, ts);
         self.draw(g, |pix, mask| {
             pix.stroke_path(&p, &paint, &stroke, ts, mask)
         });
@@ -763,7 +957,7 @@ impl Device for Raster<'_> {
             } else {
                 1.0
             };
-            let paint = src.paint(faint);
+            let paint = src.paint(faint, to_transform(&self.base));
             let ts = to_transform(&self.base);
             self.draw(g, |pix, mask| {
                 pix.fill_path(&p, &paint, FillRule::Winding, ts, mask)
@@ -870,7 +1064,7 @@ impl Device for Raster<'_> {
         };
         cover.fill_rect(r, &paint, ts, None);
         let mut stencil = Mask::from_pixmap(cover.as_ref(), MaskType::Alpha);
-        let fill = src.paint(1.0);
+        let fill = src.paint(1.0, Transform::identity());
         let Some(rect) =
             tiny_skia::Rect::from_ltrb(area.0 as f32, area.1 as f32, area.2 as f32, area.3 as f32)
         else {
@@ -916,7 +1110,7 @@ impl Device for Raster<'_> {
                 },
             ) => {
                 let c = c.premultiply().to_color_u8();
-                for p in pix.pixels_mut() {
+                for p in Arc::make_mut(&mut pix).pixels_mut() {
                     if p.alpha() > 0 {
                         *p = c;
                     }
@@ -930,7 +1124,7 @@ impl Device for Raster<'_> {
             }
             (_, src) => src.with_alpha(g.fill_alpha as f32),
         };
-        let paint = src.paint(1.0);
+        let paint = src.paint(1.0, Transform::identity());
         let r =
             tiny_skia::Rect::from_ltrb(area.0 as f32, area.1 as f32, area.2 as f32, area.3 as f32);
         let Some(r) = r else { return };

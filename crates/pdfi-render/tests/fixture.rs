@@ -464,3 +464,41 @@ fn shadings_and_shading_patterns() {
     // Hit testing finds sh.
     assert_eq!(d.hits(Target::Page(1), 50.0, 50.0), vec![4]);
 }
+
+#[test]
+fn tiling_patterns() {
+    let d = Doc::new("paint.pdf");
+    let o = d.render(Target::Page(2), &opts(1.0));
+    const RED: [u8; 4] = [255, 0, 0, 255];
+    const BLUE: [u8; 4] = [0, 0, 255, 255];
+    // 20-point cells from the page's origin: red lower left, blue upper
+    // right.
+    assert_eq!(px(&o, 5, 15), RED);
+    assert_eq!(px(&o, 15, 5), BLUE);
+    assert_eq!(px(&o, 5, 5), WHITE);
+    // Uncolored, painted blue through [/Pattern /DeviceRGB].
+    assert_eq!(px(&o, 202, 50), BLUE);
+    assert_eq!(px(&o, 207, 50), WHITE);
+    // A box larger than the step: overlapping circles cover everything.
+    assert_eq!(px(&o, 300, 150), [255, 128, 0, 255]);
+    // Inside a form scaled by 2: cells of 40 points.
+    assert_eq!(px(&o, 10, 390), RED);
+    assert_eq!(px(&o, 30, 370), BLUE);
+    assert!(o.notes.is_empty(), "{:?}", o.notes);
+    // Tiles render the same pixels.
+    let t = d.render(
+        Target::Page(2),
+        &Options {
+            tile: Some(Tile {
+                x: 190,
+                y: 90,
+                width: 50,
+                height: 50,
+            }),
+            ..opts(1.0)
+        },
+    );
+    for (x, y) in [(0, 0), (12, 7), (49, 49), (30, 20)] {
+        assert_eq!(px(&t, x, y), px(&o, 190 + x, 90 + y));
+    }
+}
