@@ -1,11 +1,13 @@
-import { Group, Loader, Stack, Text } from "@mantine/core";
+import { Button, Group, Loader, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api, useBackend } from "../api";
+import type { Backend } from "../backend/backend";
+import { useDoc } from "../doc";
 import { useNav } from "../nav";
-import type { NodeView, ObjRef, StreamInfo } from "../protocol/generated";
+import type { DocId, NodeView, ObjRef, StreamInfo } from "../protocol/generated";
 
-/** Decoded data we fetch for a preview (one request). */
+/** Decoded data we fetch for a preview (one request; also the protocol's chunk limit). */
 const MAX_DATA = 4 << 20;
 const MAX_SIDE = 320;
 
@@ -58,18 +60,7 @@ export function ImagePreview({ id, info }: { id: ObjRef; info: StreamInfo }) {
   });
   const d = dict.data;
   const jpeg = info.filters[info.filters.length - 1] === "DCTDecode";
-  const supported =
-    d &&
-    (jpeg ||
-      (info.filters.every(
-        (f) =>
-          f === "FlateDecode" ||
-          f === "LZWDecode" ||
-          f === "ASCII85Decode" ||
-          f === "ASCIIHexDecode" ||
-          f === "RunLengthDecode",
-      ) &&
-        (d.bits === 8 || (d.bits === 1 && (d.mask || d.space === "DeviceGray")))));
+  const supported = d && (jpeg || drawable(d, info));
   const data = useQuery({
     queryKey: ["doc", nav.doc, "imageData", id.num, id.generation],
     queryFn: () => api.streamData(backend, nav.doc, id, true, 0, MAX_DATA),
@@ -87,6 +78,7 @@ export function ImagePreview({ id, info }: { id: ObjRef; info: StreamInfo }) {
         <Text size="xs" c="dimmed">
           {d.width} × {d.height} · {d.mask ? "ImageMask" : (d.space ?? "other color space")} · {d.bits} bpc
         </Text>
+        <Download id={id} info={info} d={d} />
       </Group>
       {!supported ? (
         <Text size="xs" c="dimmed">
@@ -107,11 +99,152 @@ export function ImagePreview({ id, info }: { id: ObjRef; info: StreamInfo }) {
   );
 }
 
+const PLAIN_FILTERS = ["FlateDecode", "LZWDecode", "ASCII85Decode", "ASCIIHexDecode", "RunLengthDecode"];
+
+/** Samples we can turn into pixels ourselves. */
+function drawable(d: ImageDict, info: StreamInfo): boolean {
+  return (
+    info.filters.every((f) => PLAIN_FILTERS.includes(f)) &&
+    (d.bits === 8 || (d.bits === 1 && (d.mask || d.space === "DeviceGray")))
+  );
+}
+
+/**
+ * What a download saves: JPEG and JPEG 2000 data as stored (they are image
+ * files already), samples we can draw as PNG, anything else as the stream
+ * data decoded as far as we can.
+ */
+function downloadKind(d: ImageDict, info: StreamInfo): { label: string; ext: string } {
+  const last = info.filters[info.filters.length - 1];
+  if (last === "DCTDecode") return { label: "JPEG", ext: "jpg" };
+  if (last === "JPXDecode") return { label: "JPEG 2000", ext: "jp2" };
+  if (drawable(d, info)) return { label: "PNG", ext: "png" };
+  return { label: last ? `data (/${last})` : "samples", ext: "bin" };
+}
+
+/** All of a stream's decoded data, in protocol-sized chunks. */
+async function streamAll(b: Backend, doc: DocId, id: ObjRef): Promise<Uint8Array> {
+  const parts: Uint8Array[] = [];
+  let offset = 0;
+  for (;;) {
+    const r = await api.streamData(b, doc, id, true, offset, MAX_DATA);
+    if (r.info.errors.length) throw new Error(r.info.errors.join("; "));
+    parts.push(r.data);
+    offset += r.data.length;
+    if (r.info.eof || r.data.length === 0) break;
+  }
+  const out = new Uint8Array(offset);
+  let o = 0;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
+  }
+  return out;
+}
+
+async function imageBlob(d: ImageDict, ext: string, bytes: Uint8Array): Promise<Blob> {
+  if (ext !== "png") {
+    const type = ext === "jpg" ? "image/jpeg" : ext === "jp2" ? "image/jp2" : "application/octet-stream";
+    return new Blob([bytes as BlobPart], { type });
+  }
+  const img = rasterize(d, bytes);
+  if (typeof img === "string") throw new Error(img);
+  const c = new OffscreenCanvas(d.width, d.height);
+  c.getContext("2d")!.putImageData(img, 0, 0);
+  return c.convertToBlob({ type: "image/png" });
+}
+
+function save(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+function Download({ id, info, d }: { id: ObjRef; info: StreamInfo; d: ImageDict }) {
+  const backend = useBackend();
+  const nav = useNav();
+  const { summary } = useDoc();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { label, ext } = downloadKind(d, info);
+  const stem = summary.info.name.replace(/\.pdf$/i, "");
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const blob = await imageBlob(d, ext, await streamAll(backend, nav.doc, id));
+      save(blob, `${stem}-${id.num}-${id.generation}.${ext}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <Button size="compact-xs" variant="subtle" loading={busy} onClick={() => void run()}>
+        Download {label}
+      </Button>
+      {error && (
+        <Text size="xs" c="red">
+          {error}
+        </Text>
+      )}
+    </>
+  );
+}
+
 const frame = {
   border: "1px solid var(--mantine-color-default-border)",
   background: "repeating-conic-gradient(#ccc 0 25%, #fff 0 50%) 0 0 / 16px 16px",
   alignSelf: "flex-start",
 } as const;
+
+/** Samples as RGBA pixels, or why they cannot be. */
+function rasterize(d: ImageDict, bytes: Uint8Array): ImageData | string {
+  const { width: w, height: h } = d;
+  const img = new ImageData(w, h);
+  const px = img.data;
+  if (d.bits === 1) {
+    const row = Math.ceil(w / 8);
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
+        const bit = (bytes[y * row + (x >> 3)] >> (7 - (x & 7))) & 1;
+        const o = 4 * (y * w + x);
+        // Image masks paint where the sample is 0; gray 1 is white.
+        const v = d.mask ? (bit ? 255 : 0) : bit * 255;
+        px[o] = px[o + 1] = px[o + 2] = d.mask ? 0 : v;
+        px[o + 3] = d.mask ? 255 - v : 255;
+      }
+    return img;
+  }
+  const n = bytes.length / (w * h);
+  const comps =
+    d.space === "DeviceGray" ? 1 : d.space === "DeviceRGB" ? 3 : d.space === "DeviceCMYK" ? 4 : Math.floor(n);
+  if (![1, 3, 4].includes(comps) || bytes.length < w * h * comps) {
+    return `cannot tell the samples apart (${bytes.length} bytes for ${w}×${h})`;
+  }
+  for (let i = 0; i < w * h; i++) {
+    const s = i * comps;
+    const o = 4 * i;
+    if (comps === 1) px[o] = px[o + 1] = px[o + 2] = bytes[s];
+    else if (comps === 3) {
+      px[o] = bytes[s];
+      px[o + 1] = bytes[s + 1];
+      px[o + 2] = bytes[s + 2];
+    } else {
+      const k = bytes[s + 3];
+      px[o] = 255 - Math.min(255, bytes[s] + k);
+      px[o + 1] = 255 - Math.min(255, bytes[s + 1] + k);
+      px[o + 2] = 255 - Math.min(255, bytes[s + 2] + k);
+    }
+    px[o + 3] = 255;
+  }
+  return img;
+}
 
 function Jpeg({ bytes, width }: { bytes: Uint8Array; width: number }) {
   const [url, setUrl] = useState<string | null>(null);
@@ -127,49 +260,11 @@ function Raster({ d, bytes, scale }: { d: ImageDict; bytes: Uint8Array; scale: n
   const ref = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    const c = ref.current;
-    const ctx = c?.getContext("2d");
-    if (!c || !ctx) return;
-    const { width: w, height: h } = d;
-    const img = ctx.createImageData(w, h);
-    const px = img.data;
-    if (d.bits === 1) {
-      const row = Math.ceil(w / 8);
-      for (let y = 0; y < h; y++)
-        for (let x = 0; x < w; x++) {
-          const bit = (bytes[y * row + (x >> 3)] >> (7 - (x & 7))) & 1;
-          const o = 4 * (y * w + x);
-          // Image masks paint where the sample is 0; gray 1 is white.
-          const v = d.mask ? (bit ? 255 : 0) : bit * 255;
-          px[o] = px[o + 1] = px[o + 2] = d.mask ? 0 : v;
-          px[o + 3] = d.mask ? 255 - v : 255;
-        }
-    } else {
-      const n = bytes.length / (w * h);
-      const comps =
-        d.space === "DeviceGray" ? 1 : d.space === "DeviceRGB" ? 3 : d.space === "DeviceCMYK" ? 4 : Math.floor(n);
-      if (![1, 3, 4].includes(comps) || bytes.length < w * h * comps) {
-        setError(`cannot tell the samples apart (${bytes.length} bytes for ${w}×${h})`);
-        return;
-      }
-      for (let i = 0; i < w * h; i++) {
-        const s = i * comps;
-        const o = 4 * i;
-        if (comps === 1) px[o] = px[o + 1] = px[o + 2] = bytes[s];
-        else if (comps === 3) {
-          px[o] = bytes[s];
-          px[o + 1] = bytes[s + 1];
-          px[o + 2] = bytes[s + 2];
-        } else {
-          const k = bytes[s + 3];
-          px[o] = 255 - Math.min(255, bytes[s] + k);
-          px[o + 1] = 255 - Math.min(255, bytes[s + 1] + k);
-          px[o + 2] = 255 - Math.min(255, bytes[s + 2] + k);
-        }
-        px[o + 3] = 255;
-      }
-    }
-    ctx.putImageData(img, 0, 0);
+    const ctx = ref.current?.getContext("2d");
+    if (!ctx) return;
+    const img = rasterize(d, bytes);
+    if (typeof img === "string") setError(img);
+    else ctx.putImageData(img, 0, 0);
   }, [d, bytes]);
   if (error)
     return (

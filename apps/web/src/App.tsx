@@ -14,7 +14,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { api, useBackend } from "./api";
 import type { ConnectionState } from "./backend/backend";
 import { DiagnosticsPanel } from "./components/DiagnosticsPanel";
@@ -35,6 +35,7 @@ import { DocContext, type DocState } from "./doc";
 import { useJob } from "./jobs";
 import { NavContext, sameTarget, type Nav, type Selection, type Target } from "./nav";
 import type { DocId, Span } from "./protocol/generated";
+import { DEFAULT_TAB, useRouter, type Router } from "./route";
 
 export function App() {
   return <Shell />;
@@ -51,7 +52,15 @@ function Shell() {
   const backend = useBackend();
   const qc = useQueryClient();
   const conn = useConnection();
-  const [doc, setDoc] = useState<DocId | null>(null);
+  const router = useRouter();
+  const { route } = router;
+  const doc = route.doc;
+  const routeRef = useRef(route);
+  routeRef.current = route;
+  const showDoc = useCallback(
+    (d: DocId) => router.push({ doc: d, target: { kind: "document" }, tab: routeRef.current.tab }),
+    [router.push],
+  );
   const [openDialog, setOpenDialog] = useState(false);
 
   const docs = useQuery({ queryKey: ["docs"], queryFn: () => api.docs(backend), staleTime: 0 });
@@ -70,7 +79,7 @@ function Shell() {
       async (s) => {
         // Select it only once the list knows it, or the list effect resets the selection.
         await qc.invalidateQueries({ queryKey: ["docs"] });
-        setDoc(s.info.doc);
+        showDoc(s.info.doc);
       },
       (err) => setDropError(`${file.name}: ${err instanceof Error ? err.message : String(err)}`),
     );
@@ -84,10 +93,10 @@ function Shell() {
         }
         if (ev.type === "docClosed") {
           qc.removeQueries({ queryKey: ["doc", ev.doc] });
-          setDoc((d) => (d === ev.doc ? null : d));
+          if (routeRef.current.doc === ev.doc) router.replace({ ...routeRef.current, doc: null });
         }
       }),
-    [backend, qc],
+    [backend, qc, router.replace],
   );
 
   // Refresh after reconnecting: the server may have been restarted.
@@ -95,11 +104,14 @@ function Shell() {
     if (conn === "open") void qc.invalidateQueries({ queryKey: ["docs"] });
   }, [conn, qc]);
 
+  // Show the first document when none is chosen, or the URL names one that is not open (any more).
+  const known = doc !== null && !!docs.data?.some((d) => d.doc === doc);
   useEffect(() => {
     const list = docs.data;
-    if (!list) return;
-    if (doc === null || !list.some((d) => d.doc === doc)) setDoc(list[0]?.doc ?? null);
-  }, [docs.data, doc]);
+    if (!list || known) return;
+    const first = list[0]?.doc ?? null;
+    if (first !== doc) router.replace({ doc: first, target: { kind: "document" }, tab: DEFAULT_TAB });
+  }, [docs.data, doc, known, router.replace]);
 
   return (
     <AppShell header={{ height: 48 }} padding={0} onDragOver={onDragOver} onDrop={onDrop}>
@@ -117,7 +129,7 @@ function Shell() {
             placeholder="No document"
             data={(docs.data ?? []).map((d) => ({ value: String(d.doc), label: d.name }))}
             value={doc === null ? null : String(doc)}
-            onChange={(v) => setDoc(v === null ? null : Number(v))}
+            onChange={(v) => v !== null && showDoc(Number(v))}
             allowDeselect={false}
           />
           <Button size="xs" variant="default" onClick={() => setOpenDialog(true)}>
@@ -136,7 +148,7 @@ function Shell() {
             <Text size="xs">{dropError}</Text>
           </Alert>
         )}
-        {doc === null ? (
+        {docs.isPending ? null : !known ? (
           <Center style={{ flex: 1 }}>
             <Stack align="center">
               <Text c="dimmed">No document open.</Text>
@@ -150,45 +162,48 @@ function Shell() {
             </Stack>
           </Center>
         ) : (
-          <DocView key={doc} doc={doc} />
+          <DocView key={doc} doc={doc!} router={router} />
         )}
       </AppShell.Main>
-      <OpenDialog opened={openDialog} onClose={() => setOpenDialog(false)} onOpened={(d) => setDoc(d)} />
+      <OpenDialog opened={openDialog} onClose={() => setOpenDialog(false)} onOpened={showDoc} />
     </AppShell>
   );
 }
 
-function DocView({ doc }: { doc: DocId }) {
+function DocView({ doc, router }: { doc: DocId; router: Router }) {
   const backend = useBackend();
   const summary = useQuery({ queryKey: ["doc", doc, "summary"], queryFn: () => api.summary(backend, doc) });
-  const [history, setHistory] = useState<Target[]>([{ kind: "document" }]);
+  const { route, push, replace } = router;
+  const target = route.target;
+  const tab = route.tab;
+  const setTab = (t: string | null) => t && replace({ ...route, tab: t });
   const [hexSpan, setHexSpan] = useState<Span | null>(null);
-  const [tab, setTab] = useState<string | null>("pages");
-  const [selection, setSelection] = useState<Selection | null>(null);
+  // A selection belongs to the target it was made in; going elsewhere (or back) drops it.
+  const [picked, setPicked] = useState<{ target: Target; selection: Selection } | null>(null);
+  const selection = picked && sameTarget(picked.target, target) ? picked.selection : null;
   const [validation, setValidation] = useJob(doc);
   const [inventoryJob, setInventoryJob] = useJob(doc);
   const [inventoryError, setInventoryError] = useState<string | null>(null);
 
-  const open = useCallback((t: Target) => {
-    setHistory((h) => (sameTarget(h[h.length - 1], t) ? h : [...h.slice(-99), t]));
-    setSelection(null);
-  }, []);
+  const open = useCallback(
+    (t: Target) => {
+      if (!sameTarget(target, t)) push({ ...route, target: t });
+    },
+    [route, target, push],
+  );
   const nav: Nav = useMemo(
     () => ({
       doc,
-      target: history[history.length - 1],
+      target,
       open,
-      back: () => {
-        setHistory((h) => (h.length > 1 ? h.slice(0, -1) : h));
-        setSelection(null);
-      },
-      canBack: history.length > 1,
+      back: router.back,
+      canBack: router.canBack,
       showBytes: setHexSpan,
       hexSpan,
       selection,
-      select: setSelection,
+      select: (s) => setPicked(s && { target, selection: s }),
     }),
-    [doc, history, open, hexSpan, selection],
+    [doc, target, open, router.back, router.canBack, hexSpan, selection],
   );
 
   const docState: DocState | null = useMemo(
