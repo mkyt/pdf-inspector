@@ -259,6 +259,21 @@ mod tests {
                     .or_else(|| p.cmap(3, 1, 0x6f22))
                     .is_some()
             );
+            // Vertical forms agree with Adobe's vertical CMap: 、。ー（「
+            // in Shift-JIS, horizontal CIDs through the font's vertical
+            // alternates are the CIDs 90ms-RKSJ-V gives.
+            let h = crate::predefined::cmap("90ms-RKSJ-H").unwrap();
+            let v = crate::predefined::cmap("90ms-RKSJ-V").unwrap();
+            for code in [0x8141, 0x8142, 0x815b, 0x8169, 0x8175] {
+                let gid = |c: Option<u32>| p.gid_of_cid(c.unwrap()).unwrap();
+                let (hg, vg) = (gid(h.cid((2, code))), gid(v.cid((2, code))));
+                assert_ne!(hg, vg, "{code:x}");
+                assert_eq!(p.vertical_gid(hg), vg, "{}: {code:x}", f.name);
+                assert_eq!(p.vertical_gid(vg), vg);
+            }
+            // Kanji have no vertical form.
+            let k = p.gid_of_cid(1533).unwrap();
+            assert_eq!(p.vertical_gid(k), k);
         }
     }
 }

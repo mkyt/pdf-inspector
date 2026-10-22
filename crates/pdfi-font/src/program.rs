@@ -7,8 +7,12 @@
 //! or `1 / unitsPerEm` applied), y up.
 
 use std::borrow::Cow;
+use std::collections::HashMap;
+use std::sync::OnceLock;
 
 use hayro_font::{cff, type1};
+use ttf_parser::gsub::{SingleSubstitution, SubstitutionSubtable};
+use ttf_parser::opentype_layout::Coverage;
 use ttf_parser::{Face, GlyphId, PlatformId, Tag};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -215,6 +219,8 @@ pub struct Program {
     pub cid_keyed: bool,
     /// Font units to text space.
     m: [f64; 6],
+    /// Vertical alternates (`vrt2` or `vert`), read on first use.
+    vertical: OnceLock<HashMap<u16, u16>>,
 }
 
 impl std::fmt::Debug for Program {
@@ -270,6 +276,7 @@ impl Program {
                 m: [k, 0.0, 0.0, k, 0.0, 0.0],
                 type1: None,
                 data,
+                vertical: OnceLock::new(),
             });
         }
         if head.first() == Some(&1) && head.len() == 4 {
@@ -282,6 +289,7 @@ impl Program {
                 m: matrix(t.matrix()),
                 type1: None,
                 data,
+                vertical: OnceLock::new(),
             });
         }
         // Type 1: PFB segments, or text starting with `%!` (possibly after
@@ -304,6 +312,7 @@ impl Program {
             m: matrix(t.matrix()),
             type1: Some(t),
             data,
+            vertical: OnceLock::new(),
         })
     }
 
@@ -330,6 +339,43 @@ impl Program {
                 .and_then(cff::Table::parse),
             _ => None,
         }
+    }
+
+    /// The glyph that stands for `gid` in vertical writing: the font's
+    /// vertical alternate (GSUB `vrt2`, else `vert`; single substitutions
+    /// only), or `gid` itself.
+    pub fn vertical_gid(&self, gid: u16) -> u16 {
+        self.vertical
+            .get_or_init(|| self.vertical_alternates())
+            .get(&gid)
+            .copied()
+            .unwrap_or(gid)
+    }
+
+    fn vertical_alternates(&self) -> HashMap<u16, u16> {
+        let mut m = HashMap::new();
+        let Some(gsub) = self.face().and_then(|f| f.tables().gsub) else {
+            return m;
+        };
+        for tag in [b"vrt2", b"vert"] {
+            let features = gsub.features.into_iter();
+            for f in features.filter(|f| f.tag == Tag::from_bytes(tag)) {
+                for li in f.lookup_indices {
+                    let Some(l) = gsub.lookups.get(li) else {
+                        continue;
+                    };
+                    for st in l.subtables.into_iter::<SubstitutionSubtable>() {
+                        if let SubstitutionSubtable::Single(s) = st {
+                            single(&s, &mut m);
+                        }
+                    }
+                }
+            }
+            if !m.is_empty() {
+                break;
+            }
+        }
+        m
     }
 
     /// The outline of a glyph by index.
@@ -480,6 +526,40 @@ fn platform_id(p: PlatformId) -> u16 {
         PlatformId::Iso => 2,
         PlatformId::Windows => 3,
         PlatformId::Custom => 4,
+    }
+}
+
+/// Add the substitutions of a single-substitution subtable (the first
+/// one found for a glyph wins).
+fn single(s: &SingleSubstitution<'_>, m: &mut HashMap<u16, u16>) {
+    let coverage = match s {
+        SingleSubstitution::Format1 { coverage, .. }
+        | SingleSubstitution::Format2 { coverage, .. } => coverage,
+    };
+    let mut add = |i: u16, g: GlyphId| {
+        let to = match s {
+            SingleSubstitution::Format1 { delta, .. } => {
+                Some(GlyphId(g.0.wrapping_add(*delta as u16)))
+            }
+            SingleSubstitution::Format2 { substitutes, .. } => substitutes.get(i),
+        };
+        if let Some(to) = to {
+            m.entry(g.0).or_insert(to.0);
+        }
+    };
+    match coverage {
+        Coverage::Format1 { glyphs } => {
+            for (i, g) in glyphs.into_iter().enumerate() {
+                add(i as u16, g);
+            }
+        }
+        Coverage::Format2 { records } => {
+            for r in records.into_iter() {
+                for g in r.start.0..=r.end.0 {
+                    add(r.value.wrapping_add(g - r.start.0), GlyphId(g));
+                }
+            }
+        }
     }
 }
 

@@ -411,6 +411,26 @@ fn text() {
         let (dark, white) = ink(x, y);
         assert!(dark > 1000 && white > 5000, "({x}, {y}): {dark} {white}");
     }
+    // Vertical writing with horizontal CIDs: the vertical forms of 、 (in
+    // the upper right of its em box, 340 ± 50 × view y 492..592) and ー
+    // (a tall bar in 592..692).
+    let dark = |x0: u32, x1: u32, y0: u32, y1: u32| {
+        let mut n = 0;
+        let (mut w, mut h) = ((u32::MAX, 0), (u32::MAX, 0));
+        for x in x0..x1 {
+            for y in y0..y1 {
+                if px(&o, x, y)[0] < 100 {
+                    n += 1;
+                    (w, h) = ((w.0.min(x), w.1.max(x)), (h.0.min(y), h.1.max(y)));
+                }
+            }
+        }
+        (n, w.1.saturating_sub(w.0), h.1.saturating_sub(h.0))
+    };
+    assert!(dark(340, 390, 492, 542).0 > 50);
+    assert_eq!(dark(290, 340, 542, 592).0, 0);
+    let (n, w, h) = dark(290, 390, 592, 692);
+    assert!(n > 100 && h > 3 * w, "{n} {w} {h}");
     let notes: Vec<&str> = o.notes.iter().map(|(n, _)| n.as_str()).collect();
     assert_eq!(
         notes,
@@ -418,6 +438,7 @@ fn text() {
             "font /F10 (Ryumin-Light-Identity-H) is drawn with Harano Aji Mincho",
             "font /F11 (PdfiGothic) is drawn with Harano Aji Gothic",
             "font /F12 (MS-Mincho) is drawn with Harano Aji Mincho",
+            "font /F13 (Ryumin-Light-Identity-V) is drawn with Harano Aji Mincho",
             "font /F8 (Helvetica) is drawn with Foxit Sans",
             "font /F9 (PdfiMissingCID) has no glyphs: text is drawn as boxes"
         ]

@@ -580,6 +580,10 @@ impl Font {
                         .and_then(|t| t.chars().next())
                         .and_then(|u| p.cmap(3, 10, u as u32).or_else(|| p.cmap(3, 1, u as u32)))
                 };
+                // Vertical writing: the substitute's vertical forms (the
+                // CIDs of Identity-V and of horizontal-form text are
+                // horizontal ones; vertical forms map to themselves).
+                let gid = gid.map(|g| if self.vertical { p.vertical_gid(g) } else { g });
                 r.gid = gid;
                 (r, gid.map_or(Pick::None, Pick::Gid))
             }
