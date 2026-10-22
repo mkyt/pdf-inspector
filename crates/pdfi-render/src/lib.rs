@@ -220,8 +220,8 @@ impl DocRender {
         let v = cell
             .get_or_init(|| {
                 fresh = true;
-                Arc::new(if k <= 1 {
-                    image::decode_xobject(file, &self.profiles, Some(id), s)
+                Arc::new(if k <= 1 || image::reduces(file, &s.dict) {
+                    image::decode_xobject(file, &self.profiles, Some(id), s, k)
                 } else {
                     match &*self.image(file, id, s, 1) {
                         Ok(d) => Ok(shrink(

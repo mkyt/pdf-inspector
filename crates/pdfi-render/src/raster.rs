@@ -972,10 +972,13 @@ impl<'a> Raster<'a> {
                 id: Some(id),
                 stream,
             } => self.cache.image(self.file, id, stream, k),
-            ImageData::XObject { id: None, stream } => Arc::new(
-                image::decode_xobject(self.file, &self.cache.profiles, None, stream)
-                    .map(|d| shrink(d, k)),
-            ),
+            ImageData::XObject { id: None, stream } => Arc::new(image::decode_xobject(
+                self.file,
+                &self.cache.profiles,
+                None,
+                stream,
+                k,
+            )),
             ImageData::Inline { dict, data } => Arc::new(
                 image::decode_inline(self.file, &self.cache.profiles, dict, data, res)
                     .map(|d| shrink(d, k)),

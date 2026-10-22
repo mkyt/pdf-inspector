@@ -70,6 +70,9 @@ struct Params {
     interpolate: bool,
     /// `/SMaskInData` (JPEG 2000): use the image's own opacity.
     smask_in_data: bool,
+    /// Reduce by this in both directions while decoding, if the codec
+    /// can (JBIG2 and CCITT); 1: full size.
+    reduce: u32,
 }
 
 /// The image codec a stream's filters stop at, with its parameters.
@@ -126,7 +129,7 @@ fn params(
         return Err(ImageError::Invalid("image without a valid size".into()));
     }
     let (width, height) = (width.min(1e9) as u32, height.min(1e9) as u32);
-    if width as u64 * height as u64 > MAX_PIXELS {
+    if width as u64 * height as u64 > MAX_PIXELS && !(reduces(file, d) && !inline) {
         return Err(ImageError::TooLarge);
     }
     let stencil = matches!(
@@ -170,22 +173,43 @@ fn params(
         stencil,
         interpolate,
         smask_in_data,
+        reduce: 1,
     })
 }
 
-/// Decode an image XObject (and its `/SMask` or `/Mask`).
+/// Whether an image's codec decodes it reduced (bilevel JBIG2 and CCITT
+/// images of any size).
+pub fn reduces(file: &PdfFile, d: &Dict) -> bool {
+    file.filter_specs(d).last().is_some_and(|f| {
+        matches!(
+            canonical_name(f.name.as_bytes()),
+            b"JBIG2Decode" | b"CCITTFaxDecode"
+        )
+    })
+}
+
+/// Decode an image XObject (and its `/SMask` or `/Mask`), reduced by
+/// about `k` in both directions (bilevel codecs reduce while decoding,
+/// and also when the image would be too large otherwise).
 pub fn decode_xobject(
     file: &PdfFile,
     profiles: &Profiles,
     id: Option<ObjId>,
     s: &Stream,
+    k: u32,
 ) -> Result<Decoded, ImageError> {
     let d = &s.dict;
-    let p = params(file, d, false, |o| color::parse(file, profiles, o))?;
+    let mut p = params(file, d, false, |o| color::parse(file, profiles, o))?;
+    p.reduce = k.max(1);
     let raw = file.decode_stream(id.unwrap_or(ObjId::new(0, 0)), s, Some(MAX_DATA));
     let specs = file.filter_specs(d);
     let codec = Codec::of(file, &specs, raw.stopped_at.as_ref());
-    let mut out = samples(&p, raw.data, codec.as_ref())?;
+    let (out, reduced) = samples(&p, raw.data, codec.as_ref())?;
+    let mut out = if reduced {
+        out
+    } else {
+        crate::raster::shrink(out, k)
+    };
     if p.stencil {
         return Ok(out);
     }
@@ -200,7 +224,7 @@ pub fn decode_xobject(
         let (mid, mo) = resolve(file, mask);
         match &*mo {
             Object::Stream(ms) => {
-                if let Ok(m) = decode_xobject(file, profiles, mid, ms) {
+                if let Ok(m) = decode_xobject(file, profiles, mid, ms, 1) {
                     let (w, h) = (m.pixmap.width(), m.pixmap.height());
                     let a: Vec<u8> = m.pixmap.pixels().iter().map(|c| c.alpha()).collect();
                     apply_alpha(&mut out.pixmap, &a, w, h);
@@ -239,7 +263,7 @@ pub fn decode_inline(
     let stopped = chain.stopped_at.clone();
     let (data, _) = filters::decode_all(data, chain.decoders, Some(MAX_DATA));
     let codec = Codec::of(file, &specs, stopped.as_ref());
-    let mut out = samples(&p, data.clone(), codec.as_ref())?;
+    let (mut out, _) = samples(&p, data.clone(), codec.as_ref())?;
     if let Some(Object::Array(a)) = entry(file, d, "Mask", None) {
         let ranges: Vec<f64> = a.iter().filter_map(|n| n.obj.as_f64()).collect();
         if stopped.is_none() {
@@ -268,7 +292,7 @@ fn decode_gray(
     let raw = file.decode_stream(id.unwrap_or(ObjId::new(0, 0)), s, Some(MAX_DATA));
     let specs = file.filter_specs(&s.dict);
     let codec = Codec::of(file, &specs, raw.stopped_at.as_ref());
-    let img = samples(&p, raw.data, codec.as_ref())?;
+    let (img, _) = samples(&p, raw.data, codec.as_ref())?;
     let (w, h) = (img.pixmap.width(), img.pixmap.height());
     Ok((img.pixmap.pixels().iter().map(|c| c.red()).collect(), w, h))
 }
@@ -349,8 +373,14 @@ fn pixmap(w: u32, h: u32, data: Vec<u8>) -> Result<Pixmap, ImageError> {
     Pixmap::from_vec(data, size).ok_or(ImageError::TooLarge)
 }
 
-/// Turn sample data (all filters applied up to `codec`) into a pixmap.
-fn samples(p: &Params, data: Vec<u8>, codec: Option<&Codec>) -> Result<Decoded, ImageError> {
+/// Turn sample data (all filters applied up to `codec`) into a pixmap;
+/// says whether the codec reduced it by `p.reduce`.
+fn samples(
+    p: &Params,
+    data: Vec<u8>,
+    codec: Option<&Codec>,
+) -> Result<(Decoded, bool), ImageError> {
+    let mut reduced = false;
     let mut space = p.space.clone();
     let mut bpc = p.bpc;
     let (mut width, mut height) = (p.width, p.height);
@@ -390,14 +420,14 @@ fn samples(p: &Params, data: Vec<u8>, codec: Option<&Codec>) -> Result<Decoded, 
                         );
                         d.stopped_at.is_none().then_some(d.data)
                     });
-                let (w, h, bits) = jbig2(&data, globals.as_deref())?;
-                (width, height, data) = (w, h, bits);
-                bpc = 1;
+                let b = jbig2(&data, globals.as_deref(), p.reduce)?;
+                (width, height, data, bpc) = (b.width, b.height, b.data, b.bits);
+                reduced = true;
             }
             b"CCITTFaxDecode" => {
-                let (w, h, bits) = ccitt(&data, c, height)?;
-                (width, height, data) = (w, h, bits);
-                bpc = 1;
+                let b = ccitt(&data, c, height, p.reduce)?;
+                (width, height, data, bpc) = (b.width, b.height, b.data, b.bits);
+                reduced = true;
             }
             b"DCTDecode" if !p.stencil => {
                 let j = jpeg(&data)?;
@@ -428,7 +458,7 @@ fn samples(p: &Params, data: Vec<u8>, codec: Option<&Codec>) -> Result<Decoded, 
     if let Some(a) = alpha {
         apply_alpha(&mut out.pixmap, &a, width, height);
     }
-    Ok(out)
+    Ok((out, reduced))
 }
 
 /// Samples of `bpc` bits in `space` (or a stencil mask) to a pixmap.
@@ -450,6 +480,18 @@ fn pixels(
     if p.stencil {
         // Sample 0 paints, unless /Decode is [1 0].
         let paint_on = u16::from(decode.as_ref().is_some_and(|d| d.first() == Some(&1.0)));
+        if bpc == 8 {
+            // Reduced while decoding: the share of 1 samples.
+            for (o, &v) in out.chunks_exact_mut(4).zip(data) {
+                o[3] = if paint_on == 1 { v } else { 255 - v };
+            }
+            return Ok(Decoded {
+                pixmap: pixmap(width, height, out)?,
+                stencil: true,
+                interpolate: true,
+                approximate: false,
+            });
+        }
         let stride = w.div_ceil(8);
         let mut row = vec![0u16; w];
         for y in 0..h {
@@ -624,70 +666,188 @@ fn device(n: usize) -> Space {
     }
 }
 
-/// 1-bit rows being filled pixel by pixel.
-struct Packed {
+/// Decoded bilevel samples: 1 bit each, or (reduced) the share of 1
+/// bits in each `k × k` block as a byte.
+struct Bilevel {
+    width: u32,
+    height: u32,
+    bits: u32,
     data: Vec<u8>,
+}
+
+/// Where a bilevel decoder's pixels go, in runs.
+enum Sink {
+    /// 1-bit rows.
+    Full {
+        data: Vec<u8>,
+        stride: usize,
+        /// What unpainted rows hold.
+        fill: u8,
+    },
+    /// Counts of 1 bits per block of `k × k`, a band of `k` rows at a
+    /// time.
+    Reduced {
+        k: usize,
+        counts: Vec<u32>,
+        data: Vec<u8>,
+    },
+}
+
+struct Rows {
+    sink: Sink,
     width: usize,
-    stride: usize,
-    /// What unpainted rows hold.
-    fill: u8,
     x: usize,
     row: usize,
     /// Rows started (pixels were pushed into them).
     rows: usize,
 }
 
-impl Packed {
-    fn new(width: usize, rows: usize, white: bool) -> Self {
-        let stride = width.div_ceil(8);
-        let fill = if white { 0xFF } else { 0 };
-        Packed {
-            data: vec![fill; (stride * rows).min(MAX_DATA)],
+impl Rows {
+    /// Rows of `width` 1-bit samples, `height` expected; reduced by `k`
+    /// (raised to fit [`MAX_PIXELS`]). `ones`: what missing samples are.
+    fn new(width: usize, height: usize, k: u32, ones: bool) -> Self {
+        let need = ((width as f64 * height as f64 / MAX_PIXELS as f64)
+            .sqrt()
+            .ceil()) as usize;
+        let k = (k as usize).max(need).max(1);
+        let sink = if k == 1 {
+            let stride = width.div_ceil(8);
+            let fill = if ones { 0xFF } else { 0 };
+            Sink::Full {
+                data: vec![fill; (stride * height).min(MAX_DATA)],
+                stride,
+                fill,
+            }
+        } else {
+            Sink::Reduced {
+                k,
+                counts: vec![0; width.div_ceil(k)],
+                data: Vec::with_capacity((width.div_ceil(k) * height.div_ceil(k)).min(MAX_DATA)),
+            }
+        };
+        Rows {
+            sink,
             width,
-            stride,
-            fill,
             x: 0,
             row: 0,
             rows: 0,
         }
     }
 
-    fn put(&mut self, one: bool) {
-        if self.x < self.width {
-            let end = (self.row + 1) * self.stride;
-            if end > self.data.len() && end <= MAX_DATA {
-                self.data.resize(end, self.fill);
-            }
-            if let Some(b) = self.data.get_mut(self.row * self.stride + self.x / 8) {
-                let bit = 0x80 >> (self.x % 8);
-                if one {
-                    *b |= bit;
-                } else {
-                    *b &= !bit;
+    /// `n` samples of the same value.
+    fn run(&mut self, one: bool, n: usize) {
+        let (start, end) = (self.x.min(self.width), (self.x + n).min(self.width));
+        self.x += n;
+        if start >= end {
+            return;
+        }
+        self.rows = self.rows.max(self.row + 1);
+        match &mut self.sink {
+            Sink::Full { data, stride, fill } => {
+                let need = (self.row + 1) * *stride;
+                if need > data.len() {
+                    if need > MAX_DATA {
+                        return;
+                    }
+                    data.resize(need, *fill);
+                }
+                let line = &mut data[self.row * *stride..need];
+                for x in start..end {
+                    let bit = 0x80 >> (x % 8);
+                    if one {
+                        line[x / 8] |= bit;
+                    } else {
+                        line[x / 8] &= !bit;
+                    }
                 }
             }
-            self.rows = self.rows.max(self.row + 1);
+            Sink::Reduced { k, counts, .. } => {
+                if !one {
+                    return;
+                }
+                let mut x = start;
+                while x < end {
+                    let cell = x / *k;
+                    let stop = ((cell + 1) * *k).min(end);
+                    counts[cell] += (stop - x) as u32;
+                    x = stop;
+                }
+            }
         }
-        self.x += 1;
     }
 
     fn next_line(&mut self) {
+        // A short row: the rest is missing (as the fill).
         self.row += 1;
         self.x = 0;
+        if let Sink::Reduced { k, .. } = &self.sink {
+            if self.row % *k == 0 {
+                self.flush(*k);
+            }
+        }
+    }
+
+    /// Turn a band of `n` rows of counts into bytes.
+    fn flush(&mut self, n: usize) {
+        let width = self.width;
+        if let Sink::Reduced { k, counts, data } = &mut self.sink {
+            for (cell, c) in counts.iter_mut().enumerate() {
+                let w = (*k).min(width - cell * *k);
+                let v = (*c as u64 * 255 / (w * n).max(1) as u64).min(255) as u8;
+                if data.len() < MAX_DATA {
+                    data.push(v);
+                }
+                *c = 0;
+            }
+        }
+    }
+
+    /// The samples of `height` rows (missing ones as `ones` says).
+    fn finish(mut self, height: usize, ones: bool) -> Bilevel {
+        match self.sink {
+            Sink::Full {
+                mut data,
+                stride,
+                fill,
+            } => {
+                data.resize(stride * height, fill);
+                Bilevel {
+                    width: self.width as u32,
+                    height: height as u32,
+                    bits: 1,
+                    data,
+                }
+            }
+            Sink::Reduced { k, .. } => {
+                // The last band, and a last row without its end.
+                if self.row % k != 0 || self.x > 0 {
+                    self.flush(self.row % k + usize::from(self.x > 0));
+                }
+                let Sink::Reduced { data: mut d, .. } = self.sink else {
+                    unreachable!()
+                };
+                let (w, h) = (self.width.div_ceil(k), height.div_ceil(k));
+                d.resize(w * h, if ones { 255 } else { 0 });
+                Bilevel {
+                    width: w as u32,
+                    height: h as u32,
+                    bits: 8,
+                    data: d,
+                }
+            }
+        }
     }
 }
 
-/// JBIG2 (embedded organization) to 1-bit samples, 0 for black.
-fn jbig2(data: &[u8], globals: Option<&[u8]>) -> Result<(u32, u32, Vec<u8>), ImageError> {
-    struct Out(Packed);
+/// JBIG2 (embedded organization) to bilevel samples, 0 for black.
+fn jbig2(data: &[u8], globals: Option<&[u8]>, k: u32) -> Result<Bilevel, ImageError> {
+    struct Out(Rows);
     impl hayro_jbig2::Decoder for Out {
         fn push_pixel(&mut self, black: bool) {
-            self.0.put(!black);
+            self.0.run(!black, 1);
         }
         fn push_pixel_chunk(&mut self, black: bool, chunk_count: u32) {
-            for _ in 0..chunk_count * 8 {
-                self.0.put(!black);
-            }
+            self.0.run(!black, chunk_count as usize * 8);
         }
         fn next_line(&mut self) {
             self.0.next_line();
@@ -695,28 +855,23 @@ fn jbig2(data: &[u8], globals: Option<&[u8]>) -> Result<(u32, u32, Vec<u8>), Ima
     }
     let bad = |e: hayro_jbig2::DecodeError| ImageError::Invalid(format!("JBIG2: {e}"));
     let img = hayro_jbig2::Image::new_embedded(data, globals).map_err(bad)?;
-    let (w, h) = (img.width(), img.height());
-    if w as u64 * h as u64 > MAX_PIXELS {
-        return Err(ImageError::TooLarge);
-    }
-    let mut out = Out(Packed::new(w as usize, h as usize, true));
+    let (w, h) = (img.width() as usize, img.height() as usize);
+    let mut out = Out(Rows::new(w, h, k, true));
     img.decode(&mut out).map_err(bad)?;
-    Ok((w, h, out.0.data))
+    Ok(out.0.finish(h, true))
 }
 
-/// CCITT fax data to 1-bit samples (`/BlackIs1` decides which is 1);
+/// CCITT fax data to bilevel samples (`/BlackIs1` decides which is 1);
 /// `height` is used when `/Rows` is not given.
-fn ccitt(data: &[u8], c: &Codec, height: u32) -> Result<(u32, u32, Vec<u8>), ImageError> {
+fn ccitt(data: &[u8], c: &Codec, height: u32, reduce: u32) -> Result<Bilevel, ImageError> {
     use hayro_ccitt::{DecodeSettings, DecoderContext, EncodingMode};
-    struct Out(Packed, bool);
+    struct Out(Rows, bool);
     impl hayro_ccitt::Decoder for Out {
         fn push_pixel(&mut self, white: bool) {
-            self.0.put(white != self.1);
+            self.0.run(white != self.1, 1);
         }
         fn push_pixel_chunk(&mut self, white: bool, chunk_count: u32) {
-            for _ in 0..chunk_count * 8 {
-                self.0.put(white != self.1);
-            }
+            self.0.run(white != self.1, chunk_count as usize * 8);
         }
         fn next_line(&mut self) {
             self.0.next_line();
@@ -729,11 +884,12 @@ fn ccitt(data: &[u8], c: &Codec, height: u32) -> Result<(u32, u32, Vec<u8>), Ima
     };
     let k = int("K", 0.0) as i64;
     let columns = int("Columns", 1728.0).clamp(1.0, 1e6) as u32;
-    let rows = int("Rows", 0.0).max(0.0) as u32;
+    let rows = int("Rows", 0.0).clamp(0.0, 1e7) as u32;
     let black_is_1 = flag("BlackIs1", false);
+    let want = if rows > 0 { rows } else { height };
     let settings = DecodeSettings {
         columns,
-        rows: if rows > 0 { rows } else { height },
+        rows: want,
         end_of_block: flag("EndOfBlock", true),
         end_of_line: flag("EndOfLine", false),
         rows_are_byte_aligned: flag("EncodedByteAlign", false),
@@ -744,28 +900,21 @@ fn ccitt(data: &[u8], c: &Codec, height: u32) -> Result<(u32, u32, Vec<u8>), Ima
         },
         invert_black: false,
     };
-    let want = if rows > 0 { rows } else { height };
-    if columns as u64 * want as u64 > MAX_PIXELS {
-        return Err(ImageError::TooLarge);
-    }
+    // Missing samples are white.
+    let white = !black_is_1;
     let mut out = Out(
-        Packed::new(columns as usize, want as usize, !black_is_1),
+        Rows::new(columns as usize, want as usize, reduce, white),
         black_is_1,
     );
     let mut ctx = DecoderContext::new(settings);
     // Damaged data: keep the rows decoded before the error.
     let result = hayro_ccitt::decode(data, &mut out, &mut ctx);
-    let got = out.0.rows as u32;
-    if result.is_err() && got == 0 {
-        return Err(ImageError::Invalid(format!(
-            "CCITT: {}",
-            result.err().map(|e| e.to_string()).unwrap_or_default()
-        )));
+    let got = out.0.rows;
+    if let (Err(e), 0) = (result, got) {
+        return Err(ImageError::Invalid(format!("CCITT: {e}")));
     }
-    let h = if rows > 0 { rows } else { got.max(1) };
-    let mut bits = out.0.data;
-    bits.resize(columns.div_ceil(8) as usize * h as usize, out.0.fill);
-    Ok((columns, h, bits))
+    let h = if rows > 0 { rows as usize } else { got.max(1) };
+    Ok(out.0.finish(h, white))
 }
 
 struct Jpeg {
@@ -824,6 +973,34 @@ fn jpeg(data: &[u8]) -> Result<Jpeg, ImageError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bilevel_rows() {
+        // Full size: runs set bits, missing rows are the fill.
+        let mut r = Rows::new(10, 2, 1, false);
+        r.run(true, 3);
+        r.run(false, 5);
+        r.run(true, 4); // 2 past the row's end
+        r.next_line();
+        let b = r.finish(3, false);
+        assert_eq!((b.width, b.height, b.bits), (10, 3, 1));
+        assert_eq!(b.data, [0b1110_0000, 0b1100_0000, 0, 0, 0, 0]);
+        // Reduced by 2: the share of 1 bits per 2 × 2 block; a last band
+        // of one row, and blocks one sample wide at the right edge.
+        let mut r = Rows::new(5, 3, 2, true);
+        for _ in 0..2 {
+            r.run(true, 1);
+            r.run(false, 4);
+            r.next_line();
+        }
+        r.run(true, 5);
+        let b = r.finish(3, true);
+        assert_eq!((b.width, b.height, b.bits), (3, 2, 8));
+        assert_eq!(b.data, [127, 0, 0, 255, 255, 255]);
+        // Too large for full size: reduced anyway.
+        let r = Rows::new(1 << 13, 1 << 13, 1, true);
+        assert!(matches!(r.sink, Sink::Reduced { k: 2, .. }));
+    }
 
     #[test]
     fn unpack_bits() {
