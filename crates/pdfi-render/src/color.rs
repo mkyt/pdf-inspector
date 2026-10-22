@@ -3,11 +3,14 @@
 //! Device spaces convert directly (CMYK naively); CIE-based spaces are
 //! treated as their device counterparts (Lab converts through XYZ); ICC
 //! profiles are not read (`/Alternate`, else by component count).
-//! Separation and DeviceN follow tint transforms of function types 2 and
-//! 3; other tint transforms are approximated by the darkest tint.
+//! Separation and DeviceN follow their tint transforms (any function
+//! type); a transform that cannot be read is approximated by the darkest
+//! tint.
 
 use pdfi_model::resolve;
 use pdfi_syntax::{DictExt, Node, Object, PdfFile};
+
+use crate::function::{Function, nums};
 
 /// Color spaces nested in each other (Indexed → ICCBased → ...).
 const MAX_DEPTH: u32 = 8;
@@ -177,14 +180,6 @@ fn num(file: &PdfFile, o: &Object) -> Option<f64> {
     resolve(file, o).1.as_f64()
 }
 
-fn nums(file: &PdfFile, o: Option<&Object>) -> Option<Vec<f64>> {
-    let (_, r) = resolve(file, o?);
-    r.as_array()?
-        .iter()
-        .map(|n| num(file, &n.obj))
-        .collect::<Option<Vec<_>>>()
-}
-
 /// Parse a color space object (a name or an array).
 pub fn parse(file: &PdfFile, o: &Object) -> Space {
     parse_at(file, o, 0)
@@ -290,121 +285,11 @@ fn parse_family(file: &PdfFile, family: &[u8], args: &[Node], depth: u32) -> Spa
             Space::Tint {
                 n: names.len().max(1),
                 none: !names.is_empty() && names.iter().all(|n| n == b"None"),
-                transform: arg(2).and_then(|f| Function::parse(file, f, 0)),
+                transform: arg(2).and_then(|f| Function::parse(file, f)),
                 alternate: Box::new(alternate),
             }
         }
         _ => Space::Unknown(1),
-    }
-}
-
-/// A PDF function of the kinds tint transforms commonly use.
-#[derive(Clone, Debug, PartialEq)]
-pub enum Function {
-    /// Type 2: `C0 + x^N × (C1 − C0)`.
-    Exponential {
-        domain: (f64, f64),
-        c0: Vec<f64>,
-        c1: Vec<f64>,
-        n: f64,
-    },
-    /// Type 3: one function per subdomain.
-    Stitching {
-        domain: (f64, f64),
-        functions: Vec<Function>,
-        bounds: Vec<f64>,
-        encode: Vec<(f64, f64)>,
-    },
-    /// One function per output (an array of functions).
-    Each(Vec<Function>),
-}
-
-impl Function {
-    pub fn parse(file: &PdfFile, o: &Object, depth: u32) -> Option<Function> {
-        if depth > MAX_DEPTH {
-            return None;
-        }
-        let (_, r) = resolve(file, o);
-        if let Some(a) = r.as_array() {
-            let fs = a
-                .iter()
-                .map(|n| Function::parse(file, &n.obj, depth + 1))
-                .collect::<Option<Vec<_>>>()?;
-            return Some(Function::Each(fs));
-        }
-        let d = match &*r {
-            Object::Dict(d) => d,
-            Object::Stream(s) => &s.dict,
-            _ => return None,
-        };
-        let domain = nums(file, d.get_key("Domain"))
-            .filter(|v| v.len() >= 2)
-            .map_or((0.0, 1.0), |v| (v[0], v[1]));
-        match d.get_key("FunctionType").and_then(|t| num(file, t))? as i64 {
-            2 => Some(Function::Exponential {
-                domain,
-                c0: nums(file, d.get_key("C0")).unwrap_or_else(|| vec![0.0]),
-                c1: nums(file, d.get_key("C1")).unwrap_or_else(|| vec![1.0]),
-                n: d.get_key("N").and_then(|n| num(file, n)).unwrap_or(1.0),
-            }),
-            3 => {
-                let (_, fs) = resolve(file, d.get_key("Functions")?);
-                let functions = fs
-                    .as_array()?
-                    .iter()
-                    .map(|n| Function::parse(file, &n.obj, depth + 1))
-                    .collect::<Option<Vec<_>>>()?;
-                let bounds = nums(file, d.get_key("Bounds")).unwrap_or_default();
-                let e = nums(file, d.get_key("Encode")).unwrap_or_default();
-                let encode: Vec<(f64, f64)> = e.chunks_exact(2).map(|c| (c[0], c[1])).collect();
-                (bounds.len() + 1 == functions.len() && encode.len() == functions.len()).then_some(
-                    Function::Stitching {
-                        domain,
-                        functions,
-                        bounds,
-                        encode,
-                    },
-                )
-            }
-            _ => None,
-        }
-    }
-
-    pub fn eval(&self, x: &[f64]) -> Option<Vec<f64>> {
-        match self {
-            Function::Exponential { domain, c0, c1, n } => {
-                let t = x
-                    .first()?
-                    .clamp(domain.0.min(domain.1), domain.0.max(domain.1));
-                let p = if *n == 1.0 { t } else { t.powf(*n) };
-                Some(c0.iter().zip(c1).map(|(a, b)| a + p * (b - a)).collect())
-            }
-            Function::Stitching {
-                domain,
-                functions,
-                bounds,
-                encode,
-            } => {
-                let t = x.first()?.clamp(domain.0, domain.1);
-                let k = bounds.partition_point(|b| *b <= t);
-                let lo = if k == 0 { domain.0 } else { bounds[k - 1] };
-                let hi = bounds.get(k).copied().unwrap_or(domain.1);
-                let (e0, e1) = encode[k];
-                let u = if hi > lo {
-                    e0 + (t - lo) * (e1 - e0) / (hi - lo)
-                } else {
-                    e0
-                };
-                functions[k].eval(&[u])
-            }
-            Function::Each(fs) => {
-                let mut out = Vec::with_capacity(fs.len());
-                for f in fs {
-                    out.push(*f.eval(x)?.first()?);
-                }
-                Some(out)
-            }
-        }
     }
 }
 
@@ -427,30 +312,5 @@ mod tests {
         .to_rgb(&[100.0, 0.0, 0.0], &mut a)
         .unwrap();
         assert!(white.iter().all(|&v| v > 0.99), "{white:?}");
-    }
-
-    #[test]
-    fn stitching() {
-        let f = Function::Stitching {
-            domain: (0.0, 1.0),
-            functions: vec![
-                Function::Exponential {
-                    domain: (0.0, 1.0),
-                    c0: vec![0.0],
-                    c1: vec![1.0],
-                    n: 1.0,
-                },
-                Function::Exponential {
-                    domain: (0.0, 1.0),
-                    c0: vec![1.0],
-                    c1: vec![0.0],
-                    n: 1.0,
-                },
-            ],
-            bounds: vec![0.5],
-            encode: vec![(0.0, 1.0), (0.0, 1.0)],
-        };
-        assert_eq!(f.eval(&[0.25]), Some(vec![0.5]));
-        assert_eq!(f.eval(&[0.75]), Some(vec![0.5]));
     }
 }

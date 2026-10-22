@@ -14,6 +14,7 @@
 //! be rendered on several threads at once.
 
 pub mod color;
+pub mod function;
 pub mod image;
 mod raster;
 
