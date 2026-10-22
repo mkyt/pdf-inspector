@@ -14,6 +14,7 @@
 
 pub mod cmap;
 pub mod encoding;
+pub mod predefined;
 pub mod program;
 mod std14;
 pub mod substitute;
@@ -203,8 +204,11 @@ pub struct Font {
     /// Simple fonts: widths by code (glyph space units).
     widths: Vec<f64>,
     missing_width: f64,
-    /// Type 0: code → CID (`None`: identity).
+    /// Type 0: code → CID (`None`: identity), from an embedded CMap.
     cids: Option<HashMap<CodeKey, u32>>,
+    /// Type 0: a predefined CMap (by name, or used by an embedded one),
+    /// looked up after `cids`.
+    predefined: Option<Arc<predefined::Predefined>>,
     cid_widths: CidWidths,
     unicode: HashMap<CodeKey, String>,
     /// Simple fonts: glyph names from `/Differences` (256 or empty).
@@ -315,10 +319,25 @@ impl Font {
 
     /// The CID of a code (Type 0 fonts).
     pub fn cid(&self, c: Code) -> u32 {
-        match &self.cids {
-            Some(m) => m.get(&c.key()).copied().unwrap_or(0),
+        if let Some(&cid) = self.cids.as_ref().and_then(|m| m.get(&c.key())) {
+            return cid;
+        }
+        if let Some(p) = &self.predefined {
+            return p.cid(c.key()).unwrap_or(0);
+        }
+        match self.cids {
+            Some(_) => 0,
             None => c.code,
         }
+    }
+
+    /// The character collection of a Type 0 font: `/CIDSystemInfo`, else
+    /// that of its predefined CMap.
+    fn collection(&self) -> Option<&str> {
+        self.ordering
+            .as_deref()
+            .filter(|o| *o != "Identity")
+            .or(self.predefined.as_ref().map(|p| p.ordering.as_str()))
     }
 
     /// Horizontal (or, for vertical fonts, vertical) advance of `c` in text
@@ -383,7 +402,12 @@ impl Font {
             };
             return Some(String::from_utf16_lossy(&units));
         }
-        if self.kind == FontKind::Type0 || c.len != 1 {
+        if self.kind == FontKind::Type0 {
+            // The CID's text in its character collection.
+            let t = predefined::cid_text(self.collection()?)?;
+            return t.text(self.cid(c));
+        }
+        if c.len != 1 {
             return None;
         }
         self.text_name(c.code).and_then(glyph_text)
@@ -393,14 +417,19 @@ impl Font {
     fn japan1(&self) -> bool {
         let mapped = match &self.cids {
             None => true,
-            Some(m) => !m.is_empty(),
+            Some(m) => !m.is_empty() || self.predefined.is_some(),
         };
-        mapped && self.ordering.as_deref() == Some("Japan1")
+        mapped && self.collection() == Some("Japan1")
     }
 
-    /// Text is known for the codes (a `/ToUnicode` CMap or UCS-2 codes).
+    /// Text is known for the codes (a `/ToUnicode` CMap, UCS-2 codes, or
+    /// the CIDs of a known character collection).
     fn unicode_known(&self) -> bool {
-        !self.unicode.is_empty() || self.utf16_codes
+        !self.unicode.is_empty()
+            || self.utf16_codes
+            || self
+                .collection()
+                .is_some_and(|o| predefined::cid_text(o).is_some())
     }
 
     /// Whether word spacing applies: single-byte code 32.
@@ -759,6 +788,7 @@ impl Font {
             widths: Vec::new(),
             missing_width: 500.0,
             cids: None,
+            predefined: None,
             cid_widths: CidWidths::default(),
             unicode: HashMap::new(),
             diff_names: Vec::new(),
@@ -1065,11 +1095,26 @@ fn type0(file: &PdfFile, d: &Dict, f: &mut Font) {
             f.encoding = Some(n.as_str_lossy().into_owned());
             if s != b"Identity-H" && s != b"Identity-V" {
                 let name = n.as_str_lossy();
-                f.codes = predefined_codes(&name);
                 f.utf16_codes = name.contains("UCS2") || name.contains("UTF16");
-                // Codes are not CIDs, and the mapping is not known here.
+                // Codes are not CIDs: the predefined CMap maps them.
                 f.cids = Some(HashMap::new());
-                f.approximate = true;
+                match predefined::cmap(&name) {
+                    Some(p) => {
+                        f.codes = Codes::Ranges(p.codespace.clone());
+                        f.vertical = p.vertical;
+                        f.predefined = Some(p);
+                    }
+                    None => {
+                        f.codes = predefined_codes(&name);
+                        f.approximate = true;
+                        f.issues.push(FontIssue::new(
+                            Severity::Warning,
+                            format!(
+                                "/Encoding /{name} is not a predefined CMap: CIDs are not known"
+                            ),
+                        ));
+                    }
+                }
             }
         }
         Some((cid, r)) => match r.as_stream() {
@@ -1080,14 +1125,32 @@ fn type0(file: &PdfFile, d: &Dict, f: &mut Font) {
                         .get_key("WMode")
                         .and_then(|o| resolve(file, o).1.as_i64())
                         == Some(1);
-                if !cm.codespace.is_empty() {
-                    f.codes = Codes::Ranges(cm.codespace);
+                // A predefined CMap it builds on (`usecmap`, `/UseCMap`).
+                let uses = cm.uses.clone().or_else(|| {
+                    let o = s.dict.get_key("UseCMap")?;
+                    let (_, o) = resolve(file, o);
+                    o.as_name().map(|n| n.as_str_lossy().into_owned())
+                });
+                if let Some(u) = uses {
+                    match predefined::cmap(&u) {
+                        Some(p) => f.predefined = Some(p),
+                        None => f.issues.push(FontIssue::new(
+                            Severity::Info,
+                            format!("the encoding CMap uses /{u}, which is not read"),
+                        )),
+                    }
                 }
-                if let Some(u) = &cm.uses {
-                    f.issues.push(FontIssue::new(
-                        Severity::Info,
-                        format!("the encoding CMap uses /{u}, which is not read"),
-                    ));
+                let mut space = cm.codespace;
+                if let Some(p) = &f.predefined {
+                    for c in &p.codespace {
+                        if !space.contains(c) {
+                            space.push(*c);
+                        }
+                    }
+                    f.vertical |= p.vertical;
+                }
+                if !space.is_empty() {
+                    f.codes = Codes::Ranges(space);
                 }
                 if let Some(p) = cm.problem {
                     f.issues

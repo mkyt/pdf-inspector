@@ -2,3 +2,4 @@
 *.pfb binary
 *.icc binary
 *.otf binary
+*.bin binary

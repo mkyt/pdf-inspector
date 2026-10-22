@@ -822,6 +822,7 @@ dependencies = [
 name = "pdfi-font"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "hayro-font",
  "pdfi-model",
  "pdfi-syntax",

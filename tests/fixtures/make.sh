@@ -453,8 +453,9 @@ BT /F9 100 Tf 290 350 Td <0001> Tj ET
 BT /F3 100 Tf 410 350 Td (B) Tj ET
 BT /F10 100 Tf 470 350 Td <034B> Tj ET
 BT /F11 100 Tf 50 200 Td <0001> Tj ET
+BT /F12 100 Tf 170 200 Td <82A0> Tj ET
 """
-font_res = b" ".join(b"/F%d %d 0 R" % (i, 20 + i) for i in range(1, 12))
+font_res = b" ".join(b"/F%d %d 0 R" % (i, 20 + i) for i in range(1, 13))
 objs = {
     1: b"<< /Type /Catalog /Pages 2 0 R >>",
     2: b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 612 792] >>",
@@ -474,6 +475,9 @@ objs = {
     # U+6F22 (a kanji, Gothic by the name).
     30: b"<< /Type /Font /Subtype /Type0 /BaseFont /Ryumin-Light-Identity-H /Encoding /Identity-H /DescendantFonts [<< /Type /Font /Subtype /CIDFontType0 /BaseFont /Ryumin-Light /CIDSystemInfo << /Registry (Adobe) /Ordering (Japan1) /Supplement 4 >> /FontDescriptor 47 0 R >>] >>",
     31: b"<< /Type /Font /Subtype /Type0 /BaseFont /PdfiGothic /Encoding /Identity-H /DescendantFonts [<< /Type /Font /Subtype /CIDFontType2 /BaseFont /PdfiGothic /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 48 0 R >>] /ToUnicode 38 0 R >>",
+    # Shift-JIS through the predefined 90ms-RKSJ-H CMap (<82A0> is the
+    # hiragana a, CID 843), not embedded.
+    32: b"<< /Type /Font /Subtype /Type0 /BaseFont /MS-Mincho /Encoding /90ms-RKSJ-H /DescendantFonts [<< /Type /Font /Subtype /CIDFontType2 /BaseFont /MS-Mincho /CIDSystemInfo << /Registry (Adobe) /Ordering (Japan1) /Supplement 2 >> /FontDescriptor 47 0 R >>] >>",
     47: desc(4, b""),
     48: desc(4, b""),
     41: desc(32, b"/FontFile2 61 0 R"),

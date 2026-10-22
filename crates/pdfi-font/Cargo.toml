@@ -7,6 +7,7 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+flate2 = "1.1.10"
 hayro-font = "0.4.0"
 pdfi-model = { version = "0.1.0", path = "../pdfi-model" }
 pdfi-syntax = { version = "0.1.0", path = "../pdfi-syntax" }

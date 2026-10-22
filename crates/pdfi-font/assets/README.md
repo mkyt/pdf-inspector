@@ -12,3 +12,9 @@ that are not embedded. Harano Aji is made from Source Han Serif and Source
 Han Sans (Adobe) with the glyphs in Adobe-Japan1-7 order. License: SIL
 Open Font License 1.1, see `LICENSE_HARANOAJI` (copyright Adobe, with
 Reserved Font Name 'Source', and the Harano Aji authors).
+
+`cmaps.bin` holds Adobe's predefined CMaps (code → CID; not the UTF-8 and
+UTF-32 ones) and the CID → Unicode maps of the character collections,
+packed by `scripts/gen-cmaps.py` from cmap-resources 20190730 and
+mapping-resources-pdf 20190401 (TeX Live's `adobemapping` package).
+License: BSD-3-Clause, see `LICENSE_CMAPS` (copyright Adobe).
