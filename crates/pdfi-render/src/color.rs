@@ -47,6 +47,26 @@ impl PartialEq for Icc {
 }
 
 impl Icc {
+    /// A transform from an ICC profile for `n` components.
+    pub fn from_profile(data: &[u8], n: usize) -> Option<Icc> {
+        let p = ColorProfile::new_from_slice(data).ok()?;
+        let layout = match (p.color_space, n) {
+            (DataColorSpace::Gray, 1) => Layout::Gray,
+            (DataColorSpace::Rgb, 3) => Layout::Rgb,
+            (DataColorSpace::Cmyk, 4) => Layout::Rgba,
+            _ => return None,
+        };
+        let xf = p
+            .create_transform_f32(
+                layout,
+                &ColorProfile::new_srgb(),
+                Layout::Rgb,
+                TransformOptions::default(),
+            )
+            .ok()?;
+        Some(Icc { n, xf })
+    }
+
     /// Convert pixels of `n` components (0..1) to RGB triples.
     pub fn convert(&self, src: &[f32], dst: &mut [f32]) -> bool {
         self.xf.transform(src, dst).is_ok()
@@ -72,22 +92,7 @@ impl Profiles {
             if d.stopped_at.is_some() {
                 return None;
             }
-            let p = ColorProfile::new_from_slice(&d.data).ok()?;
-            let layout = match (p.color_space, n) {
-                (DataColorSpace::Gray, 1) => Layout::Gray,
-                (DataColorSpace::Rgb, 3) => Layout::Rgb,
-                (DataColorSpace::Cmyk, 4) => Layout::Rgba,
-                _ => return None,
-            };
-            let xf = p
-                .create_transform_f32(
-                    layout,
-                    &ColorProfile::new_srgb(),
-                    Layout::Rgb,
-                    TransformOptions::default(),
-                )
-                .ok()?;
-            Some(Icc { n, xf })
+            Icc::from_profile(&d.data, n)
         };
         let Some(id) = id else { return load() };
         let mut g = self.map.lock().unwrap_or_else(|e| e.into_inner());

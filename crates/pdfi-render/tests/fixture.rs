@@ -532,3 +532,29 @@ fn transparency() {
     assert_eq!(px(&o, 350, 150), WHITE);
     assert!(o.notes.is_empty(), "{:?}", o.notes);
 }
+
+#[test]
+fn image_codecs() {
+    let d = Doc::new("paint.pdf");
+    let o = d.render(Target::Page(4), &opts(1.0));
+    // JPEG 2000: red | blue (JP2 and a raw codestream).
+    for x in [0, 100] {
+        assert!(near(px(&o, x + 20, 50), [255, 0, 0, 255], 4));
+        assert!(near(px(&o, x + 80, 50), [0, 0, 255, 255], 4));
+    }
+    // /SMaskInData: green | transparent.
+    assert!(near(px(&o, 220, 50), [0, 160, 0, 255], 4));
+    assert_eq!(px(&o, 280, 50), WHITE);
+    // JBIG2: a black disc (generic region; symbols with globals as a red
+    // stencil mask).
+    assert_eq!(px(&o, 350, 50), [0, 0, 0, 255]);
+    assert_eq!(px(&o, 302, 2), WHITE);
+    assert_eq!(px(&o, 50, 150), [255, 0, 0, 255]);
+    assert_eq!(px(&o, 2, 102), WHITE);
+    // CCITT Group 4 (blue stencil) and Group 3: the disc and the rest
+    // differ.
+    assert_ne!(px(&o, 150, 150), px(&o, 102, 102));
+    assert_ne!(px(&o, 250, 150), px(&o, 202, 102));
+    assert_eq!(px(&o, 250, 150), px(&o, 150, 150));
+    assert!(o.notes.is_empty(), "{:?}", o.notes);
+}

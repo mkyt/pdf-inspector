@@ -1,7 +1,9 @@
 //! Image decoding to premultiplied RGBA: samples of 1–16 bits in the
-//! color spaces of [`crate::color`], `/Decode`, JPEG (`DCTDecode`), stencil
-//! masks (`/ImageMask`), soft masks (`/SMask`), and `/Mask` as a stencil or
-//! color key ranges. JPEG 2000, JBIG2 and CCITT data are not decoded yet.
+//! color spaces of [`crate::color`], `/Decode`, stencil masks
+//! (`/ImageMask`), soft masks (`/SMask`, and `/SMaskInData` of JPEG 2000),
+//! and `/Mask` as a stencil or color key ranges. Codecs: JPEG (zune-jpeg),
+//! JPEG 2000, JBIG2 (with `/JBIG2Globals`) and CCITT fax (the hayro
+//! decoders); JBIG2 and CCITT give 1-bit samples like any other image.
 
 use pdfi_content::interp::{Lookup, Resources};
 use pdfi_model::resolve;
@@ -66,6 +68,40 @@ struct Params {
     decode: Option<Vec<f64>>,
     stencil: bool,
     interpolate: bool,
+    /// `/SMaskInData` (JPEG 2000): use the image's own opacity.
+    smask_in_data: bool,
+}
+
+/// The image codec a stream's filters stop at, with its parameters.
+struct Codec<'a> {
+    name: Vec<u8>,
+    parms: Option<Dict>,
+    file: &'a PdfFile,
+}
+
+impl<'a> Codec<'a> {
+    fn of(
+        file: &'a PdfFile,
+        specs: &[filters::FilterSpec],
+        stopped: Option<&Name>,
+    ) -> Option<Self> {
+        let name = stopped?;
+        let parms = specs
+            .iter()
+            .rev()
+            .find(|f| f.name == *name)
+            .and_then(|f| f.parms.clone());
+        Some(Codec {
+            name: canonical_name(name.as_bytes()).to_vec(),
+            parms,
+            file,
+        })
+    }
+
+    fn parm(&self, k: &str) -> Option<Object> {
+        let v = self.parms.as_ref()?.get_key(k)?;
+        Some((*resolve(self.file, v).1).clone())
+    }
 }
 
 /// Look up `long` (or, in inline images, `short`), resolved.
@@ -122,6 +158,9 @@ fn params(
         entry(file, d, "Interpolate", ab("I")),
         Some(Object::Bool(true))
     );
+    let smask_in_data = entry(file, d, "SMaskInData", None)
+        .and_then(|v| v.as_f64())
+        .is_some_and(|v| v != 0.0);
     Ok(Params {
         width,
         height,
@@ -130,6 +169,7 @@ fn params(
         decode,
         stencil,
         interpolate,
+        smask_in_data,
     })
 }
 
@@ -143,7 +183,9 @@ pub fn decode_xobject(
     let d = &s.dict;
     let p = params(file, d, false, |o| color::parse(file, profiles, o))?;
     let raw = file.decode_stream(id.unwrap_or(ObjId::new(0, 0)), s, Some(MAX_DATA));
-    let mut out = samples(&p, raw.data, raw.stopped_at.as_ref())?;
+    let specs = file.filter_specs(d);
+    let codec = Codec::of(file, &specs, raw.stopped_at.as_ref());
+    let mut out = samples(&p, raw.data, codec.as_ref())?;
     if p.stencil {
         return Ok(out);
     }
@@ -196,7 +238,8 @@ pub fn decode_inline(
     let chain = filters::build_chain(&specs);
     let stopped = chain.stopped_at.clone();
     let (data, _) = filters::decode_all(data, chain.decoders, Some(MAX_DATA));
-    let mut out = samples(&p, data.clone(), stopped.as_ref())?;
+    let codec = Codec::of(file, &specs, stopped.as_ref());
+    let mut out = samples(&p, data.clone(), codec.as_ref())?;
     if let Some(Object::Array(a)) = entry(file, d, "Mask", None) {
         let ranges: Vec<f64> = a.iter().filter_map(|n| n.obj.as_f64()).collect();
         if stopped.is_none() {
@@ -223,7 +266,9 @@ fn decode_gray(
     p.space = Some(Space::Gray);
     p.stencil = false;
     let raw = file.decode_stream(id.unwrap_or(ObjId::new(0, 0)), s, Some(MAX_DATA));
-    let img = samples(&p, raw.data, raw.stopped_at.as_ref())?;
+    let specs = file.filter_specs(&s.dict);
+    let codec = Codec::of(file, &specs, raw.stopped_at.as_ref());
+    let img = samples(&p, raw.data, codec.as_ref())?;
     let (w, h) = (img.pixmap.width(), img.pixmap.height());
     Ok((img.pixmap.pixels().iter().map(|c| c.red()).collect(), w, h))
 }
@@ -304,15 +349,56 @@ fn pixmap(w: u32, h: u32, data: Vec<u8>) -> Result<Pixmap, ImageError> {
     Pixmap::from_vec(data, size).ok_or(ImageError::TooLarge)
 }
 
-/// Turn sample data (all filters applied up to `stopped`) into a pixmap.
-fn samples(p: &Params, data: Vec<u8>, stopped: Option<&Name>) -> Result<Decoded, ImageError> {
+/// Turn sample data (all filters applied up to `codec`) into a pixmap.
+fn samples(p: &Params, data: Vec<u8>, codec: Option<&Codec>) -> Result<Decoded, ImageError> {
     let mut space = p.space.clone();
     let mut bpc = p.bpc;
     let (mut width, mut height) = (p.width, p.height);
     let mut decode = p.decode.clone();
     let mut data = data;
-    if let Some(f) = stopped {
-        match canonical_name(f.as_bytes()) {
+    // Opacity that comes with the samples (JPEG 2000).
+    let mut alpha = None;
+    if let Some(c) = codec {
+        match c.name.as_slice() {
+            b"JPXDecode" => {
+                let indexed = matches!(space, Some(Space::Indexed { .. }));
+                let j = jpx(&data, indexed)?;
+                (width, height, data) = (j.width, j.height, j.data);
+                bpc = 8;
+                decode = None;
+                if p.smask_in_data {
+                    alpha = j.alpha;
+                }
+                // The image's own space, unless the dictionary gives one
+                // that fits.
+                if space.as_ref().is_none_or(|s| s.components() != j.n) {
+                    space = Some(j.space);
+                }
+            }
+            b"JBIG2Decode" => {
+                let globals = c
+                    .parms
+                    .as_ref()
+                    .and_then(|d| d.get_key("JBIG2Globals"))
+                    .and_then(|o| {
+                        let (gid, g) = resolve(c.file, o);
+                        let gs = g.as_stream()?;
+                        let d = c.file.decode_stream(
+                            gid.unwrap_or(ObjId::new(0, 0)),
+                            gs,
+                            Some(MAX_DATA),
+                        );
+                        d.stopped_at.is_none().then_some(d.data)
+                    });
+                let (w, h, bits) = jbig2(&data, globals.as_deref())?;
+                (width, height, data) = (w, h, bits);
+                bpc = 1;
+            }
+            b"CCITTFaxDecode" => {
+                let (w, h, bits) = ccitt(&data, c, height)?;
+                (width, height, data) = (w, h, bits);
+                bpc = 1;
+            }
             b"DCTDecode" if !p.stencil => {
                 let j = jpeg(&data)?;
                 (width, height, data) = (j.width, j.height, j.data);
@@ -342,6 +428,23 @@ fn samples(p: &Params, data: Vec<u8>, stopped: Option<&Name>) -> Result<Decoded,
             }
         }
     }
+    let mut out = pixels(p, space, bpc, width, height, decode, &data)?;
+    if let Some(a) = alpha {
+        apply_alpha(&mut out.pixmap, &a, width, height);
+    }
+    Ok(out)
+}
+
+/// Samples of `bpc` bits in `space` (or a stencil mask) to a pixmap.
+fn pixels(
+    p: &Params,
+    space: Option<Space>,
+    bpc: u32,
+    width: u32,
+    height: u32,
+    decode: Option<Vec<f64>>,
+    data: &[u8],
+) -> Result<Decoded, ImageError> {
     if width as u64 * height as u64 > MAX_PIXELS {
         return Err(ImageError::TooLarge);
     }
@@ -446,6 +549,227 @@ fn rgba(c: Option<[f32; 3]>) -> [u8; 4] {
         }
         None => [0, 0, 0, 0],
     }
+}
+
+struct Jpx {
+    width: u32,
+    height: u32,
+    /// Color components (without opacity).
+    n: usize,
+    space: Space,
+    data: Vec<u8>,
+    alpha: Option<Vec<u8>>,
+}
+
+/// Decode JPEG 2000 data to 8-bit samples (palette indices kept as they
+/// are for an `/Indexed` space).
+fn jpx(data: &[u8], indexed: bool) -> Result<Jpx, ImageError> {
+    use hayro_jpeg2000::{ColorSpace as J, DecodeSettings, Image};
+    let bad = |e: hayro_jpeg2000::DecodeError| ImageError::Invalid(format!("JPEG 2000: {e}"));
+    let settings = DecodeSettings {
+        resolve_palette_indices: !indexed,
+        ..DecodeSettings::default()
+    };
+    let img = Image::new(data, &settings).map_err(bad)?;
+    let (width, height) = (img.width(), img.height());
+    if width as u64 * height as u64 > MAX_PIXELS || width == 0 || height == 0 {
+        return Err(ImageError::TooLarge);
+    }
+    let n = img.color_space().num_channels() as usize;
+    let has_alpha = img.has_alpha();
+    let depth = img.original_bit_depth();
+    let space = match img.color_space() {
+        J::Gray => Space::Gray,
+        J::RGB => Space::Rgb,
+        J::CMYK => Space::Cmyk,
+        J::Icc { profile, .. } => match crate::color::Icc::from_profile(profile, n) {
+            Some(icc) => Space::Icc(icc),
+            None => device(n),
+        },
+        J::Unknown { .. } => device(n),
+    };
+    let raw = img.decode().map_err(bad)?;
+    let k = n + usize::from(has_alpha);
+    let (mut data, alpha) = if has_alpha {
+        let mut d = Vec::with_capacity(raw.len() / k * n);
+        let mut a = Vec::with_capacity(raw.len() / k);
+        for px in raw.chunks_exact(k) {
+            d.extend_from_slice(&px[..n]);
+            a.push(px[n]);
+        }
+        (d, Some(a))
+    } else {
+        (raw, None)
+    };
+    // Indices of fewer bits were scaled to 8 bits: undo it.
+    if indexed && depth < 8 {
+        let max = ((1u32 << depth) - 1) as f32;
+        for v in &mut data {
+            *v = (*v as f32 * max / 255.0).round() as u8;
+        }
+    }
+    Ok(Jpx {
+        width,
+        height,
+        n,
+        space,
+        data,
+        alpha,
+    })
+}
+
+/// A device space of `n` components.
+fn device(n: usize) -> Space {
+    match n {
+        1 => Space::Gray,
+        4 => Space::Cmyk,
+        3 => Space::Rgb,
+        n => Space::Unknown(n),
+    }
+}
+
+/// 1-bit rows being filled pixel by pixel.
+struct Packed {
+    data: Vec<u8>,
+    width: usize,
+    stride: usize,
+    /// What unpainted rows hold.
+    fill: u8,
+    x: usize,
+    row: usize,
+    /// Rows started (pixels were pushed into them).
+    rows: usize,
+}
+
+impl Packed {
+    fn new(width: usize, rows: usize, white: bool) -> Self {
+        let stride = width.div_ceil(8);
+        let fill = if white { 0xFF } else { 0 };
+        Packed {
+            data: vec![fill; (stride * rows).min(MAX_DATA)],
+            width,
+            stride,
+            fill,
+            x: 0,
+            row: 0,
+            rows: 0,
+        }
+    }
+
+    fn put(&mut self, one: bool) {
+        if self.x < self.width {
+            let end = (self.row + 1) * self.stride;
+            if end > self.data.len() && end <= MAX_DATA {
+                self.data.resize(end, self.fill);
+            }
+            if let Some(b) = self.data.get_mut(self.row * self.stride + self.x / 8) {
+                let bit = 0x80 >> (self.x % 8);
+                if one {
+                    *b |= bit;
+                } else {
+                    *b &= !bit;
+                }
+            }
+            self.rows = self.rows.max(self.row + 1);
+        }
+        self.x += 1;
+    }
+
+    fn next_line(&mut self) {
+        self.row += 1;
+        self.x = 0;
+    }
+}
+
+/// JBIG2 (embedded organization) to 1-bit samples, 0 for black.
+fn jbig2(data: &[u8], globals: Option<&[u8]>) -> Result<(u32, u32, Vec<u8>), ImageError> {
+    struct Out(Packed);
+    impl hayro_jbig2::Decoder for Out {
+        fn push_pixel(&mut self, black: bool) {
+            self.0.put(!black);
+        }
+        fn push_pixel_chunk(&mut self, black: bool, chunk_count: u32) {
+            for _ in 0..chunk_count * 8 {
+                self.0.put(!black);
+            }
+        }
+        fn next_line(&mut self) {
+            self.0.next_line();
+        }
+    }
+    let bad = |e: hayro_jbig2::DecodeError| ImageError::Invalid(format!("JBIG2: {e}"));
+    let img = hayro_jbig2::Image::new_embedded(data, globals).map_err(bad)?;
+    let (w, h) = (img.width(), img.height());
+    if w as u64 * h as u64 > MAX_PIXELS {
+        return Err(ImageError::TooLarge);
+    }
+    let mut out = Out(Packed::new(w as usize, h as usize, true));
+    img.decode(&mut out).map_err(bad)?;
+    Ok((w, h, out.0.data))
+}
+
+/// CCITT fax data to 1-bit samples (`/BlackIs1` decides which is 1);
+/// `height` is used when `/Rows` is not given.
+fn ccitt(data: &[u8], c: &Codec, height: u32) -> Result<(u32, u32, Vec<u8>), ImageError> {
+    use hayro_ccitt::{DecodeSettings, DecoderContext, EncodingMode};
+    struct Out(Packed, bool);
+    impl hayro_ccitt::Decoder for Out {
+        fn push_pixel(&mut self, white: bool) {
+            self.0.put(white != self.1);
+        }
+        fn push_pixel_chunk(&mut self, white: bool, chunk_count: u32) {
+            for _ in 0..chunk_count * 8 {
+                self.0.put(white != self.1);
+            }
+        }
+        fn next_line(&mut self) {
+            self.0.next_line();
+        }
+    }
+    let int = |k: &str, d: f64| c.parm(k).and_then(|v| v.as_f64()).unwrap_or(d);
+    let flag = |k: &str, d: bool| match c.parm(k) {
+        Some(Object::Bool(b)) => b,
+        _ => d,
+    };
+    let k = int("K", 0.0) as i64;
+    let columns = int("Columns", 1728.0).clamp(1.0, 1e6) as u32;
+    let rows = int("Rows", 0.0).max(0.0) as u32;
+    let black_is_1 = flag("BlackIs1", false);
+    let settings = DecodeSettings {
+        columns,
+        rows: if rows > 0 { rows } else { height },
+        end_of_block: flag("EndOfBlock", true),
+        end_of_line: flag("EndOfLine", false),
+        rows_are_byte_aligned: flag("EncodedByteAlign", false),
+        encoding: match k {
+            k if k < 0 => EncodingMode::Group4,
+            0 => EncodingMode::Group3_1D,
+            k => EncodingMode::Group3_2D { k: k as u32 },
+        },
+        invert_black: false,
+    };
+    let want = if rows > 0 { rows } else { height };
+    if columns as u64 * want as u64 > MAX_PIXELS {
+        return Err(ImageError::TooLarge);
+    }
+    let mut out = Out(
+        Packed::new(columns as usize, want as usize, !black_is_1),
+        black_is_1,
+    );
+    let mut ctx = DecoderContext::new(settings);
+    // Damaged data: keep the rows decoded before the error.
+    let result = hayro_ccitt::decode(data, &mut out, &mut ctx);
+    let got = out.0.rows as u32;
+    if result.is_err() && got == 0 {
+        return Err(ImageError::Invalid(format!(
+            "CCITT: {}",
+            result.err().map(|e| e.to_string()).unwrap_or_default()
+        )));
+    }
+    let h = if rows > 0 { rows } else { got.max(1) };
+    let mut bits = out.0.data;
+    bits.resize(columns.div_ceil(8) as usize * h as usize, out.0.fill);
+    Ok((columns, h, bits))
 }
 
 struct Jpeg {
