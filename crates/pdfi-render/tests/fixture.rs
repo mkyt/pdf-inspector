@@ -556,5 +556,8 @@ fn image_codecs() {
     assert_ne!(px(&o, 150, 150), px(&o, 102, 102));
     assert_ne!(px(&o, 250, 150), px(&o, 202, 102));
     assert_eq!(px(&o, 250, 150), px(&o, 150, 150));
+    // A YCCK JPEG (inverted, with /Decode): red | blue.
+    assert_eq!(px(&o, 320, 175), [255, 0, 0, 255]);
+    assert_eq!(px(&o, 380, 175), [0, 0, 255, 255]);
     assert!(o.notes.is_empty(), "{:?}", o.notes);
 }

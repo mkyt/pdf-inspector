@@ -717,6 +717,16 @@ a80b8009a86c061b0004d434280d00026a0418020004d41803060004d4171b05c004d43026180013
 071507001350c09860004d4171b05c004d41803060004d40830040009a868501a0004d436030d80026a05ea02e0026a19670
 cb0013503c370013503c370013503c370013503c370013503c370013503c370013503c370013503c37
 """.replace("\n", ""))
+# An Adobe YCCK JPEG (ImageMagick, -define jpeg:colorspace=11), its CMYK
+# inverted as Photoshop writes it: /Decode compensates. Red | blue.
+JPEG_YCCK = bytes.fromhex("""
+ffd8ffee000e41646f626500640000000002ffdb004300020101010101020101010202020202040302020202050404030406
+0506060605060606070908060709070606080b08090a0a0a0a0a06080b0c0b0a0c090a0a0affdb0043010202020202020503
+03050a0706070a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a
+0a0a0a0a0a0affc00014080008001004011100021101031101041100ffc40016000101010000000000000000000000000008
+0009ffc40014100100000000000000000000000000000000ffc4001501010100000000000000000000000000000a08ffc400
+14110100000000000000000000000000000000ffda000e040100021103110400003f00662ac1ff006fe1782a64a89fffd9
+""".replace("\n", ""))
 def image(extra, data):
     return (b"<< /Type /XObject /Subtype /Image %s /Length %%d >>" % extra, data)
 streams[60] = image(b"/Width 16 /Height 16 /Filter /JPXDecode", JP2_RGB)
@@ -726,6 +736,7 @@ streams[63] = image(b"/Width 64 /Height 64 /ColorSpace /DeviceGray /BitsPerCompo
 streams[64] = (b"<< /Length %d >>", JB2_GLOBALS)
 streams[65] = image(b"/Width 64 /Height 64 /ImageMask true /Filter /JBIG2Decode /DecodeParms << /JBIG2Globals 64 0 R >>", JB2_PAGE)
 streams[66] = image(b"/Width 64 /Height 64 /ImageMask true /Filter /CCITTFaxDecode /DecodeParms << /K -1 /Columns 64 /Rows 64 >>", G4)
+streams[68] = image(b"/Width 16 /Height 8 /ColorSpace /DeviceCMYK /BitsPerComponent 8 /Decode [1 0 1 0 1 0 1 0] /Filter /DCTDecode", JPEG_YCCK)
 streams[67] = image(b"/Width 64 /Height 64 /ColorSpace /DeviceGray /BitsPerComponent 1 /Filter /CCITTFaxDecode /DecodeParms << /K 0 /Columns 64 >>", G3)
 page(b"""q 100 0 0 100 0 300 cm /Jp2 Do Q
 q 100 0 0 100 100 300 cm /J2k Do Q
@@ -734,7 +745,8 @@ q 100 0 0 100 300 300 cm /Jb2 Do Q
 q 1 0 0 rg 100 0 0 100 0 200 cm /Jb2g Do Q
 q 0 0 1 rg 100 0 0 100 100 200 cm /G4 Do Q
 q 100 0 0 100 200 200 cm /G3 Do Q
-""", b"<< /XObject << /Jp2 60 0 R /J2k 61 0 R /Jp2a 62 0 R /Jb2 63 0 R /Jb2g 65 0 R /G4 66 0 R /G3 67 0 R >> >>")
+q 100 0 0 50 300 200 cm /Ycck Do Q
+""", b"<< /XObject << /Ycck 68 0 R /Jp2 60 0 R /J2k 61 0 R /Jp2a 62 0 R /Jb2 63 0 R /Jb2g 65 0 R /G4 66 0 R /G3 67 0 R >> >>")
 
 objs[2] = b"<< /Type /Pages /Kids [%s] /Count %d /MediaBox [0 0 400 400] >>" % (b" ".join(b"%d 0 R" % n for n in pages), len(pages))
 out = bytearray(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")

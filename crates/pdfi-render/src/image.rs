@@ -405,10 +405,6 @@ fn samples(p: &Params, data: Vec<u8>, codec: Option<&Codec>) -> Result<Decoded, 
                 bpc = 8;
                 match j.components {
                     1 => space = Some(Space::Gray),
-                    3 if j.converted => {
-                        space = Some(Space::Rgb);
-                        decode = None;
-                    }
                     3 => {
                         if space.as_ref().is_none_or(|s| s.components() != 3) {
                             space = Some(Space::Rgb);
@@ -776,8 +772,6 @@ struct Jpeg {
     width: u32,
     height: u32,
     components: usize,
-    /// Converted to RGB by the decoder (YCCK).
-    converted: bool,
     data: Vec<u8>,
 }
 
@@ -786,11 +780,12 @@ fn jpeg(data: &[u8]) -> Result<Jpeg, ImageError> {
     let mut d = JpegDecoder::new(ZCursor::new(data));
     d.decode_headers().map_err(bad)?;
     let input = d.input_colorspace().unwrap_or(JpegSpace::YCbCr);
-    let (out, components, converted) = match input {
-        JpegSpace::Luma => (JpegSpace::Luma, 1, false),
-        JpegSpace::CMYK => (JpegSpace::CMYK, 4, false),
-        JpegSpace::YCCK => (JpegSpace::RGB, 3, true),
-        _ => (JpegSpace::RGB, 3, false),
+    let (out, components) = match input {
+        JpegSpace::Luma => (JpegSpace::Luma, 1),
+        JpegSpace::CMYK => (JpegSpace::CMYK, 4),
+        // Converted to CMYK below.
+        JpegSpace::YCCK => (JpegSpace::YCCK, 4),
+        _ => (JpegSpace::RGB, 3),
     };
     let info = d
         .info()
@@ -805,12 +800,23 @@ fn jpeg(data: &[u8]) -> Result<Jpeg, ImageError> {
             .set_max_width(1 << 16)
             .set_max_height(1 << 16),
     );
-    let pixels = d.decode().map_err(bad)?;
+    let mut pixels = d.decode().map_err(bad)?;
+    if input == JpegSpace::YCCK {
+        // As libjpeg: YCbCr to RGB, whose complement is CMY; K as stored.
+        // The samples are then used as stored (PDF writers compensate
+        // inverted Adobe JPEGs with /Decode).
+        for px in pixels.chunks_exact_mut(4) {
+            let (y, cb, cr) = (px[0] as f32, px[1] as f32 - 128.0, px[2] as f32 - 128.0);
+            let q = |v: f32| 255 - (v.round().clamp(0.0, 255.0) as u8);
+            px[0] = q(y + 1.402 * cr);
+            px[1] = q(y - 0.344_136 * cb - 0.714_136 * cr);
+            px[2] = q(y + 1.772 * cb);
+        }
+    }
     Ok(Jpeg {
         width: info.width as u32,
         height: info.height as u32,
         components,
-        converted,
         data: pixels,
     })
 }
