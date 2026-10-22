@@ -9,7 +9,9 @@ publish.workspace = true
 [dependencies]
 anyhow = "1.0.104"
 clap = { version = "4.6.7", features = ["derive"] }
+pdfi-server = { version = "0.1.0", path = "../pdfi-server" }
 pdfi-syntax = { version = "0.1.0", path = "../pdfi-syntax" }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "signal"] }
 
 [lints]
 workspace = true

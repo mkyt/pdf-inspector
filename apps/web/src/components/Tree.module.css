@@ -1,0 +1,62 @@
+.row {
+  display: flex;
+  align-items: center;
+  min-height: 22px;
+  font-family: var(--mantine-font-family-monospace);
+  font-size: var(--mantine-font-size-xs);
+
+  &[data-selected] {
+    background: var(--mantine-primary-color-light);
+  }
+}
+
+.toggle {
+  width: 18px;
+  flex-shrink: 0;
+  text-align: center;
+  color: var(--mantine-color-dimmed);
+}
+
+.label {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  font-family: inherit;
+  font-size: inherit;
+  white-space: nowrap;
+
+  @mixin hover {
+    background: var(--mantine-color-default-hover);
+  }
+}
+
+.key {
+  color: light-dark(var(--mantine-color-indigo-7), var(--mantine-color-indigo-3));
+}
+
+.value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: inherit;
+
+  &[data-type="string"] {
+    color: light-dark(var(--mantine-color-green-8), var(--mantine-color-green-4));
+  }
+
+  &[data-type="name"] {
+    color: light-dark(var(--mantine-color-grape-7), var(--mantine-color-grape-3));
+  }
+
+  &[data-type="integer"],
+  &[data-type="real"],
+  &[data-type="bool"],
+  &[data-type="null"] {
+    color: light-dark(var(--mantine-color-orange-8), var(--mantine-color-orange-4));
+  }
+
+  &[data-type="array"],
+  &[data-type="dict"],
+  &[data-type="stream"] {
+    color: var(--mantine-color-dimmed);
+  }
+}

@@ -78,6 +78,24 @@ enum Cmd {
         #[arg(long)]
         reserialize: bool,
     },
+    /// Serve the web UI on 127.0.0.1 and open it in the browser.
+    Serve {
+        /// Files to open; they may be opened from the UI as well.
+        files: Vec<PathBuf>,
+        /// Directory the UI may browse and open files from (repeatable).
+        /// Defaults to the current directory when no files are given.
+        #[arg(long)]
+        root: Vec<PathBuf>,
+        #[arg(long, default_value_t = 0)]
+        port: u16,
+        /// Do not open a browser.
+        #[arg(long)]
+        no_open: bool,
+        /// Extra allowed WebSocket origin, e.g. http://localhost:5173 for the
+        /// Vite dev server (repeatable).
+        #[arg(long)]
+        dev_origin: Vec<String>,
+    },
 }
 
 fn open(a: &FileArgs) -> Result<PdfFile> {
@@ -147,6 +165,26 @@ fn main() -> Result<()> {
             Ok(())
         }
         Cmd::Check { f, decode, verbose } => check(&f, decode, verbose),
+        Cmd::Serve {
+            files,
+            mut root,
+            port,
+            no_open,
+            dev_origin,
+        } => {
+            if files.is_empty() && root.is_empty() {
+                root.push(std::env::current_dir()?);
+            }
+            serve(
+                pdfi_server::ServeOptions {
+                    files,
+                    roots: root,
+                    port,
+                    dev_origins: dev_origin,
+                },
+                !no_open,
+            )
+        }
         Cmd::Rewrite {
             f,
             out,
@@ -173,6 +211,36 @@ fn main() -> Result<()> {
             }
             Ok(())
         }
+    }
+}
+
+fn serve(opts: pdfi_server::ServeOptions, open_browser: bool) -> Result<()> {
+    let rt = tokio::runtime::Runtime::new()?;
+    rt.block_on(async {
+        let server = pdfi_server::Server::bind(opts).await?;
+        let url = server.url();
+        eprintln!("pdfi: serving on {url}");
+        eprintln!("pdfi: press Ctrl-C to stop");
+        if open_browser {
+            open_url(&url);
+        }
+        server
+            .run(async {
+                let _ = tokio::signal::ctrl_c().await;
+            })
+            .await
+    })
+}
+
+fn open_url(url: &str) {
+    #[cfg(target_os = "macos")]
+    let cmd = std::process::Command::new("open").arg(url).spawn();
+    #[cfg(windows)]
+    let cmd = std::process::Command::new("explorer").arg(url).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let cmd = std::process::Command::new("xdg-open").arg(url).spawn();
+    if let Err(e) = cmd {
+        eprintln!("pdfi: could not open a browser ({e}); open the URL above");
     }
 }
 

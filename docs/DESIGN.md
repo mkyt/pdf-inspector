@@ -5,6 +5,7 @@
 > - v2: Web UI を **ブラウザ完結（wasm）とローカルサーバー（native）の両対応**に。pdfi-api をトランスポート非依存のメッセージプロトコル化、pdfi-server 追加、マイルストーン再編
 > - v2.1: §4.10 macOS インタフェース（pdfi-ffi / PdfInspectorKit）を追加。macOS は最新バージョン前提
 > - v2.2: 対象ブラウザを Chromium 系に確定（保存は File System Access API に一本化）
+> - v2.3: M2 実装で確定した事項を §4.8 / §4.9 に追記（TS 型生成は ts-rs、バイナリフレーム形式、ジョブ実行器、トークンの渡し方）
 
 ## 1. ゴール
 
@@ -245,6 +246,12 @@ impl Session {
 - **Batch**: 1 往復で複数リクエスト（ツリー展開 + インスペクタ情報など）。先読みもこれで行う
 - **型生成**: Rust の型から TS 型を生成（`ts-rs` / `specta` / `tsify` を比較して選定）。Swift は UniFFI で Rust API を直接呼ぶ（プロトコルを経由しない）
 - **バージョニング**: ハンドシェイクでプロトコルバージョンを交換（server と UI のバージョン不一致検出）
+- **M2 で確定した形**:
+  - 型生成は **ts-rs**。全 DTO を 1 ファイル（`apps/web/src/protocol/generated.ts`）に出力し、`cargo test -p pdfi-api` が差分を検出（`UPDATE_TS=1` で再生成）
+  - バイナリフレーム = `request_id (u64 LE) + part (u32 LE) + bytes`。応答 JSON の `BytesInfo.part` が参照し、**バイナリは参照元の応答より先に送る**
+  - ジョブは `step()` を繰り返す有界な作業単位。実行は `Executor` trait（server: ジョブごとのスレッド、wasm: `QueueExecutor` を協調的に回す）
+  - ファイルアクセスは `SourceProvider` trait で注入（pdfi-api 自体は fs に触れない）
+  - `Cancel(RequestId)` はトランスポート層で未着手のリクエストを破棄する。`Batch` はネスト不可
 
 Rust API（論理的な操作一覧）:
 
@@ -294,7 +301,7 @@ doc.save(SaveOptions, sink: Box<dyn ByteSink>) -> JobId
 - **並列性**: ジョブ・タイル描画を `rayon` で並列実行。PDFium バックエンドも選択可能
 - **セキュリティ**（必須要件）
   - `127.0.0.1` / `::1` のみで listen（外部公開オプションは設けない）
-  - 起動ごとにランダムトークンを生成。URL フラグメントで UI に渡し、WebSocket ハンドシェイクで検証（Cookie は使わない）
+  - 起動ごとにランダムトークンを生成。URL フラグメントで UI に渡し、WebSocket ハンドシェイクで検証（Cookie は使わない）。ブラウザの WebSocket はヘッダを付けられないため、サブプロトコル `pdfi.token.<hex>` として送る（UI は受け取ったトークンを sessionStorage に移して URL から消す）
   - `Host` ヘッダが `127.0.0.1:<port>` / `localhost:<port>` 以外は拒否（DNS rebinding 対策）、`Origin` を検証（CSRF / 他サイトからの WebSocket 接続対策）
   - ファイルアクセスは許可ルート配下のみ。パスの正規化・シンボリックリンク解決後に再検査
   - 解析対象の PDF は信頼しない入力として扱う（fuzz 済みのパーサ、再帰・メモリ上限）

@@ -23,7 +23,24 @@ jobs:
       - run: cargo clippy --workspace --all-targets
       - run: cargo test --workspace
       # Core crates must stay buildable for the browser.
-      - run: cargo build -p pdfi-syntax --target wasm32-unknown-unknown
+      - run: cargo build -p pdfi-syntax -p pdfi-api --target wasm32-unknown-unknown
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      # Also type-checks against the generated protocol types, which
+      # `cargo test -p pdfi-api` keeps in sync with the Rust definitions.
+      - run: npm run build
 
   deny:
     runs-on: ubuntu-latest

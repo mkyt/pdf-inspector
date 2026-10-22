@@ -1,0 +1,36 @@
+.dump {
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 18px;
+  display: flex;
+  gap: 16px;
+  padding: 0 8px;
+  white-space: pre;
+}
+
+.offset {
+  color: var(--mantine-color-dimmed);
+  min-width: 10ch;
+}
+
+.hex {
+  width: 47ch;
+}
+
+.byte {
+  &[data-hl] {
+    background: light-dark(var(--mantine-color-yellow-3), var(--mantine-color-yellow-9));
+  }
+}
+
+.ascii {
+  color: var(--mantine-color-dimmed);
+}
