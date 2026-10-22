@@ -1,0 +1,7 @@
+/target
+*.swp
+.DS_Store
+/tests/corpus/local/
+/fuzz/target/
+/fuzz/corpus/
+/fuzz/artifacts/
