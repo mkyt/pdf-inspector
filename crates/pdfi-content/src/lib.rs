@@ -5,8 +5,10 @@
 //!
 //! [`DocContent`] keeps the analyses of recently viewed contents (pages,
 //! form XObjects, other streams) and the fonts they use. Pair it with a
-//! document through [`DocContent::on`].
+//! document through [`DocContent::on`]. [`Content::draw`] runs a content
+//! again to paint it on a [`device::Device`].
 
+pub mod device;
 pub mod font;
 pub mod geom;
 pub mod interp;
@@ -20,6 +22,7 @@ use pdfi_model::{Model, Rect, resolve};
 use pdfi_syntax::parser::Parser;
 use pdfi_syntax::{Dict, DictExt, ObjId, Object, PdfFile, Severity, Span, Stream};
 
+use crate::device::Device;
 use crate::font::FontInfo;
 use crate::geom::IDENTITY;
 use crate::interp::{Element, Env, GState, Interp, Kind, Rec, Resources, State};
@@ -167,6 +170,8 @@ pub struct Analysis {
     /// The visible area of a page, or a form's `/BBox` (also the initial
     /// clip).
     pub bounds: Option<Rect>,
+    /// A page's `/Rotate` (0, 90, 180 or 270; 0 for streams).
+    pub rotate: i64,
     /// The resource dictionary and where it is.
     pub resources: Option<Object>,
     pub resources_id: Option<ObjId>,
@@ -297,6 +302,10 @@ fn decode(file: &PdfFile, id: Option<ObjId>, s: &Stream) -> SourceData {
 }
 
 impl<'a> Content<'a> {
+    pub fn file(&self) -> &'a PdfFile {
+        self.m.file
+    }
+
     /// Parse and interpret a content (cached).
     pub fn analyze(&self, t: Target) -> Result<Arc<Analysis>, String> {
         let file = self.m.file;
@@ -313,7 +322,7 @@ impl<'a> Content<'a> {
                 return Ok(a);
             }
         }
-        let (kind, id, sources, resources, resources_id, bounds) = match t {
+        let (kind, id, sources, resources, resources_id, bounds, rotate) = match t {
             Target::Page(i) => {
                 let info = self.m.page_info(i)?;
                 let held = file.get(info.page.id).map_err(|e| e.to_string())?;
@@ -343,6 +352,7 @@ impl<'a> Content<'a> {
                     info.resources.clone(),
                     info.resources_id,
                     info.visible(),
+                    info.rotate,
                 )
             }
             Target::Stream(id) => {
@@ -377,6 +387,7 @@ impl<'a> Content<'a> {
                     res,
                     res_id,
                     bounds,
+                    0,
                 )
             }
         };
@@ -442,6 +453,7 @@ impl<'a> Content<'a> {
             depth,
             texts,
             bounds,
+            rotate,
             resources,
             resources_id,
             approximate,
@@ -483,4 +495,50 @@ impl<'a> Content<'a> {
             interp.step(&mut env, i as u32, &o, &mut rec);
         }
     }
+
+    /// Paint operations `0..=until` (all of them without `until`) of an
+    /// analyzed content on `device`. `cancel` is polled every few hundred
+    /// operations.
+    pub fn draw(
+        &self,
+        a: &Analysis,
+        until: Option<usize>,
+        device: &mut dyn Device,
+        cancel: &dyn Fn() -> bool,
+    ) -> Drawn {
+        let res = Resources::new(self.m.file, a.resources.as_ref());
+        let mut env = Env::new(self.m.file, self.c);
+        env.cancel = Some(cancel);
+        let start = State::new(GState::new(IDENTITY, a.bounds));
+        let mut interp = Interp::new(start, &res, a.kind).with_data(&a.data);
+        let mut rec = Rec::draw(device);
+        let mut r = OpReader::new(&a.data);
+        let mut sink = Issues::default();
+        let end = until.map_or(a.ops, |u| u.saturating_add(1).min(a.ops));
+        let mut cancelled = false;
+        while r.count() < end {
+            let i = r.count();
+            if i % 256 == 0 && cancel() {
+                cancelled = true;
+                break;
+            }
+            let Some(op) = r.next(&mut sink) else { break };
+            if let Some(d) = rec.device.as_deref_mut() {
+                d.op(i as u32);
+            }
+            interp.step(&mut env, i as u32, &op, &mut rec);
+        }
+        Drawn {
+            ops: r.count().min(end),
+            cancelled: cancelled || (env.budget == 0 && cancel()),
+        }
+    }
+}
+
+/// What [`Content::draw`] got through.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Drawn {
+    /// Operations run.
+    pub ops: usize,
+    pub cancelled: bool,
 }

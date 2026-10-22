@@ -8,6 +8,9 @@
 //! descent over their advance. Form XObjects are followed (depth- and
 //! budget-limited) to bound what they paint; patterns and glyph procedures
 //! are not.
+//!
+//! With a [`Device`] in its [`Rec`], it also records the geometry and hands
+//! paths, glyph runs and images to the device as it goes (rendering).
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -16,13 +19,14 @@ use std::sync::Arc;
 use pdfi_model::{Rect, resolve};
 use pdfi_syntax::{Dict, DictExt, Name, Node, ObjId, Object, PdfFile, Severity, Stream};
 
+use crate::device::{ClipPath, Device, Glyph, GlyphRun, ImageData, PathEl};
 use crate::font::FontInfo;
 use crate::geom::{
     IDENTITY, Matrix, add_point, apply, grow, intersect, mul, scale_of, transform, translate,
     union, unit_square,
 };
 use crate::op::{Arg, Category, Op, Operator};
-use crate::parse::OpReader;
+use crate::parse::{OpReader, SourceData};
 use crate::{DocContent, Issue, Issues};
 
 /// Form XObjects followed inside each other.
@@ -46,6 +50,9 @@ pub struct Color {
     pub components: Vec<f64>,
     /// Pattern name (`scn` with a pattern color space).
     pub pattern: Option<String>,
+    /// The color space object of a `/ColorSpace` resource (`None` for the
+    /// device spaces and `Pattern` without a base).
+    pub def: Option<Arc<Object>>,
 }
 
 impl Color {
@@ -56,6 +63,7 @@ impl Color {
             n: Some(components.len()),
             components,
             pattern: None,
+            def: None,
         }
     }
 
@@ -91,6 +99,8 @@ pub struct GState {
     pub ctm: Matrix,
     /// Bounding box of the clipping path; `None`: not clipped.
     pub clip: Option<Rect>,
+    /// The clipping paths themselves (only while drawing).
+    pub clip_path: Option<Arc<ClipPath>>,
     pub line_width: f64,
     pub line_cap: i64,
     pub line_join: i64,
@@ -116,6 +126,7 @@ impl GState {
         GState {
             ctm,
             clip,
+            clip_path: None,
             line_width: 1.0,
             line_cap: 0,
             line_join: 0,
@@ -154,6 +165,8 @@ pub struct PathState {
     pub current: Option<(f64, f64)>,
     pub start: Option<(f64, f64)>,
     pub segments: u32,
+    /// The elements (only while drawing).
+    pub els: Vec<PathEl>,
 }
 
 /// Everything the interpreter tracks.
@@ -291,8 +304,8 @@ impl Resources {
     }
 }
 
-/// Where problems and painted elements go.
-pub struct Rec {
+/// Where problems, painted elements and drawing go.
+pub struct Rec<'d> {
     pub issues: Issues,
     /// Report problems.
     pub report: bool,
@@ -302,9 +315,11 @@ pub struct Rec {
     pub texts: Vec<(u32, String)>,
     /// Some text bounding box used guessed widths.
     pub approximate: bool,
+    /// Paint here (forms are followed for it).
+    pub device: Option<&'d mut dyn Device>,
 }
 
-impl Rec {
+impl<'d> Rec<'d> {
     /// Report problems and record elements.
     pub fn full() -> Self {
         Rec {
@@ -314,6 +329,7 @@ impl Rec {
             elements: Vec::new(),
             texts: Vec::new(),
             approximate: false,
+            device: None,
         }
     }
 
@@ -332,6 +348,18 @@ impl Rec {
             record: false,
             ..Self::full()
         }
+    }
+
+    /// Only paint on `device`.
+    pub fn draw(device: &'d mut dyn Device) -> Self {
+        Rec {
+            device: Some(device),
+            ..Self::silent()
+        }
+    }
+
+    fn drawing(&self) -> bool {
+        self.device.is_some()
     }
 
     fn report(
@@ -372,6 +400,8 @@ pub struct Env<'a> {
     /// Operations left for forms.
     pub budget: u64,
     active: Vec<ObjId>,
+    /// Polled while following forms; stops everything when it says so.
+    pub cancel: Option<&'a dyn Fn() -> bool>,
 }
 
 impl<'a> Env<'a> {
@@ -381,6 +411,7 @@ impl<'a> Env<'a> {
             cache,
             budget: FORM_BUDGET,
             active: Vec::new(),
+            cancel: None,
         }
     }
 }
@@ -395,6 +426,20 @@ fn name_text(n: &Name) -> String {
 
 fn op_name(op: &Op) -> String {
     op.operator.name().into_owned()
+}
+
+/// A rectangle as a closed path, transformed by `m`.
+fn rect_path(r: &Rect, m: &Matrix) -> impl Iterator<Item = PathEl> {
+    let p = |x, y| apply(m, x, y);
+    let [a, b, c, d] = [p(r.x0, r.y0), p(r.x1, r.y0), p(r.x1, r.y1), p(r.x0, r.y1)];
+    [
+        PathEl::Move(a.0, a.1),
+        PathEl::Line(b.0, b.1),
+        PathEl::Line(c.0, c.1),
+        PathEl::Line(d.0, d.1),
+        PathEl::Close,
+    ]
+    .into_iter()
 }
 
 /// Whether an operator may appear between `BT` and `ET`.
@@ -467,7 +512,12 @@ pub fn describe_space(file: &PdfFile, o: &Object) -> (String, Option<usize>) {
     (family, n)
 }
 
-fn initial_color(space: String, family: String, n: Option<usize>) -> Color {
+fn initial_color(
+    space: String,
+    family: String,
+    n: Option<usize>,
+    def: Option<Arc<Object>>,
+) -> Color {
     let components = match family.as_str() {
         "DeviceCMYK" => vec![0.0, 0.0, 0.0, 1.0],
         "Separation" | "DeviceN" => vec![1.0; n.unwrap_or(1)],
@@ -480,6 +530,7 @@ fn initial_color(space: String, family: String, n: Option<usize>) -> Color {
         n,
         components,
         pattern: None,
+        def,
     }
 }
 
@@ -505,11 +556,24 @@ pub struct Interp<'r> {
     pub s: State,
     res: &'r Resources,
     kind: Kind,
+    /// The decoded streams the operations come from (for inline image
+    /// data while drawing).
+    data: &'r [SourceData],
 }
 
 impl<'r> Interp<'r> {
     pub fn new(s: State, res: &'r Resources, kind: Kind) -> Self {
-        Interp { s, res, kind }
+        Interp {
+            s,
+            res,
+            kind,
+            data: &[],
+        }
+    }
+
+    pub fn with_data(mut self, data: &'r [SourceData]) -> Self {
+        self.data = data;
+        self
     }
 
     /// Operands of `op`, checked against its signature. `None` when they
@@ -762,6 +826,9 @@ impl<'r> Interp<'r> {
                 let p = self.s.path.get_or_insert_with(PathState::default);
                 let (dx, dy) = apply(&ctm, x, y);
                 add_point(&mut p.bbox, dx, dy);
+                if rec.drawing() {
+                    p.els.push(PathEl::Move(dx, dy));
+                }
                 p.current = Some((x, y));
                 p.start = Some((x, y));
                 p.segments += 1;
@@ -776,6 +843,24 @@ impl<'r> Interp<'r> {
                             let (dx, dy) = apply(&ctm, x, y);
                             add_point(&mut p.bbox, dx, dy);
                         }
+                        if rec.drawing() {
+                            let d = |(x, y)| apply(&ctm, x, y);
+                            let cur = p.current.unwrap_or_default();
+                            let (a, b, c) = match (&op.operator, pts.as_slice()) {
+                                (Operator::CurveTo, &[a, b, c]) => (a, b, c),
+                                (Operator::CurveV, &[b, c]) => (cur, b, c),
+                                (Operator::CurveY, &[a, c]) => (a, c, c),
+                                (_, &[.., c]) => (c, c, c),
+                                _ => (cur, cur, cur),
+                            };
+                            p.els.push(if op.operator == Operator::LineTo {
+                                let (x, y) = d(c);
+                                PathEl::Line(x, y)
+                            } else {
+                                let ((x1, y1), (x2, y2), (x3, y3)) = (d(a), d(b), d(c));
+                                PathEl::Curve(x1, y1, x2, y2, x3, y3)
+                            });
+                        }
                         p.current = pts.last().copied();
                         p.segments += 1;
                     }
@@ -787,7 +872,12 @@ impl<'r> Interp<'r> {
                 }
             }
             Operator::ClosePath => match self.s.path.as_mut() {
-                Some(p) if p.current.is_some() => p.current = p.start,
+                Some(p) if p.current.is_some() => {
+                    p.current = p.start;
+                    if rec.drawing() {
+                        p.els.push(PathEl::Close);
+                    }
+                }
                 _ => rec.warning(i, "NoCurrentPoint", "h without a current point"),
             },
             Operator::Rect => {
@@ -797,6 +887,17 @@ impl<'r> Interp<'r> {
                 for (px, py) in [(x, y), (x + w, y), (x, y + h), (x + w, y + h)] {
                     let (dx, dy) = apply(&ctm, px, py);
                     add_point(&mut p.bbox, dx, dy);
+                }
+                if rec.drawing() {
+                    p.els.extend(rect_path(
+                        &Rect {
+                            x0: x,
+                            y0: y,
+                            x1: x + w,
+                            y1: y + h,
+                        },
+                        &ctm,
+                    ));
                 }
                 p.current = Some((x, y));
                 p.start = Some((x, y));
@@ -970,9 +1071,12 @@ impl<'r> Interp<'r> {
             }
             Operator::Shade => {
                 if let Some(n) = args[0].obj.as_name() {
-                    if self.resource(env, i, rec, "Shading", n).is_some() {
+                    if let Some((_, o)) = self.resource(env, i, rec, "Shading", n) {
                         if let Some(c) = self.s.g.clip {
                             self.element(i, ElementKind::Shading, c, rec);
+                        }
+                        if let Some(d) = rec.device.as_deref_mut() {
+                            d.shading(&o, &self.s.g);
                         }
                     }
                 }
@@ -1075,7 +1179,7 @@ impl<'r> Interp<'r> {
     }
 
     fn paint(&mut self, i: u32, op: &Op, kind: Option<ElementKind>, rec: &mut Rec) {
-        let path = self.s.path.take();
+        let mut path = self.s.path.take();
         let clip = self.s.pending_clip.take();
         let Some(bbox) = path.as_ref().and_then(|p| p.bbox) else {
             if kind.is_some() {
@@ -1100,6 +1204,37 @@ impl<'r> Interp<'r> {
             Some(k) => self.element(i, k, painted, rec),
             None if clip.is_some() => self.element(i, ElementKind::Clip, bbox, rec),
             None => {}
+        }
+        if let (Some(d), Some(p)) = (rec.device.as_deref_mut(), path.as_mut()) {
+            if matches!(
+                op.operator,
+                Operator::CloseStroke
+                    | Operator::CloseFillStroke
+                    | Operator::CloseFillStrokeEvenOdd
+            ) {
+                p.els.push(PathEl::Close);
+            }
+            let even_odd = matches!(
+                op.operator,
+                Operator::FillEvenOdd
+                    | Operator::FillStrokeEvenOdd
+                    | Operator::CloseFillStrokeEvenOdd
+            );
+            let g = &self.s.g;
+            if matches!(kind, Some(ElementKind::Fill | ElementKind::FillStroke)) {
+                d.fill(&p.els, even_odd, g);
+            }
+            if stroked {
+                d.stroke(&p.els, g);
+            }
+            if let Some(eo) = clip {
+                let g = &mut self.s.g;
+                g.clip_path = Some(Arc::new(ClipPath {
+                    path: std::mem::take(&mut p.els),
+                    even_odd: eo,
+                    parent: g.clip_path.take(),
+                }));
+            }
         }
         // The clip applies after painting.
         if clip.is_some() {
@@ -1140,6 +1275,8 @@ impl<'r> Interp<'r> {
         let mut bbox: Option<Rect> = None;
         let mut text = String::new();
         let mut decoded = false;
+        let drawing = rec.drawing();
+        let mut glyphs = Vec::new();
         for p in pieces {
             match p {
                 Piece::Adjust(n) => {
@@ -1157,6 +1294,7 @@ impl<'r> Interp<'r> {
                         let w0 = f.advance(c);
                         let spacing =
                             t.char_spacing + if f.is_space(c) { t.word_spacing } else { 0.0 };
+                        let (ox, oy) = (x, y);
                         let glyph = if f.vertical {
                             let ty = w0 * size + spacing;
                             let r = Rect {
@@ -1179,6 +1317,14 @@ impl<'r> Interp<'r> {
                             r
                         };
                         bbox = Some(union(bbox, glyph));
+                        if drawing {
+                            glyphs.push(Glyph {
+                                code: c.code,
+                                x: ox,
+                                y: oy + t.rise,
+                                bbox: glyph,
+                            });
+                        }
                         match f.text(c) {
                             Some(s) => {
                                 decoded = true;
@@ -1206,6 +1352,21 @@ impl<'r> Interp<'r> {
                 rec.texts.push((i, text));
             }
         }
+        if let Some(d) = rec.device.as_deref_mut() {
+            if !glyphs.is_empty() && t.render != 3 && t.render != 7 {
+                d.text(
+                    &GlyphRun {
+                        font,
+                        matrix: mul(&self.s.tm, &self.s.g.ctm),
+                        size,
+                        scale: th,
+                        rise: t.rise,
+                        glyphs,
+                    },
+                    &self.s.g,
+                );
+            }
+        }
         self.s.tm = mul(&translate(x, y), &self.s.tm);
     }
 
@@ -1221,10 +1382,11 @@ impl<'r> Interp<'r> {
                 } else {
                     1
                 }),
+                None,
             );
         }
         if n == "Pattern" {
-            return initial_color("Pattern".into(), "Pattern".into(), Some(0));
+            return initial_color("Pattern".into(), "Pattern".into(), Some(0), None);
         }
         if device_space(n.as_bytes(), true).is_some() || n == "I" {
             rec.warning(
@@ -1239,9 +1401,9 @@ impl<'r> Interp<'r> {
         match self.resource(env, i, rec, "ColorSpace", n) {
             Some((_, o)) => {
                 let (family, comps) = describe_space(env.file, &o);
-                initial_color(name_text(n), family, comps)
+                initial_color(name_text(n), family, comps, Some(Arc::new(o)))
             }
-            None => initial_color(name_text(n), "?".into(), None),
+            None => initial_color(name_text(n), "?".into(), None, None),
         }
     }
 
@@ -1446,6 +1608,15 @@ impl<'r> Interp<'r> {
             transform(&unit_square(), &self.s.g.ctm),
             rec,
         );
+        if let Some(dev) = rec.device.as_deref_mut() {
+            let data = op.origin.and_then(|o| {
+                let s = self.data.get(o.source as usize)?;
+                s.data.get(img.data.start as usize..img.data.end as usize)
+            });
+            if let Some(data) = data {
+                dev.image(ImageData::Inline { dict: d, data }, self.res, &self.s.g);
+            }
+        }
     }
 
     fn xobject(&mut self, env: &mut Env, i: u32, n: &Name, rec: &mut Rec) {
@@ -1468,6 +1639,9 @@ impl<'r> Interp<'r> {
                     transform(&unit_square(), &self.s.g.ctm),
                     rec,
                 );
+                if let Some(d) = rec.device.as_deref_mut() {
+                    d.image(ImageData::XObject { id, stream: s }, self.res, &self.s.g);
+                }
             }
             Some(b"Form") => {
                 if let Some(b) = self.form(env, i, id, s, rec) {
@@ -1504,7 +1678,7 @@ impl<'r> Interp<'r> {
         s: &Stream,
         rec: &mut Rec,
     ) -> Option<Rect> {
-        if !rec.record {
+        if !rec.record && !rec.drawing() {
             return None;
         }
         let f = env.file;
@@ -1550,14 +1724,32 @@ impl<'r> Interp<'r> {
                 }),
                 None => b,
             });
+            if rec.drawing() {
+                g.clip_path = Some(Arc::new(ClipPath {
+                    path: rect_path(&b, &IDENTITY).collect(),
+                    even_odd: false,
+                    parent: g.clip_path.take(),
+                }));
+            }
         }
-        let mut sub = Interp::new(State::new(g), &res, Kind::Form);
-        let mut srec = Rec::elements_only();
+        let mut sub = Interp::new(State::new(g), &res, Kind::Form).with_data(&data);
+        let mut srec = Rec {
+            device: rec.device.as_deref_mut().map(|d| d as &mut dyn Device),
+            ..if rec.record {
+                Rec::elements_only()
+            } else {
+                Rec::silent()
+            }
+        };
         env.active.push(id);
         let mut reader = OpReader::new(&data);
         let mut sink = Issues::default();
         while env.budget > 0 {
             let k = reader.count() as u32;
+            if k % 256 == 0 && env.cancel.is_some_and(|c| c()) {
+                env.budget = 0;
+                break;
+            }
             let Some(op) = reader.next(&mut sink) else {
                 break;
             };
@@ -1565,6 +1757,13 @@ impl<'r> Interp<'r> {
             sub.step(env, k, &op, &mut srec);
         }
         env.active.pop();
+        let approximate = srec.approximate;
+        let inner = srec
+            .elements
+            .iter()
+            .filter(|e| !e.hidden && e.kind != ElementKind::Clip)
+            .fold(None, |a, e| Some(union(a, e.bbox)));
+        drop(srec);
         if env.budget == 0 {
             rec.info(
                 i,
@@ -1572,12 +1771,7 @@ impl<'r> Interp<'r> {
                 format!("stopped following form XObjects after {FORM_BUDGET} operations"),
             );
         }
-        rec.approximate |= srec.approximate;
-        let inner = srec
-            .elements
-            .iter()
-            .filter(|e| !e.hidden && e.kind != ElementKind::Clip)
-            .fold(None, |a, e| Some(union(a, e.bbox)));
+        rec.approximate |= approximate;
         match (inner, bbox_t) {
             (Some(a), Some(b)) => intersect(&a, &b),
             (a, b) => a.or(b),

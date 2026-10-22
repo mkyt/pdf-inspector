@@ -1,5 +1,7 @@
-//! `pdfi ops`: the operations of a content stream.
+//! `pdfi ops`: the operations of a content stream; `pdfi render`: its
+//! rendering.
 
+use std::path::Path;
 use std::time::Instant;
 
 use anyhow::{Result, anyhow, bail};
@@ -135,6 +137,76 @@ fn print_op(a: &Analysis, i: usize, op: &Op) {
     }
 }
 
+fn target(file: &PdfFile, page: Option<u64>, obj: Option<u32>) -> Result<Target> {
+    Ok(match (page, obj) {
+        (Some(p), None) if p > 0 => Target::Page(p - 1),
+        (None, Some(n)) => Target::Stream(file.get_num(n)?.id),
+        _ => bail!("give a page number (1-based) or --obj N"),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn render(
+    file: &PdfFile,
+    page: Option<u64>,
+    obj: Option<u32>,
+    out: &Path,
+    dpi: f64,
+    until: Option<usize>,
+    tile: &[u32],
+    highlight: Vec<u32>,
+    hit: &[f64],
+) -> Result<()> {
+    let dm = DocModel::new();
+    let dc = DocContent::new();
+    let dr = pdfi_render::DocRender::new();
+    let c = dc.on(dm.on(file));
+    let a = c
+        .analyze(target(file, page, obj)?)
+        .map_err(|e| anyhow!(e))?;
+    let v = pdfi_render::view(&a);
+    let o = pdfi_render::Options {
+        scale: dpi / 72.0,
+        tile: match *tile {
+            [] => None,
+            [x, y, width, height] => Some(pdfi_render::Tile {
+                x,
+                y,
+                width,
+                height,
+            }),
+            _ => bail!("--tile takes x,y,width,height"),
+        },
+        until,
+        layer: if highlight.is_empty() {
+            pdfi_render::Layer::Content
+        } else {
+            pdfi_render::Layer::Highlight(highlight)
+        },
+    };
+    let t0 = Instant::now();
+    let r = pdfi_render::render(&dr, &c, &a, &o, &|| false)?;
+    let ms = t0.elapsed().as_secs_f64() * 1000.0;
+    std::fs::write(out, r.png().map_err(|e| anyhow!(e))?)?;
+    println!(
+        "{} × {} pixels ({:.1} × {:.1} pt), {} operations, {ms:.1} ms → {}",
+        r.width,
+        r.height,
+        v.width,
+        v.height,
+        r.ops,
+        out.display()
+    );
+    for (n, k) in &r.notes {
+        println!("  note: {n} ({k}×)");
+    }
+    if let [x, y] = *hit {
+        let hits = pdfi_render::hit_test(&dr, &c, &a, (x, y), 1.0, until, &|| false);
+        println!("at ({x}, {y}): {hits:?}");
+    }
+    Ok(())
+}
+
 pub fn ops(
     file: &PdfFile,
     page: Option<u64>,
@@ -147,11 +219,7 @@ pub fn ops(
     let dm = DocModel::new();
     let dc = DocContent::new();
     let c = dc.on(dm.on(file));
-    let target = match (page, obj) {
-        (Some(p), None) if p > 0 => Target::Page(p - 1),
-        (None, Some(n)) => Target::Stream(file.get_num(n)?.id),
-        _ => bail!("give a page number (1-based) or --obj N"),
-    };
+    let target = target(file, page, obj)?;
     let t0 = Instant::now();
     let a = c.analyze(target).map_err(|e| anyhow!(e))?;
     let n = a.ops;

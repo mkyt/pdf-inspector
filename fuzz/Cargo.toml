@@ -10,6 +10,8 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 pdfi-content = { path = "../crates/pdfi-content" }
+pdfi-model = { path = "../crates/pdfi-model" }
+pdfi-render = { path = "../crates/pdfi-render" }
 pdfi-syntax = { path = "../crates/pdfi-syntax" }
 
 [[bin]]
@@ -21,6 +23,12 @@ doc = false
 [[bin]]
 name = "content"
 path = "fuzz_targets/content.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "render"
+path = "fuzz_targets/render.rs"
 test = false
 doc = false
 

@@ -1,6 +1,22 @@
-import { ActionIcon, Alert, Anchor, Badge, Button, Collapse, Group, Loader, Stack, Text, Title, Tooltip } from "@mantine/core";
+import {
+  ActionIcon,
+  Alert,
+  Anchor,
+  Badge,
+  Button,
+  Collapse,
+  Group,
+  Loader,
+  SegmentedControl,
+  Slider,
+  Stack,
+  Switch,
+  Text,
+  Title,
+  Tooltip,
+} from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
 import { api, useBackend } from "../api";
 import { useDoc } from "../doc";
 import { bytesText, objText, pageText } from "../format";
@@ -11,6 +27,7 @@ import { severityColor } from "./DiagnosticsPanel";
 import { ObjLink } from "./DocumentPanel";
 import { OpStatePanel } from "./OpStatePanel";
 import { PagedList } from "./PagedList";
+import { RenderView } from "./RenderView";
 import { Row } from "./Row";
 import rowClasses from "./Row.module.css";
 
@@ -84,6 +101,7 @@ export function ContentView({ content, op }: { content: ContentRef; op: number |
   const q = useQuery({ queryKey: key, queryFn: () => api.content(backend, nav.doc, content) });
   const select = useCallback((i: number | null) => nav.update({ kind: "content", content, op: i }), [nav, content]);
   const [scrollTo, setScrollTo] = useState<number | null>(op);
+  const [wide, setWide] = useState(false);
   // Selecting from elsewhere (diagram, issues) also scrolls the list.
   const jump = (i: number) => {
     select(i);
@@ -165,13 +183,13 @@ export function ContentView({ content, op }: { content: ContentRef; op: number |
           </div>
           <div
             style={{
-              width: 420,
+              width: wide ? "55%" : 440,
               flexShrink: 0,
               borderLeft: "1px solid var(--mantine-color-default-border)",
               overflow: "auto",
             }}
           >
-            <ContentDiagram content={content} summary={s} op={op} onPick={jump} />
+            <Preview content={content} s={s} op={op} onPick={jump} wide={wide} setWide={setWide} />
             {op !== null && op < s.ops ? (
               <OpStatePanel key={op} content={content} summary={s} index={op} />
             ) : (
@@ -183,6 +201,82 @@ export function ContentView({ content, op }: { content: ContentRef; op: number |
         </div>
       )}
     </div>
+  );
+}
+
+/** The rendering (or the bounding boxes) of a content, in step with the selection. */
+function Preview({
+  content,
+  s,
+  op,
+  onPick,
+  wide,
+  setWide,
+}: {
+  content: ContentRef;
+  s: ContentSummary;
+  op: number | null;
+  onPick: (op: number) => void;
+  wide: boolean;
+  setWide: (w: boolean) => void;
+}) {
+  const [mode, setMode] = useState("render");
+  const [step, setStep] = useState(false);
+  // The slider moves freely; the selection (and the rendering) follows on release.
+  const [drag, setDrag] = useState<number | null>(null);
+  useEffect(() => setDrag(null), [op]);
+  const header = (
+    <Group gap="sm" px={8} pt={8}>
+      <SegmentedControl
+        size="xs"
+        value={mode}
+        onChange={setMode}
+        data={[
+          { label: "Rendering", value: "render" },
+          { label: "Boxes", value: "boxes" },
+        ]}
+      />
+      {mode === "render" && (
+        <Tooltip label="Draw only the operations up to the selected one">
+          <Switch size="xs" label="Step" checked={step} onChange={(e) => setStep(e.currentTarget.checked)} />
+        </Tooltip>
+      )}
+      <Tooltip label={wide ? "Narrower panel" : "Wider panel"}>
+        <ActionIcon size="sm" variant="subtle" style={{ marginLeft: "auto" }} onClick={() => setWide(!wide)} aria-label="Panel width">
+          {wide ? "⇥" : "⇤"}
+        </ActionIcon>
+      </Tooltip>
+    </Group>
+  );
+  if (mode === "boxes")
+    return (
+      <>
+        {header}
+        <ContentDiagram content={content} summary={s} op={op} onPick={onPick} />
+      </>
+    );
+  return (
+    <>
+      {header}
+      <div style={{ padding: 8, borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+        <RenderView content={content} summary={s} op={op} step={step} onPick={onPick} height="min(62vh, 760px)" />
+        {step && s.ops > 1 && (
+          <Slider
+            mt={8}
+            size="xs"
+            min={0}
+            max={s.ops - 1}
+            value={drag ?? op ?? 0}
+            onChange={setDrag}
+            onChangeEnd={onPick}
+            label={(v) => `#${v}`}
+          />
+        )}
+        <Text size="xs" c="dimmed" mt={4}>
+          Click the rendering to select the operation painting there.
+        </Text>
+      </div>
+    </>
   );
 }
 

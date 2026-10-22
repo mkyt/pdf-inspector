@@ -10,6 +10,7 @@
 > - v2.5: M4（macOS）を後回しにして M5 を先に実装。確定した事項を §4.2 / §4.8 に追記（codegen の形、述語の扱い、型推論、validation のスコープとジョブ、プロトコル v2）
 > - v2.6: M6 実装で確定した事項を §4.3 / §4.8 に追記（ページ索引、継承属性の出所、メタ情報、インベントリと被参照グラフ、プロトコル v3）
 > - v2.7: M7 実装で確定した事項を §4.5 / §4.6 / §4.8 に追記（命令列の読み直しとチェックポイント、validation の項目、bbox の求め方、暫定のフォント情報、プロトコル v4）
+> - v2.8: M8 実装で確定した事項を §4.6 / §4.8 / §4.9 / §8 に追記（ラスタライザは tiny-skia、Device による描画、ビュー座標、タイルと余白、ハイライト層とヒットテスト、プロトコル v5、サーバーでの並列描画）
 
 ## 1. ゴール
 
@@ -227,6 +228,16 @@ pub enum OpPayload { InlineImage { dict, data } /* BI … ID … EI */ }
   - 描画要素は 1 命令に最大 1 つ（fill / stroke / fillStroke / clip（`W n`）/ text / image / inlineImage / form / shading）で、bbox は内容の空間（ページなら回転前の既定ユーザー空間）。パスは制御点まで含めた点の bbox、ストロークは線幅 × CTM の拡大率 / 2 だけ広げる、`sh` は現在のクリップ、画像は単位正方形 × CTM。文字は字送り幅とフォントの Ascent / Descent（なければ FontBBox）から求め、`Tc` / `Tw` / `Tz` / `Ts` / `TJ` を反映する。クリップの外にあるもの・不可視（`Tr` 3 / 7）は `hidden`
   - 幅は単純フォントの `/Widths`（なければ標準 14 フォントの ASCII 幅、Courier は 600）、Type 0 の `/W` / `/DW`（埋め込み CMap の cidrange / cidchar で CID を引く。定義済み CMap は符号の長さだけ判定し幅は既定値）、Type 3 は `/FontMatrix` を掛ける。推測を含むフォントは `approximate`
   - フォーム XObject は継承した状態のまま中身を解釈して（深さ 12、1 内容あたり 200 万命令まで、自己参照は error）描画範囲を求め、`/BBox` とクリップで切る。中の問題はフォーム自身の内容として見たときに報告する。パターン・Type 3 のグリフ手続きは辿らない
+- **M8 で確定した形**（自作レンダラ (1)）:
+  - ラスタライザは **tiny-skia**（BSD-3。AA 付きの塗り・線・ダッシュ・マスク・画像パターンが揃い、wasm でも同じ結果になる）。JPEG は **zune-jpeg**。`vello_cpu` は見送り
+  - 描画は display list を作らず、**インタプリタを描画用にもう一度走らせる**（`Content::draw`）。インタプリタは `Rec` に `Device`（`pdfi-content::device`）があるときだけ形を記録し、`fill` / `stroke` / `text` / `image` / `shading` を呼ぶ。トップレベルの命令ごとに `Device::op(i)` を呼ぶので、フォームの中身はそれを呼んだ `Do` の描画として扱える。パスは内容の空間（CTM 適用済み）で受け、線は CTM の逆で戻して CTM ごと tiny-skia に渡す（非一様な拡大でも正しい線幅）。クリップは `GState.clip_path`（`Arc` の連鎖。`q` / `Q` で共有）で、レンダラは連鎖ごとに AA マスクを作り、祖先のマスクがあればそこから 1 パスずつ足す。ビットマップを覆う矩形クリップはマスクを作らない
+  - **ビュー**: 表示する領域とその座標系。ページは CropBox ∩ MediaBox を `/Rotate` で回したもの、フォーム / パターンは `/BBox`、その他のストリームは描画要素の範囲。原点は左上・y 下向き・単位はポイント。描画要求は「倍率（ポイントあたりのピクセル）+ ビュー全体のビットマップ中の矩形（タイル）」、ヒットテストはビュー座標で受ける
+  - **タイル**: 各タイルの周囲 2 px を余分に描いて捨てる（パスがビットマップの端で切られると AA が端のピクセルに漏れ、継ぎ目になるため）。曲線は端の位置で平坦化が変わるので、曲線の縁のピクセルはタイル間で ±16/255 程度ずれうる。ビットマップに掛からない描画は tiny-skia に渡す前に bbox で捨てる（タイル描画の大半）。1 枚は 1 辺 16384 px・16M ピクセルまで
+  - **ハイライト層**: 指定した命令だけを不透明な単色で透明背景に描く（線は最低 3 px）。UI は選択した命令の bbox の範囲だけ要求して重ねる。**ステップ実行**は `until` までの命令だけを走らせる
+  - **ヒットテスト**: 点の周り（半径 r）を 3 × 3 px のビットマップに描き、各描画のたびに覆ったかを見る（クリップも効く、線の太さもそのまま）。上にあるものから返す
+  - 対応範囲: パス・塗り（非ゼロ / 偶奇）・線（幅・端・結合・マイター・ダッシュ、1 px 未満はヘアライン）・クリップ・定数 α（`CA` / `ca`）。色は Device* / Cal*（デバイス扱い）/ Lab / ICCBased（`/Alternate` か成分数）/ Indexed / Separation・DeviceN（関数型 2・3 の tint transform、それ以外は近似）。画像は 1/2/4/8/16 bit、`/Decode`、JPEG（YCCK は RGB 化、CMYK は `/Decode` どおり）、`/ImageMask`、`/SMask`、`/Mask`（ステンシル / 色キー）、インライン画像。縮小は 2 倍以上なら箱フィルタで縮めた版をキャッシュ、拡大は `/Interpolate` がなければ最近傍。デコード済み画像はドキュメントごとに 192 MB まで保持（同じ画像を複数スレッドが同時に要求しても 1 回だけデコード）
+  - まだ描かないものは**注記**（`notes`）として返す: 文字（M9 まではグリフの枠を薄く描く）、shading・パターン色（灰色）、ソフトマスク・ブレンドモード、テキストのクリップモード、JPX / JBIG2 / CCITT（灰色の枠）
+  - 1 ページ 80 万命令（25 万の塗り・線）で解釈 0.12 秒、72 dpi 全体 1 秒、300 dpi の 512 px タイル 0.25 秒（native release）
 - **Renderer trait**
 
 ```rust
@@ -284,6 +295,7 @@ impl Session {
   - ジョブは `step()` を繰り返す有界な作業単位。実行は `Executor` trait（server: ジョブごとのスレッド、wasm: `QueueExecutor` を協調的に回す）
   - ファイルアクセスは `SourceProvider` trait で注入（pdfi-api 自体は fs に触れない）
   - `Cancel(RequestId)` はトランスポート層で未着手のリクエストを破棄する。`Batch` はネスト不可
+- **M8 で追加（プロトコル v5）**: `Render { content, scale, tile, until, layer }`（`layer`: `content` | `highlight { ops }`。応答は `BitmapInfo`: タイルの位置と大きさ、ビュー全体のピクセル数、実行した命令数、注記。RGBA（非乗算）はバイナリ部）、`HitTest { content, x, y, radius, until }`（`Hits { ops }`、上から順）。`ContentSummary.view`（`ViewInfo`: ビューの大きさ（pt）、内容の空間 → ビューの行列、`/Rotate`）。`Session::dispatch_cancellable` で実行中の描画を止められる
 - **M7 で追加（プロトコル v4）**: `ContentRef`（`page { index }` | `stream { id }`）を取る `Content`（`ContentSummary`: ストリーム一覧、命令数、描画要素数、問題の件数、境界、リソース、演算子グループ別の件数）、`ContentOps { range }`（`OpView`: 演算子・グループ・オペランドの PDF 構文表記・ネスト深さ・出所（ストリーム番号と復号データ中の範囲）・デコード済みテキスト・名前で指すリソース・描画要素・その命令の問題）、`ContentIssues { range }`（内容全体の問題が先、あとは命令順）、`ContentElements { range }`、`OpState { index }`（`GraphicsState` を命令の前後で）
 - **M6 で追加（プロトコル v3）**: `Document { doc }`（Info・カタログの宣言・XMP の有無・ページ数・モデルの問題）、`Xmp { doc, range }`（プロパティと木の範囲取得）、`Pages { doc, range }`、`Page { doc, index }`（`PageDetail`: 祖先、ボックスと出所、Rotate、リソース一覧、contents、注釈数、問題）、`PageIndex { doc, id }`、`Annotations { doc, page, range }`、`Outline { doc, parent, range }`、`JobKind::Inventory` とその結果を読む `Fonts` / `Images` / `Referrers { id }` / `Unreferenced`（ジョブ前は `ErrorCode::NotReady`）。`DocSummary.pages` と `DocSummary.inventory`（`InventoryStats`。リロード後も UI が件数を知れる）
 - **M5 で追加（プロトコル v2）**: `Schema { doc, root }`（型・推論の出所・仕様の参照・問題一覧）、`JobKind::Validate { root }`、`JobDiagnostics { job, range }`。`NodeView.schema`（キー定義 `KeyDoc`・値の型・そのエントリの問題）、`ObjectSummary.schema_type`、`DiagnosticInfo.path`（`/Pages/Kids[3]`）、`DocSummary.pdf_version`（Catalog の `/Version` を反映した実効バージョン）
@@ -334,6 +346,7 @@ doc.save(SaveOptions, sink: Box<dyn ByteSink>) -> JobId
 - **保存**: サーバー側で直接パスに書き出し（上書き・別名保存）。上書き時は一時ファイル → atomic rename
 - **セッション**: ドキュメント状態（Overlay, undo 履歴）はサーバーが保持。ブラウザのリロード・再接続後も継続。明示的に閉じるかアイドルタイムアウトで解放
 - **並列性**: ジョブ・タイル描画を `rayon` で並列実行。PDFium バックエンドも選択可能
+  - M8: 接続ごとのリクエストは 1 本のスレッドで順に処理し、`Render` / `HitTest` だけ rayon のプールに回す（応答は ID で対応づくので順不同でよい）。`Cancel` は未着手なら破棄、実行中の描画は数百命令ごとの確認で止まる（`ErrorCode::Cancelled`）
 - **セキュリティ**（必須要件）
   - `127.0.0.1` / `::1` のみで listen（外部公開オプションは設けない）
   - 起動ごとにランダムトークンを生成。URL フラグメントで UI に渡し、WebSocket ハンドシェイクで検証（Cookie は使わない）。ブラウザの WebSocket はヘッダを付けられないため、サブプロトコル `pdfi.token.<hex>` として送る（UI は受け取ったトークンを sessionStorage に移して URL から消す）
@@ -513,14 +526,14 @@ UI は同じものを使い、起動経路（静的ホスティング or `pdfi s
 |---|---|---|---|
 | Flate | `flate2` + `miniz_oxide` or `zlib-rs` | MIT/Apache, Zlib | |
 | LZW | `weezl` | MIT/Apache | |
-| JPEG | `zune-jpeg` | MIT/Apache/Zlib | |
+| JPEG | `zune-jpeg` | MIT/Apache/Zlib | M8 で採用 |
 | JPEG 2000 | `hayro-jpeg2000`（純 Rust）/ OpenJPEG | Apache/MIT / BSD-2 | 要評価。wasm では純 Rust 優先 |
 | JBIG2 | 純 Rust 実装を評価、なければ自前 | — | **jbig2dec は AGPL のため不可** |
 | CCITT | `fax` | MIT | 要評価 |
 | ICC | `moxcms` / `qcms` | 要確認 / MIT | |
 | フォント | `skrifa` / `read-fonts`, `ttf-parser` | MIT/Apache | Type1 は `hayro-font` を評価 |
 | 代替フォント | PDFium 同梱の Foxit 標準フォント / Liberation 等 | BSD / OFL | **URW base35 は AGPL のため不可** |
-| ラスタライザ | `tiny-skia` / `vello_cpu` | BSD-3 / Apache/MIT | |
+| ラスタライザ | `tiny-skia` / `vello_cpu` | BSD-3 / Apache/MIT | M8 で tiny-skia を採用 |
 | PDFium | `pdfium-render` + PDFium バイナリ | MIT/Apache + BSD-3/Apache | PDFium 内の FreeType は FTL（表示義務あり） |
 | 暗号 | RustCrypto（`aes`, `cbc`, `md-5`, `sha2`, `rc4`） | MIT/Apache | |
 | XMP | `quick-xml` | MIT | |

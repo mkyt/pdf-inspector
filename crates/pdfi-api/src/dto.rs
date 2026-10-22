@@ -821,6 +821,63 @@ pub struct ContentSummary {
     /// Some text bounding boxes rest on guessed glyph widths.
     pub approximate: bool,
     pub counts: Vec<CategoryCount>,
+    /// What `Render` shows.
+    pub view: ViewInfo,
+}
+
+/// What is shown of a content: a page's visible area turned by its
+/// `/Rotate`, a form's `/BBox`, or what a stream paints. Rendered bitmaps
+/// and hit tests use this space (scaled to pixels for bitmaps).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct ViewInfo {
+    /// In points.
+    pub width: f64,
+    pub height: f64,
+    /// The content's space to the view, `[a b c d e f]`: origin at the top
+    /// left, y down.
+    pub matrix: Vec<f64>,
+    pub rotate: u32,
+}
+
+/// A region of a rendered view, in pixels.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct PixelRect {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum RenderLayer {
+    /// The content (pages on white, streams on transparent).
+    Content,
+    /// Only these operations, in one opaque color on transparent.
+    Highlight { ops: Vec<u32> },
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct RenderNote {
+    /// What was approximated or left out.
+    pub message: String,
+    pub count: u32,
+}
+
+/// A rendered bitmap: RGBA (not premultiplied), row by row, in binary part
+/// `part`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct BitmapInfo {
+    pub part: u32,
+    /// The region of the whole view's bitmap this is.
+    pub rect: PixelRect,
+    /// Size of the whole view's bitmap at this scale.
+    pub full_width: u32,
+    pub full_height: u32,
+    pub scale: f64,
+    /// Operations run.
+    pub ops: u64,
+    pub notes: Vec<RenderNote>,
 }
 
 /// A problem of a content: of one operation, or (`op: None`) of the whole.

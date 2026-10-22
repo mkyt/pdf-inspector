@@ -1,5 +1,6 @@
 //! Requests about content streams (pdfi-content): the instruction list,
-//! its problems, what each operation paints and the state around it.
+//! its problems, what each operation paints and the state around it; and
+//! their rendering (pdfi-render).
 
 use std::sync::Arc;
 
@@ -10,8 +11,8 @@ use pdfi_syntax::{self as syn, DictExt, Object};
 
 use crate::dto::*;
 use crate::model::rect;
-use crate::protocol::{ApiError, ErrorCode};
-use crate::session::{Doc, page};
+use crate::protocol::{ApiError, ErrorCode, ResponseBody};
+use crate::session::{Doc, page, push_part};
 
 /// Characters of one operand shown in an [`OpView`].
 const MAX_OPERAND: usize = 200;
@@ -60,6 +61,20 @@ fn element(e: &Element) -> ElementView {
     }
 }
 
+fn view(a: &Analysis) -> ViewInfo {
+    let v = pdfi_render::view(a);
+    ViewInfo {
+        width: v.width,
+        height: v.height,
+        matrix: v.matrix.to_vec(),
+        rotate: if a.kind == interp::Kind::Page {
+            a.rotate as u32
+        } else {
+            0
+        },
+    }
+}
+
 pub fn summary(d: &Doc, c: ContentRef) -> Result<ContentSummary, ApiError> {
     let a = analysis(d, c)?;
     let count = |s| a.issues.iter().filter(|i| i.severity == s).count() as u64;
@@ -100,7 +115,90 @@ pub fn summary(d: &Doc, c: ContentRef) -> Result<ContentSummary, ApiError> {
                 count: *n,
             })
             .collect(),
+        view: view(&a),
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn render(
+    d: &Doc,
+    c: ContentRef,
+    scale: f64,
+    tile: Option<PixelRect>,
+    until: Option<u32>,
+    layer: RenderLayer,
+    cancel: &dyn Fn() -> bool,
+    blobs: &mut Vec<Vec<u8>>,
+) -> Result<ResponseBody, ApiError> {
+    let a = analysis(d, c)?;
+    let o = pdfi_render::Options {
+        scale,
+        tile: tile.map(|t| pdfi_render::Tile {
+            x: t.x,
+            y: t.y,
+            width: t.width,
+            height: t.height,
+        }),
+        until: until.map(|u| u as usize),
+        layer: match layer {
+            RenderLayer::Content => pdfi_render::Layer::Content,
+            RenderLayer::Highlight { ops } => pdfi_render::Layer::Highlight(ops),
+        },
+    };
+    let content = d.content.on(d.model.on(&d.file));
+    let out = pdfi_render::render(&d.render, &content, &a, &o, cancel).map_err(|e| match e {
+        pdfi_render::Error::Invalid(m) => ApiError::new(ErrorCode::BadRequest, m),
+        pdfi_render::Error::TooLarge(m) => ApiError::new(ErrorCode::TooLarge, m),
+    })?;
+    if out.cancelled {
+        return Err(ApiError::new(ErrorCode::Cancelled, "cancelled"));
+    }
+    let (fw, fh) = pdfi_render::view(&a).pixels(scale);
+    let t = tile.unwrap_or(PixelRect {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+    });
+    Ok(ResponseBody::Bitmap(BitmapInfo {
+        part: push_part(blobs, out.rgba),
+        rect: PixelRect {
+            x: t.x,
+            y: t.y,
+            width: out.width,
+            height: out.height,
+        },
+        full_width: fw.min(u32::MAX as u64) as u32,
+        full_height: fh.min(u32::MAX as u64) as u32,
+        scale,
+        ops: out.ops as u64,
+        notes: out
+            .notes
+            .into_iter()
+            .map(|(message, count)| RenderNote { message, count })
+            .collect(),
+    }))
+}
+
+pub fn hit_test(
+    d: &Doc,
+    c: ContentRef,
+    (x, y): (f64, f64),
+    radius: f64,
+    until: Option<u32>,
+    cancel: &dyn Fn() -> bool,
+) -> Result<Vec<u32>, ApiError> {
+    let a = analysis(d, c)?;
+    let content = d.content.on(d.model.on(&d.file));
+    Ok(pdfi_render::hit_test(
+        &d.render,
+        &content,
+        &a,
+        (x, y),
+        radius,
+        until.map(|u| u as usize),
+        cancel,
+    ))
 }
 
 /// An operand in PDF syntax, shortened to about `max` characters.

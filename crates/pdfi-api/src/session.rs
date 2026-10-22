@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use pdfi_content::DocContent;
 use pdfi_model::DocModel;
 use pdfi_model::inventory::Inventory;
+use pdfi_render::DocRender;
 use pdfi_schema::{self as schema, Container, DocSchema, Origin};
 use pdfi_syntax::{
     self as syn, ByteSource, DictExt, ObjLocation, Object, OpenOptions, PdfFile, Recovery,
@@ -64,6 +65,7 @@ pub(crate) struct Doc {
     /// Set by the inventory job.
     pub inventory: Mutex<Option<Arc<Inventory>>>,
     pub content: DocContent,
+    pub render: DocRender,
 }
 
 impl Doc {
@@ -116,8 +118,14 @@ impl Session {
     }
 
     pub fn dispatch(&self, req: Request) -> Reply {
+        self.dispatch_cancellable(req, &|| false)
+    }
+
+    /// Like [`Session::dispatch`]; long requests (`Render`, `HitTest`) poll
+    /// `cancel` and stop with `ErrorCode::Cancelled` when it says so.
+    pub fn dispatch_cancellable(&self, req: Request, cancel: &dyn Fn() -> bool) -> Reply {
         let mut blobs = Vec::new();
-        let response = match self.handle(req, &mut blobs, true) {
+        let response = match self.handle(req, &mut blobs, true, cancel) {
             Ok(b) => Response::Ok(b),
             Err(e) => Response::Err(e),
         };
@@ -191,6 +199,7 @@ impl Session {
             model: DocModel::new(),
             inventory: Mutex::default(),
             content: DocContent::new(),
+            render: DocRender::new(),
         });
         lock(&self.docs).insert(id, doc.clone());
         self.bus.emit(&Event::DocOpened {
@@ -218,6 +227,7 @@ impl Session {
         req: Request,
         blobs: &mut Vec<Vec<u8>>,
         top: bool,
+        cancel: &dyn Fn() -> bool,
     ) -> Result<ResponseBody, ApiError> {
         match req {
             Request::Hello { protocol } => {
@@ -393,6 +403,33 @@ impl Session {
                 content,
                 index,
             )?))),
+            Request::Render {
+                doc,
+                content,
+                scale,
+                tile,
+                until,
+                layer,
+            } => content::render(
+                &*self.doc(doc)?,
+                content,
+                scale,
+                tile,
+                until,
+                layer,
+                cancel,
+                blobs,
+            ),
+            Request::HitTest {
+                doc,
+                content,
+                x,
+                y,
+                radius,
+                until,
+            } => Ok(ResponseBody::Hits {
+                ops: content::hit_test(&*self.doc(doc)?, content, (x, y), radius, until, cancel)?,
+            }),
             Request::RawBytes { doc, offset, len } => {
                 let d = self.doc(doc)?;
                 let len = check_chunk(len)?;
@@ -459,7 +496,7 @@ impl Session {
                 }
                 let responses = requests
                     .into_iter()
-                    .map(|r| match self.handle(r, blobs, false) {
+                    .map(|r| match self.handle(r, blobs, false, cancel) {
                         Ok(b) => Response::Ok(b),
                         Err(e) => Response::Err(e),
                     })
@@ -478,6 +515,12 @@ fn check_chunk(len: u32) -> Result<u32, ApiError> {
         ));
     }
     Ok(len)
+}
+
+/// Add a binary part; returns its index.
+pub(crate) fn push_part(blobs: &mut Vec<Vec<u8>>, data: Vec<u8>) -> u32 {
+    blobs.push(data);
+    blobs.len() as u32 - 1
 }
 
 fn push_blob(blobs: &mut Vec<Vec<u8>>, data: Vec<u8>, mut info: BytesInfo) -> ResponseBody {

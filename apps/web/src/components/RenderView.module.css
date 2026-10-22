@@ -1,0 +1,14 @@
+/* The selected operation's shapes: pulsing, so they show over any color. */
+.highlight {
+  animation: pulse 1.2s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes pulse {
+  from {
+    opacity: 0.15;
+  }
+  to {
+    opacity: 0.8;
+  }
+}

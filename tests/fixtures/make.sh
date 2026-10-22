@@ -225,6 +225,112 @@ for n in range(1, size):
 out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (size, xref)
 open("content.pdf", "wb").write(out)
 PY
+# Rendering (pdfi-render): paths, clips, strokes and color spaces; images
+# of every basic kind (JPEG data generated once with Pillow, kept as hex);
+# a rotated page with a clipped form XObject.
+python3 -I - <<'PY'
+import zlib
+JPEG_RGB = bytes.fromhex("""
+ffd8ffe000104a46494600010100000100010000ffdb0043000503040404030504040405050506070c08070707070f0b0b09
+0c110f1212110f111113161c1713141a1511111821181a1d1d1f1f1f13172224221e241c1e1f1effdb004301050505070607
+0e08080e1e1411141e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e
+1e1e1e1e1e1e1e1effc00011080008001003012200021101031101ffc4001500010100000000000000000000000000000006
+ffc4001910000105000000000000000000000000000005072431a2ffc4001501010100000000000000000000000000000405
+ffc400191100020301000000000000000000000000002204050706ffda000c03010002110311003f009b4d6a6a364a54d6a6
+a36400da75fce7621677d3d8a39fffd9
+""".replace("\n", ""))
+JPEG_GRAY = bytes.fromhex("""
+ffd8ffe000104a46494600010100000100010000ffdb0043000503040404030504040405050506070c08070707070f0b0b09
+0c110f1212110f111113161c1713141a1511111821181a1d1d1f1f1f13172224221e241c1e1f1effc0000b08000800100101
+1100ffc40014000100000000000000000000000000000006ffc4001910000105000000000000000000000000000005072431
+a2ffda0008010100003f00369ad4d46c89535a9a8d93ffd9
+""".replace("\n", ""))
+JPEG_CMYK = bytes.fromhex("""
+ffd8ffee000e41646f626500640000000000ffdb0043000503040404030504040405050506070c08070707070f0b0b090c11
+0f1212110f111113161c1713141a1511111821181a1d1d1f1f1f13172224221e241c1e1f1effc00014080008000804431100
+4d11005911004b1100ffc4001f0000010501010101010100000000000000000102030405060708090a0bffc400b510000201
+0303020403050504040000017d01020300041105122131410613516107227114328191a1082342b1c11552d1f02433627282
+090a161718191a25262728292a3435363738393a434445464748494a535455565758595a636465666768696a737475767778
+797a838485868788898a92939495969798999aa2a3a4a5a6a7a8a9aab2b3b4b5b6b7b8b9bac2c3c4c5c6c7c8c9cad2d3d4d5
+d6d7d8d9dae1e2e3e4e5e6e7e8e9eaf1f2f3f4f5f6f7f8f9faffda000e0443004d0059004b00003f00fb2ebe32af8cabecba
+ffd9
+""".replace("\n", ""))
+k = 0.5523
+def circle(cx, cy, r):
+    c = k * r
+    return (b"%g %g m %g %g %g %g %g %g c %g %g %g %g %g %g c %g %g %g %g %g %g c %g %g %g %g %g %g c h" % (
+        cx + r, cy, cx + r, cy + c, cx + c, cy + r, cx, cy + r,
+        cx - c, cy + r, cx - r, cy + c, cx - r, cy, cx - r, cy - c,
+        cx - c, cy - r, cx, cy - r, cx + c, cy - r, cx + r, cy - c, cx + r, cy))
+page1 = b"""q 0 0 1 rg 20 20 160 160 re 60 60 80 80 re f* Q
+q """ + circle(300, 100, 80) + b""" W n 1 0 0 rg 200 0 200 200 re f Q
+q 20 200 100 30 re W n q 0 200 50 50 re W n 0 1 0 rg 0 0 400 400 re f Q Q
+0 w 0 g 200 220 m 380 220 l S
+q 6 w 1 J [12 6] 0 d 0 0.6 0 RG 20 250 m 380 250 l S Q
+q 10 w 0 j 0 g 40 300 m 100 380 l 160 300 l S Q
+q 0 0 1 0 k 200 300 60 60 re f Q
+q /CSI cs 2 sc 270 300 60 60 re f Q
+q /CSS cs 1 scn 340 300 50 40 re f Q
+q /CSL cs 50 80 0 sc 340 345 50 40 re f Q
+q /GS1 gs 0 0 1 rg 300 150 80 80 re f Q
+"""
+page2 = b"""q 80 0 0 80 20 300 cm /Bits1 Do Q
+q 80 0 0 20 120 360 cm /Idx4 Do Q
+q 80 0 0 80 220 300 cm /Rgb16 Do Q
+q 1 0 0 rg 80 0 0 80 310 300 cm /Stencil Do Q
+q 0 0 1 rg 0 200 400 80 re f Q
+q 80 0 0 80 20 200 cm /Soft Do Q
+q 80 0 0 80 120 200 cm /Keyed Do Q
+q 160 0 0 80 220 200 cm /JpegRgb Do Q
+q 160 0 0 80 20 100 cm /JpegGray Do Q
+q 80 0 0 80 220 100 cm /JpegCmyk Do Q
+q 80 0 0 80 310 100 cm BI /W 4 /H 4 /CS /G /BPC 8 /D [1 0] ID """ + bytes([0, 64, 128, 255] * 4) + b""" EI Q
+"""
+page3 = b"""q 1 0 0 1 50 50 cm /Fm1 Do Q
+0 0 1 RG 4 w 10 10 280 180 re S
+"""
+form = b"0.8 0.2 0.2 rg -100 -100 400 400 re f 0 g 0 0 m 100 100 l S\n"
+objs = {
+    1: b"<< /Type /Catalog /Pages 2 0 R >>",
+    2: b"<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 /MediaBox [0 0 400 400] >>",
+    3: b"<< /Type /Page /Parent 2 0 R /Contents 10 0 R /Resources << /ColorSpace << /CSI [/Indexed /DeviceRGB 2 <FF000000FF000000FF>] /CSS [/Separation /Spot /DeviceCMYK << /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [1 0 0 0] /N 1 >>] /CSL [/Lab << /WhitePoint [0.9505 1 1.089] /Range [-128 127 -128 127] >>] >> /ExtGState << /GS1 << /ca 0.5 >> >> >> >>",
+    4: b"<< /Type /Page /Parent 2 0 R /Contents 11 0 R /Resources << /XObject << /Bits1 20 0 R /Idx4 21 0 R /Rgb16 22 0 R /Stencil 23 0 R /Soft 24 0 R /Keyed 26 0 R /JpegRgb 27 0 R /JpegGray 28 0 R /JpegCmyk 29 0 R >> >> >>",
+    5: b"<< /Type /Page /Parent 2 0 R /Contents 12 0 R /MediaBox [0 0 300 200] /Rotate 90 /Resources << /XObject << /Fm1 30 0 R >> >> >>",
+}
+img = lambda d: b"<< /Type /XObject /Subtype /Image " + d + b" /Length %d >>"
+streams = {
+    10: (b"<< /Length %d /Filter /FlateDecode >>", zlib.compress(page1)),
+    11: (b"<< /Length %d >>", page2),
+    12: (b"<< /Length %d >>", page3),
+    20: (img(b"/Width 8 /Height 8 /ColorSpace /DeviceGray /BitsPerComponent 1"), bytes([0xAA, 0x55] * 4)),
+    21: (img(b"/Width 4 /Height 1 /ColorSpace [/Indexed /DeviceRGB 3 <FF000000FF000000FFFFFF00>] /BitsPerComponent 4"), bytes([0x01, 0x23])),
+    22: (img(b"/Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 16"), bytes([255, 255, 0, 0, 0, 0, 0, 0, 255, 255, 0, 0, 0, 0, 0, 0, 255, 255, 128, 0, 128, 0, 128, 0])),
+    23: (img(b"/Width 8 /Height 8 /ImageMask true"), bytes([0x81, 0x42, 0x24, 0x18, 0x18, 0x24, 0x42, 0x81])),
+    24: (img(b"/Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8 /SMask 25 0 R"), bytes([255, 0, 0, 0, 255, 0, 255, 255, 0, 0, 0, 0])),
+    25: (img(b"/Width 2 /Height 2 /ColorSpace /DeviceGray /BitsPerComponent 8"), bytes([255, 128, 64, 0])),
+    26: (img(b"/Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Mask [0 0 0 0 0 0]"), bytes([255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0])),
+    27: (img(b"/Width 16 /Height 8 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode"), JPEG_RGB),
+    28: (img(b"/Width 16 /Height 8 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode"), JPEG_GRAY),
+    29: (img(b"/Width 8 /Height 8 /ColorSpace /DeviceCMYK /BitsPerComponent 8 /Decode [1 0 1 0 1 0 1 0] /Filter /DCTDecode"), JPEG_CMYK),
+    30: (b"<< /Type /XObject /Subtype /Form /BBox [0 0 100 50] /Matrix [2 0 0 2 0 0] /Length %d >>", form),
+}
+out = bytearray(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")
+offsets = {}
+for n in sorted(set(objs) | set(streams)):
+    offsets[n] = len(out)
+    if n in streams:
+        d, data = streams[n]
+        out += b"%d 0 obj\n" % n + d % len(data) + b"\nstream\n" + data + b"\nendstream\nendobj\n"
+    else:
+        out += b"%d 0 obj\n" % n + objs[n] + b"\nendobj\n"
+size = max(offsets) + 1
+xref = len(out)
+out += b"xref\n0 %d\n0000000000 65535 f\r\n" % size
+for n in range(1, size):
+    out += (b"%010d 00000 n\r\n" % offsets[n]) if n in offsets else b"0000000000 00000 f\r\n"
+out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (size, xref)
+open("render.pdf", "wb").write(out)
+PY
 qpdf --object-streams=generate base.pdf objstm.pdf
 qpdf --linearize base.pdf linearized.pdf
 qpdf --allow-weak-crypto --encrypt user owner 40 -- base.pdf rc4-40.pdf

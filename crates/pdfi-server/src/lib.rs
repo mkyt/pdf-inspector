@@ -9,6 +9,10 @@
 //! - WebSocket `Origin` must be the server itself (or an explicitly added
 //!   development origin);
 //! - files are opened only below the allowed roots, after canonicalization.
+//!
+//! Requests of a connection run in order on one thread, except renders and
+//! hit tests: they go to a thread pool and run in parallel (tiles of a
+//! page at once), and a `Cancel` stops them while they run.
 
 mod fs;
 
@@ -226,8 +230,21 @@ fn error_message(id: u64, code: ErrorCode, message: impl Into<String>) -> Messag
     })
 }
 
-/// Requests of one connection run in order on a worker thread; events and
-/// replies are funneled through `out` to the socket.
+fn cancelled_set(c: &Mutex<HashSet<u64>>) -> std::sync::MutexGuard<'_, HashSet<u64>> {
+    c.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Send a reply: binary parts first, then the response.
+fn send_reply(out: &mpsc::UnboundedSender<Message>, id: u64, reply: pdfi_api::Reply) -> bool {
+    let (frames, msg) = reply.into_frames(id);
+    for f in frames {
+        let _ = out.send(Message::Binary(f.encode().into()));
+    }
+    out.send(text(&msg)).is_ok()
+}
+
+/// Requests of one connection run in order on a worker thread (renders on
+/// the pool); events and replies are funneled through `out` to the socket.
 async fn connection(mut socket: WebSocket, session: Arc<Session>) {
     let (out, mut out_rx) = mpsc::unbounded_channel::<Message>();
     let sub = {
@@ -242,19 +259,23 @@ async fn connection(mut socket: WebSocket, session: Arc<Session>) {
         let (session, out, cancelled) = (session.clone(), out.clone(), cancelled.clone());
         std::thread::spawn(move || {
             for m in req_rx {
-                let skip = cancelled
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .remove(&m.id);
-                if skip {
+                if cancelled_set(&cancelled).remove(&m.id) {
                     let _ = out.send(error_message(m.id, ErrorCode::Cancelled, "cancelled"));
                     continue;
                 }
-                let (frames, msg) = session.dispatch(m.request).into_frames(m.id);
-                for f in frames {
-                    let _ = out.send(Message::Binary(f.encode().into()));
+                if matches!(m.request, Request::Render { .. } | Request::HitTest { .. }) {
+                    let (session, out, cancelled) =
+                        (session.clone(), out.clone(), cancelled.clone());
+                    rayon::spawn(move || {
+                        let id = m.id;
+                        let stop = || cancelled_set(&cancelled).contains(&id);
+                        let reply = session.dispatch_cancellable(m.request, &stop);
+                        cancelled_set(&cancelled).remove(&id);
+                        send_reply(&out, id, reply);
+                    });
+                    continue;
                 }
-                if out.send(text(&msg)).is_err() {
+                if !send_reply(&out, m.id, session.dispatch(m.request)) {
                     break;
                 }
             }

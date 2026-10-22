@@ -5,7 +5,7 @@
       "ok": {
         "backend": null,
         "filesystem": null,
-        "protocol": 4,
+        "protocol": 5,
         "type": "hello",
         "version": "0.1.0"
       }
@@ -16,7 +16,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 999, backend speaks 4"
+        "message": "client speaks protocol 999, backend speaks 5"
       }
     }
   },
@@ -5359,6 +5359,19 @@
         ],
         "truncated": false,
         "type": "content",
+        "view": {
+          "height": 792.0,
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            -1.0,
+            -0.0,
+            792.0
+          ],
+          "rotate": 0,
+          "width": 612.0
+        },
         "warnings": 0
       }
     }
@@ -6967,6 +6980,19 @@
         ],
         "truncated": false,
         "type": "content",
+        "view": {
+          "height": 792.0,
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            -1.0,
+            -0.0,
+            792.0
+          ],
+          "rotate": 0,
+          "width": 612.0
+        },
         "warnings": 9
       }
     }
@@ -7475,6 +7501,19 @@
         ],
         "truncated": false,
         "type": "content",
+        "view": {
+          "height": 792.0,
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            -1.0,
+            -0.0,
+            792.0
+          ],
+          "rotate": 0,
+          "width": 612.0
+        },
         "warnings": 0
       }
     }
@@ -7626,6 +7665,19 @@
         ],
         "truncated": false,
         "type": "content",
+        "view": {
+          "height": 100.0,
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            -1.0,
+            -0.0,
+            100.0
+          ],
+          "rotate": 0,
+          "width": 100.0
+        },
         "warnings": 0
       }
     }
@@ -7873,6 +7925,19 @@
         ],
         "truncated": false,
         "type": "content",
+        "view": {
+          "height": 792.0,
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            -1.0,
+            -0.0,
+            792.0
+          ],
+          "rotate": 0,
+          "width": 612.0
+        },
         "warnings": 0
       }
     }
@@ -7996,6 +8061,342 @@
         "offset": 0,
         "total": 0,
         "type": "ops"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 0,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 11,
+          "name": "render.pdf",
+          "path": null,
+          "size": 5213
+        },
+        "info_dict": null,
+        "inventory": null,
+        "live_objects": 19,
+        "object_slots": 31,
+        "pages": 3,
+        "pdf_version": "1.7",
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 31,
+            "index": 0,
+            "kind": "table",
+            "offset": 4527,
+            "span": {
+              "end": 5191,
+              "start": 4527
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 31
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "approximate": false,
+        "bounds": {
+          "x0": 0.0,
+          "x1": 300.0,
+          "y0": 0.0,
+          "y1": 200.0
+        },
+        "content": {
+          "index": 2,
+          "kind": "page"
+        },
+        "counts": [
+          {
+            "category": "generalState",
+            "count": 1
+          },
+          {
+            "category": "specialState",
+            "count": 3
+          },
+          {
+            "category": "pathConstruction",
+            "count": 1
+          },
+          {
+            "category": "pathPainting",
+            "count": 1
+          },
+          {
+            "category": "color",
+            "count": 1
+          },
+          {
+            "category": "xObject",
+            "count": 1
+          }
+        ],
+        "elements": 2,
+        "errors": 0,
+        "has_resources": true,
+        "id": {
+          "generation": 0,
+          "num": 5
+        },
+        "issues": 0,
+        "issues_dropped": 0,
+        "kind": "page",
+        "ops": 8,
+        "resources": null,
+        "sources": [
+          {
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 12
+            },
+            "len": 61
+          }
+        ],
+        "truncated": false,
+        "type": "content",
+        "view": {
+          "height": 300.0,
+          "matrix": [
+            0.0,
+            1.0,
+            1.0,
+            0.0,
+            -0.0,
+            -0.0
+          ],
+          "rotate": 90,
+          "width": 200.0
+        },
+        "warnings": 0
+      }
+    }
+  },
+  {
+    "blobs": [
+      "ffffffffffffffffffffffffcececeffcececefffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff9bfddfff380bdfff9bfddfffffffffffffffffff8f8f8ff070707ff060606fff9f9f9ffffffffffffffffffffff80ffffff80ffdfdfc7ff8080ffff8080ffffe36fbcffe8007afff37fbcffffffffffffffffff383838ffc7c7c7ffc5c5c5ff3a3a3affffffffffffffffffffff00ffffff00ffbfbf9fff0000ffff0000ffff9ab5eeff9abfddffc4dfeeffffffffff787878ff878787ffffffffffffffffff848484ff7b7b7bffffffffffffff00ffffff00ffbfbf9fff0000ffff0000ffff5fdfffff00ffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffb4e1b4ff59bc59ff51b951ff5bbd5bff50b950ff52b952ff5abd5aff51b951ff5abc5aff55ba55ff51b951ff5dbc5dff51b951ff57bb57ff5fbf5fffd4edd4ffa8e0a8ff42bb42ff50b950ff5abd5aff4fb94fff51b851ff59bc59ff50b950ff3da13dff3aa03aff37a037ff3fa13fff308b50ff348c54ff398d59ffc1dac9ffbfffbfff00ff00ffffffffffffffffffffffffffffffffffffffffffffffffff4f4f4fff4f4f4fff4f4f4fff4f4f4fff2828a8ff2828a8ff2828a8ffc2c2e2ffefefffffc0c0ffffc0c0ffffc0c0ffffc0c0ffffc0c0ffffc0c0ffffefefffffffffffffffffffffffffffffffdfdfff7f6fefff7f7fffff7f7fffffdfdfffffbfbfffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffffbfbfffffffffffffffefefffff4040ffff0000ff7f0080ff7f20a0ff7f77f7ffdfdfffffbfbfffff0000ffff3f3fffff7f7fffff7f7fffff3f3fffff0000ffffbfbfffffffffffffff4040ffff0000ffff0000ffff0000ffff0000ffff4040ffffffffffbfbfffff0000ffff7f7fffffffffffffffffffff7f7fffff0000ffffbfbfffffffdfdfffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffffefefffbfbfffff0000ffff7f7fffffffffffffffffffff7f7fffff0000ffffbfbfffffffdfdfffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffffefefffbfbfffff0000ffff4040ffff8080ffff8080ffff4040ffff0000ffffbfbfffffffffffffff3f3fffff0000ffff0000ffff0000ffff0000ffff3f3fffffffffffbfbfffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffffbfbfffffffffffffffefefffff3f3fffff0000ffff0000ffff3f3fffffefefffffffffffefefffffbfbfffffbfbfffffbfbfffffbfbfffffbfbfffffbfbfffffefefffffffffffffffffffffffffffffffefefffffefefffffffffffffffffffffffffff"
+    ],
+    "response": {
+      "ok": {
+        "full_height": 16,
+        "full_width": 16,
+        "notes": [],
+        "ops": 84,
+        "part": 0,
+        "rect": {
+          "height": 16,
+          "width": 16,
+          "x": 0,
+          "y": 0
+        },
+        "scale": 0.04,
+        "type": "bitmap"
+      }
+    }
+  },
+  {
+    "blobs": [
+      "7f7f7fffffffffffffffffffffffffffffffffffffffffffffffffff0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    ],
+    "response": {
+      "ok": {
+        "full_height": 20,
+        "full_width": 20,
+        "notes": [],
+        "ops": 21,
+        "part": 0,
+        "rect": {
+          "height": 8,
+          "width": 8,
+          "x": 4,
+          "y": 4
+        },
+        "scale": 0.05,
+        "type": "bitmap"
+      }
+    }
+  },
+  {
+    "blobs": [
+      "4040ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff4040ffff0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000ffff0000ffffffffffffd3b2b2ffe69a9affe69a9affe69a9affe69a9afff2ccccffffffffff0000ffff0000ffffffffffffe59999ff000000ffcc3333ffcc3333ffcc3333ffe59999ffffffffff0000ffff0000ffffffffffffe59999ffcc3333ff000000ffcc3333ffcc3333ffe59999ffffffffff0000ffff0000ffffffffffffe59999ffcc3333ffcc3333ff000000ffcc3333ffe59999ffffffffff0000ffff0000ffffffffffffe59999ffcc3333ffcc3333ffcc3333ff000000ffe59999ffffffffff0000ffff0000ffffffffffffe59999ffcc3333ffcc3333ffcc3333ffcc3333ff724c4cffffffffff0000ffff0000ffffffffffffe59999ffcc3333ffcc3333ffcc3333ffcc3333ffe59999ffffffffff0000ffff0000ffffffffffffe59999ffcc3333ffcc3333ffcc3333ffcc3333ffe59999ffffffffff0000ffff0000ffffffffffffe59999ffcc3333ffcc3333ffcc3333ffcc3333ffe59999ffffffffff0000ffff0000ffffffffffffe59999ffcc3333ffcc3333ffcc3333ffcc3333ffe59999ffffffffff0000ffff0000fffffffffffff2ccccffe59999ffe59999ffe59999ffe59999fff2ccccffffffffff0000ffff0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000ffff4040ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff4040ffff"
+    ],
+    "response": {
+      "ok": {
+        "full_height": 15,
+        "full_width": 10,
+        "notes": [],
+        "ops": 8,
+        "part": 0,
+        "rect": {
+          "height": 15,
+          "width": 10,
+          "x": 0,
+          "y": 0
+        },
+        "scale": 0.05,
+        "type": "bitmap"
+      }
+    }
+  },
+  {
+    "blobs": [
+      "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff400010ff41003fff41003fff41003fff41003fff41003fff41003fff4000100000000000000000000000000000000000000000000000000000000000000000ff400040ff4000ffff4000ffff4000ffff4000ffff4000ffff4000ffff4000400000000000000000000000000000000000000000000000000000000000000000ff400040ff4000ffff4000c0ff400080ff400080ff4000c0ff4000ffff4000400000000000000000000000000000000000000000000000000000000000000000ff400040ff4000ffff4000800000000000000000ff400080ff4000ffff4000400000000000000000000000000000000000000000000000000000000000000000ff400040ff4000ffff4000800000000000000000ff400080ff4000ffff4000400000000000000000000000000000000000000000000000000000000000000000ff400040ff4000ffff4000bfff40007fff40007fff4000bfff4000ffff4000400000000000000000000000000000000000000000000000000000000000000000ff400040ff4000ffff4000ffff4000ffff4000ffff4000ffff4000ffff4000400000000000000000000000000000000000000000000000000000000000000000ff400010ff400040ff400040ff400040ff400040ff400040ff400040ff4000100000000000000000000000000000000000000000000000000000000000000000"
+    ],
+    "response": {
+      "ok": {
+        "full_height": 16,
+        "full_width": 16,
+        "notes": [],
+        "ops": 84,
+        "part": 0,
+        "rect": {
+          "height": 16,
+          "width": 16,
+          "x": 0,
+          "y": 0
+        },
+        "scale": 0.04,
+        "type": "bitmap"
+      }
+    }
+  },
+  {
+    "blobs": [
+      "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffedeff1ffe7eaecffedeff1ffedeff1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc0c0c1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff404141ff414243ff424344ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff444445ff454546ff464747ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff383838ff404040ff383838ffdfdfdfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5f5f5fffbfbfbfff606060ff7f7f7ffffbfbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffcf9f9fffa04040ff502020ffa04040ff401a33ff1d0c5dffac84afffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbf7f7fff800000ff1a0017ff0d0048ff08003eff3c0041ffbf7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaf758aff1200dcff2700b1ff60003fff800000ff800000ffbf7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd3c4e2ffc0a5c8ffdfbfbfffdfbfbfffdfbfbfffdfbfbfffefdfdfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    ],
+    "response": {
+      "ok": {
+        "full_height": 24,
+        "full_width": 19,
+        "notes": [
+          {
+            "count": 2,
+            "message": "blend mode /Multiply is drawn as /Normal"
+          },
+          {
+            "count": 1,
+            "message": "shadings (sh) are not drawn yet"
+          },
+          {
+            "count": 3,
+            "message": "text is drawn as glyph boxes (fonts are not rendered yet)"
+          }
+        ],
+        "ops": 56,
+        "part": 0,
+        "rect": {
+          "height": 24,
+          "width": 19,
+          "x": 0,
+          "y": 0
+        },
+        "scale": 0.03,
+        "type": "bitmap"
+      }
+    }
+  },
+  {
+    "blobs": [
+      "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007f0000007f0000007f0000007f0000007f0000000000000000000000000000000000000000000000bf000000800000008000000080000000bf0000008000000000000000000000000000000000000000800000000000000000000000000000007f0000008000000000000000000000000000000000000000800000000000000000000000000000007f00000080000000000000000000000000000000000000008600000017000000170000000c0000007f0000008000000000000000000000000000000000000000c7000000a1000000a100000090000000bf0000008000000000000000000000000000000000"
+    ],
+    "response": {
+      "ok": {
+        "full_height": 10,
+        "full_width": 10,
+        "notes": [
+          {
+            "count": 1,
+            "message": "text is drawn as glyph boxes (fonts are not rendered yet)"
+          }
+        ],
+        "ops": 7,
+        "part": 0,
+        "rect": {
+          "height": 10,
+          "width": 10,
+          "x": 0,
+          "y": 0
+        },
+        "scale": 0.1,
+        "type": "bitmap"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "badRequest",
+        "message": "scale must be a positive number"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "badRequest",
+        "message": "the tile is outside the view (400 × 400 pixels)"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "tooLarge",
+        "message": "at most 16384 pixels a side and 16777216 pixels per bitmap"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "ops": [
+          82,
+          17
+        ],
+        "type": "hits"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "ops": [
+          17
+        ],
+        "type": "hits"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "ops": [
+          2
+        ],
+        "type": "hits"
       }
     }
   },
@@ -8164,6 +8565,12 @@
             "name": "content.pdf",
             "path": null,
             "size": 3663
+          },
+          {
+            "doc": 11,
+            "name": "render.pdf",
+            "path": null,
+            "size": 5213
           }
         ],
         "type": "docs"
@@ -8254,6 +8661,12 @@
             "name": "content.pdf",
             "path": null,
             "size": 3663
+          },
+          {
+            "doc": 11,
+            "name": "render.pdf",
+            "path": null,
+            "size": 5213
           }
         ],
         "type": "docs"

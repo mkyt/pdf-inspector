@@ -10,11 +10,12 @@ PDF の内部構造を調べ、編集するためのツール群。設計は [do
 | `crates/pdfi-schema` | Arlington PDF Model（`schema/arlington/` に vendoring）を build 時に静的テーブル化。参照を辿る型推論と validation |
 | `crates/pdfi-model` | 意味層: ページ（`/Count` による index 引き・継承属性とその出所・ボックス・ラベル）、Info / XMP（不一致の検出）、しおり、注釈、リンク先、フォント・画像・被参照グラフのインベントリ（ジョブ） |
 | `crates/pdfi-content` | content stream: 命令列（演算子表・複数ストリームの連結・インライン画像）、validation（オペランド・ネスト・配置・リソース・色）、グラフィックス状態を追うインタプリタと描画要素の bbox（フォーム XObject を辿る）。命令はチェックポイントから読み直して範囲取得 |
+| `crates/pdfi-render` | 自作ラスタライザ（tiny-skia）: パス・塗り・線（線幅・端・結合・ダッシュ）・クリップ・画像（1–16 bit、Gray / RGB / CMYK / Indexed / Lab / ICCBased / Separation・DeviceN、JPEG、ステンシル、SMask、色キー）。タイル描画、ステップ実行、ハイライト層、ヒットテスト。文字はグリフの枠で代用（M9 で字形） |
 | `crates/pdfi-api` | フロントとの境界。`Session` が `Request` → `Response` / `Event` を処理（範囲 API、ジョブ、Batch、バイナリ別フレーム）。TS 型を生成 |
 | `crates/pdfi-server` | `pdfi serve` のローカルサーバー（axum + WebSocket、Web UI 内蔵、トークン / Host / Origin / 許可ルート検査） |
 | `crates/pdfi-wasm` | ブラウザ完結モード用の wasm バインディング（Worker から `Session` を駆動、Blob から直接読む） |
 | `crates/pdfi-cli` | `pdfi` コマンド |
-| `apps/web` | Web UI（Vite + React + Mantine）。Document / Pages / Outline / Fonts / Images 画面、命令列ビュー（ネスト・問題・デコード済みテキスト、命令ごとの前後のグラフィックス状態、描画範囲の図とステップ表示）、オブジェクト一覧・ツリー・hex・ストリーム表示、被参照一覧、スキーマ型・キー定義・問題の表示と検証ジョブ。サーバー / ブラウザ完結の両モード |
+| `apps/web` | Web UI（Vite + React + Mantine）。Document / Pages / Outline / Fonts / Images 画面、命令列ビュー（ネスト・問題・デコード済みテキスト、命令ごとの前後のグラフィックス状態、描画範囲の図とステップ表示）、ページ描画（タイル・ズーム、クリックで命令を選択、選択した命令のハイライト、ステップ実行）、オブジェクト一覧・ツリー・hex・ストリーム表示、被参照一覧、スキーマ型・キー定義・問題の表示と検証ジョブ。サーバー / ブラウザ完結の両モード |
 
 ## 使い方
 
@@ -32,6 +33,7 @@ target/release/pdfi outline file.pdf
 target/release/pdfi meta file.pdf                      # Info / XMP / カタログ
 target/release/pdfi inventory file.pdf [--refs N]      # フォント・画像（--refs: N を参照するオブジェクト）
 target/release/pdfi ops file.pdf N [--from I --count C] # ページ N の命令列（--obj M: ストリーム、--state I: 状態、--issues: 問題のみ）
+target/release/pdfi render file.pdf N -o out.png [--dpi D] # ページ N を描画（--until I: 命令 I まで、--tile x,y,w,h、--highlight I,J、--hit x,y: その点を描く命令）
 target/release/pdfi rewrite in.pdf out.pdf [--reserialize]
 ```
 

@@ -368,3 +368,111 @@ async fn conformance() {
     }
     conformance::check("server", out, false);
 }
+
+/// A one-page PDF whose content is `content`.
+fn one_page(content: &[u8]) -> Vec<u8> {
+    let objs: [Vec<u8>; 4] = [
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 600 800] >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>".to_vec(),
+        [
+            format!("<< /Length {} >>\nstream\n", content.len()).as_bytes(),
+            content,
+            b"\nendstream",
+        ]
+        .concat(),
+    ];
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+        out.extend_from_slice(o);
+        out.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = out.len();
+    out.extend_from_slice(b"xref\n0 5\n0000000000 65535 f\r\n");
+    for o in offsets {
+        out.extend_from_slice(format!("{o:010} 00000 n\r\n").as_bytes());
+    }
+    out.extend_from_slice(
+        format!("trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n").as_bytes(),
+    );
+    out
+}
+
+/// Read messages until every id in `ids` has its response.
+async fn responses(ws: &mut Ws, ids: &[u64]) -> Vec<(u64, Response, Vec<BinaryFrame>)> {
+    let mut frames: Vec<BinaryFrame> = Vec::new();
+    let mut out = Vec::new();
+    while out.len() < ids.len() {
+        match ws.next().await.expect("connection closed").unwrap() {
+            Message::Binary(b) => frames.push(BinaryFrame::decode(&b).unwrap()),
+            Message::Text(t) => {
+                if let ServerMessage::Response { id, response } = serde_json::from_str(&t).unwrap()
+                {
+                    if ids.contains(&id) {
+                        let mine = frames.iter().filter(|f| f.id == id).cloned().collect();
+                        out.push((id, response, mine));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+#[tokio::test]
+async fn renders_run_in_parallel_and_can_be_cancelled() {
+    let dir = std::env::temp_dir().join(format!("pdfi-render-test-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let heavy = dir.join("heavy.pdf");
+    std::fs::write(&heavy, one_page(&b"0 0 600 800 re f\n".repeat(400_000))).unwrap();
+    std::fs::copy(fixtures().join("render.pdf"), dir.join("render.pdf")).unwrap();
+    let r = start(ServeOptions {
+        files: vec![dir.join("render.pdf"), heavy.clone()],
+        ..Default::default()
+    })
+    .await;
+    let mut ws = good(&r).await;
+    let (res, _) = call(&mut ws, 1, serde_json::json!({ "op": "docs" })).await;
+    let Response::Ok(ResponseBody::Docs { docs }) = res else {
+        panic!("{res:?}")
+    };
+    let doc = |name: &str| docs.iter().find(|d| d.name == name).unwrap().doc;
+
+    // Four tiles at once: each comes back with its bitmap.
+    let ids = [10, 11, 12, 13];
+    for (k, id) in ids.iter().enumerate() {
+        let msg = serde_json::json!({ "id": id, "request": {
+            "op": "render", "doc": doc("render.pdf"), "content": { "kind": "page", "index": 1 },
+            "scale": 1, "until": null, "layer": { "kind": "content" },
+            "tile": { "x": (k % 2) * 200, "y": (k / 2) * 200, "width": 200, "height": 200 },
+        }});
+        ws.send(Message::text(msg.to_string())).await.unwrap();
+    }
+    for (id, res, frames) in responses(&mut ws, &ids).await {
+        let Response::Ok(ResponseBody::Bitmap(b)) = res else {
+            panic!("{id}: {res:?}")
+        };
+        assert_eq!((b.rect.width, b.rect.height), (200, 200));
+        assert_eq!(frames[b.part as usize].data.len(), 200 * 200 * 4);
+    }
+
+    // A long render stops when cancelled.
+    let msg = serde_json::json!({ "id": 20, "request": {
+        "op": "render", "doc": doc("heavy.pdf"), "content": { "kind": "page", "index": 0 },
+        "scale": 2, "tile": null, "until": null, "layer": { "kind": "content" },
+    }});
+    ws.send(Message::text(msg.to_string())).await.unwrap();
+    let cancel = serde_json::json!({ "id": 21, "request": { "op": "cancel", "request": 20 } });
+    ws.send(Message::text(cancel.to_string())).await.unwrap();
+    let got = responses(&mut ws, &[20, 21]).await;
+    let (_, res, _) = got.iter().find(|(id, ..)| *id == 20).unwrap();
+    assert!(
+        matches!(res, Response::Err(e) if e.code == ErrorCode::Cancelled),
+        "{res:?}"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}

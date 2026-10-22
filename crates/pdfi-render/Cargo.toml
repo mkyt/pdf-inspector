@@ -1,0 +1,21 @@
+[package]
+name = "pdfi-render"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# PNG output (CLI).
+png = ["tiny-skia/png-format"]
+
+[dependencies]
+pdfi-content = { version = "0.1.0", path = "../pdfi-content" }
+pdfi-model = { version = "0.1.0", path = "../pdfi-model" }
+pdfi-syntax = { version = "0.1.0", path = "../pdfi-syntax" }
+tiny-skia = { version = "0.12.0", default-features = false, features = ["std", "simd"] }
+zune-jpeg = { version = "0.5.15", default-features = false, features = ["std"] }
+
+[lints]
+workspace = true

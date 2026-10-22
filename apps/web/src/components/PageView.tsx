@@ -17,11 +17,12 @@ import type { ReactNode } from "react";
 import { api, useBackend } from "../api";
 import { useDoc } from "../doc";
 import { bytesText, originText, pageText, rectText, sizeText } from "../format";
-import { useNav } from "../nav";
+import { contentKey, useNav } from "../nav";
 import type { AttrOrigin, PageDetail } from "../protocol/generated";
 import { ObjLink } from "./DocumentPanel";
 import { IssueList } from "./Issues";
 import { LinkView } from "./LinkView";
+import { RenderView } from "./RenderView";
 
 const ANNOT_PAGE = 200;
 
@@ -104,8 +105,39 @@ export function PageView({ index }: { index: number }) {
         </Alert>
       )}
       {!q.data && !q.error && <Loader size="sm" />}
+      {q.data && <Rendering index={index} />}
       {q.data && <Detail p={q.data} />}
     </Stack>
+  );
+}
+
+/** The page rendered; clicking opens the operation painting there. */
+function Rendering({ index }: { index: number }) {
+  const backend = useBackend();
+  const nav = useNav();
+  const content = { kind: "page", index } as const;
+  const q = useQuery({
+    queryKey: ["doc", nav.doc, "content", ...contentKey(content)],
+    queryFn: () => api.content(backend, nav.doc, content),
+  });
+  if (q.error)
+    return (
+      <Text size="xs" c="red">
+        {String(q.error)}
+      </Text>
+    );
+  if (!q.data) return <Loader size="xs" />;
+  return (
+    <div style={{ maxWidth: 640 }}>
+      <RenderView
+        content={content}
+        summary={q.data}
+        op={null}
+        step={false}
+        onPick={(op) => nav.open({ kind: "content", content, op })}
+        height="min(60vh, 720px)"
+      />
+    </div>
   );
 }
 

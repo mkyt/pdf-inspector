@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 import type { Backend, Reply } from "./backend/backend";
 import type {
   AnnotInfo,
+  BitmapInfo,
   BytesInfo,
   ContentIssue,
   ContentRef,
@@ -30,8 +31,10 @@ import type {
   Page,
   PageDetail,
   PageSummary,
+  PixelRect,
   Range,
   Referrer,
+  RenderLayer,
   Request,
   ResponseBody,
   XmpView,
@@ -61,6 +64,12 @@ async function call<T extends ResponseBody["type"]>(
 
 export interface Bytes {
   info: BytesInfo;
+  data: Uint8Array;
+}
+
+/** RGBA (not premultiplied) of a rendered region. */
+export interface Bitmap {
+  info: BitmapInfo;
   data: Uint8Array;
 }
 
@@ -135,6 +144,28 @@ export const api = {
     (await call(b, "elements", { op: "contentElements", doc, content, range })).body,
   opState: async (b: Backend, doc: DocId, content: ContentRef, index: number): Promise<OpState> =>
     (await call(b, "opState", { op: "opState", doc, content, index })).body,
+  render: async (
+    b: Backend,
+    doc: DocId,
+    content: ContentRef,
+    scale: number,
+    tile: PixelRect | null,
+    until: number | null,
+    layer: RenderLayer,
+    signal?: AbortSignal,
+  ): Promise<Bitmap> => {
+    const r = await call(b, "bitmap", { op: "render", doc, content, scale, tile, until, layer }, signal);
+    return { info: r.body, data: r.blobs[r.body.part] ?? new Uint8Array() };
+  },
+  hitTest: async (
+    b: Backend,
+    doc: DocId,
+    content: ContentRef,
+    x: number,
+    y: number,
+    radius: number,
+    until: number | null,
+  ): Promise<number[]> => (await call(b, "hits", { op: "hitTest", doc, content, x, y, radius, until })).body.ops,
   rawBytes: async (b: Backend, doc: DocId, offset: number, len: number, signal?: AbortSignal): Promise<Bytes> =>
     bytes(await call(b, "bytes", { op: "rawBytes", doc, offset, len }, signal)),
   streamData: async (

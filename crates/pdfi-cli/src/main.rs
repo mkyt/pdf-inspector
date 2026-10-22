@@ -132,6 +132,33 @@ enum Cmd {
         #[arg(long)]
         issues: bool,
     },
+    /// Render a page (1-based page number) or a stream (--obj) to PNG.
+    Render {
+        #[command(flatten)]
+        f: FileArgs,
+        page: Option<u64>,
+        #[arg(long)]
+        obj: Option<u32>,
+        /// Output PNG file.
+        #[arg(short, long)]
+        out: PathBuf,
+        /// Resolution (72 = one pixel per point).
+        #[arg(long, default_value_t = 144.0)]
+        dpi: f64,
+        /// Stop after this operation (0-based).
+        #[arg(long)]
+        until: Option<usize>,
+        /// Only this region of the page's bitmap: x,y,width,height (pixels).
+        #[arg(long, value_delimiter = ',')]
+        tile: Vec<u32>,
+        /// Draw only these operations as a highlight layer (comma separated).
+        #[arg(long, value_delimiter = ',')]
+        highlight: Vec<u32>,
+        /// Also print the operations painting at this view point (points
+        /// from the top left), e.g. --hit 100,200.
+        #[arg(long, value_delimiter = ',')]
+        hit: Vec<f64>,
+    },
     /// Rewrite as a plain file (object streams expanded, decrypted).
     Rewrite {
         #[command(flatten)]
@@ -194,6 +221,27 @@ fn main() -> Result<()> {
             state,
             issues,
         } => content::ops(&open(&f)?, page, obj, from, count, state, issues),
+        Cmd::Render {
+            f,
+            page,
+            obj,
+            out,
+            dpi,
+            until,
+            tile,
+            highlight,
+            hit,
+        } => content::render(
+            &open(&f)?,
+            page,
+            obj,
+            &out,
+            dpi,
+            until,
+            &tile,
+            highlight,
+            &hit,
+        ),
         Cmd::Xref { f, rev } => xref(&open(&f)?, rev),
         Cmd::Obj { f, num, generation } => {
             let file = open(&f)?;

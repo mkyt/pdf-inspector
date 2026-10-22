@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 4;
+pub const PROTOCOL_VERSION: u32 = 5;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct ClientMessage {
@@ -152,6 +152,29 @@ pub enum Request {
         content: ContentRef,
         index: u32,
     },
+    /// Render a content, or a tile of it, at `scale` pixels per point.
+    /// The bitmap is a binary part (`BitmapInfo`). Can be cancelled while
+    /// it runs (server).
+    Render {
+        doc: DocId,
+        content: ContentRef,
+        scale: f64,
+        /// `None`: the whole view.
+        tile: Option<PixelRect>,
+        /// Run operations up to and including this one.
+        until: Option<u32>,
+        layer: RenderLayer,
+    },
+    /// Operations painting within `radius` of a view point (points from
+    /// the top left of `ViewInfo`), topmost first.
+    HitTest {
+        doc: DocId,
+        content: ContentRef,
+        x: f64,
+        y: f64,
+        radius: f64,
+        until: Option<u32>,
+    },
     RawBytes {
         doc: DocId,
         offset: u64,
@@ -227,6 +250,8 @@ pub enum ResponseBody {
     ContentIssues(Page<ContentIssue>),
     Elements(Page<ElementView>),
     OpState(Box<OpState>),
+    Bitmap(BitmapInfo),
+    Hits { ops: Vec<u32> },
     Bytes(BytesInfo),
     Job(JobInfo),
     Batch { responses: Vec<Response> },
