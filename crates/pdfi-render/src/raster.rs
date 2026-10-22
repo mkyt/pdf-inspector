@@ -54,6 +54,113 @@ struct Layer {
     /// the group's own coverage (its alpha) to take the backdrop out at
     /// the end.
     shape: Option<Pixmap>,
+    knockout: Option<Knockout>,
+}
+
+/// A knockout group: each object is composited with the group's initial
+/// backdrop, not with the objects before it, and replaces them where its
+/// shape covers them (ISO 32000 11.4.6.4).
+struct Knockout {
+    /// The group's backdrop as it started.
+    initial: Pixmap,
+    /// The object painted onto `initial` (kept equal to `initial` in
+    /// between).
+    scratch: Pixmap,
+    /// The object alone (kept transparent in between).
+    alone: Pixmap,
+}
+
+impl Knockout {
+    fn new(start: &Pixmap) -> Option<Knockout> {
+        Some(Knockout {
+            initial: start.clone(),
+            scratch: start.clone(),
+            alone: Pixmap::new(start.width(), start.height())?,
+        })
+    }
+
+    /// Paint an object of constant opacity `alpha` with `f`: where it
+    /// covers `pix` by a share `fs` of its shape, the result is
+    /// `(1 − fs) × pix + fs × (object over the initial backdrop)`. The
+    /// group's coverage `shape` (non-isolated groups) gets the same.
+    fn paint(
+        &mut self,
+        pix: &mut Pixmap,
+        shape: Option<&mut Pixmap>,
+        alpha: f64,
+        f: impl Fn(&mut Pixmap, Option<&Mask>),
+        mask: Option<&Mask>,
+    ) {
+        f(&mut self.alone, mask);
+        f(&mut self.scratch, mask);
+        let w = pix.width() as usize;
+        let Some((x0, y0, x1, y1)) = covered(&self.alone) else {
+            return;
+        };
+        let a = alpha.clamp(1.0 / 255.0, 1.0) as f32;
+        let (initial, scratch, alone) = (
+            self.initial.pixels(),
+            self.scratch.pixels_mut(),
+            self.alone.pixels_mut(),
+        );
+        let out = pix.pixels_mut();
+        let mut shape = shape.map(|s| s.pixels_mut());
+        for y in y0..y1 {
+            for i in y * w + x0..y * w + x1 {
+                let o = alone[i];
+                if o.alpha() > 0 {
+                    let fs = (o.alpha() as f32 / 255.0 / a).min(1.0);
+                    out[i] = lerp(out[i], scratch[i], fs);
+                    if let Some(s) = shape.as_deref_mut() {
+                        // Only the alpha counts: the object's (which has
+                        // `fs` in it) replaces the share `fs` of the rest.
+                        let sa = s[i].alpha() as f32 * (1.0 - fs) + o.alpha() as f32;
+                        s[i] = tiny_skia::PremultipliedColorU8::from_rgba(
+                            0,
+                            0,
+                            0,
+                            (sa + 0.5).min(255.0) as u8,
+                        )
+                        .unwrap_or(s[i]);
+                    }
+                }
+                scratch[i] = initial[i];
+                alone[i] = tiny_skia::PremultipliedColorU8::TRANSPARENT;
+            }
+        }
+    }
+}
+
+/// The pixels with any coverage: `x0, y0, x1, y1` (exclusive).
+fn covered(p: &Pixmap) -> Option<(usize, usize, usize, usize)> {
+    let w = p.width() as usize;
+    let (mut x0, mut y0, mut x1, mut y1) = (usize::MAX, usize::MAX, 0, 0);
+    for (y, row) in p.pixels().chunks_exact(w).enumerate() {
+        let Some(a) = row.iter().position(|p| p.alpha() > 0) else {
+            continue;
+        };
+        let b = row.iter().rposition(|p| p.alpha() > 0).unwrap_or(a);
+        (x0, x1) = (x0.min(a), x1.max(b + 1));
+        (y0, y1) = (y0.min(y), y + 1);
+    }
+    (x0 < x1).then_some((x0, y0, x1, y1))
+}
+
+/// `(1 − t) × a + t × b`, premultiplied.
+fn lerp(
+    a: tiny_skia::PremultipliedColorU8,
+    b: tiny_skia::PremultipliedColorU8,
+    t: f32,
+) -> tiny_skia::PremultipliedColorU8 {
+    let m = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t + 0.5) as u8;
+    let al = m(a.alpha(), b.alpha());
+    tiny_skia::PremultipliedColorU8::from_rgba(
+        m(a.red(), b.red()).min(al),
+        m(a.green(), b.green()).min(al),
+        m(a.blue(), b.blue()).min(al),
+        al,
+    )
+    .unwrap_or(a)
 }
 
 /// A soft mask: its group and the CTM it is painted in.
@@ -418,9 +525,10 @@ impl<'a> Raster<'a> {
         Some(self.masks.len() - 1)
     }
 
-    /// Paint with the clip of `g`; in probe mode, record whether anything
-    /// was covered.
-    fn draw(&mut self, g: &GState, f: impl Fn(&mut Pixmap, Option<&Mask>)) {
+    /// Paint with the clip of `g` something of constant opacity `alpha`
+    /// (for knockout groups); in probe mode, record whether anything was
+    /// covered.
+    fn draw(&mut self, g: &GState, alpha: f64, f: impl Fn(&mut Pixmap, Option<&Mask>)) {
         let k = self.mask(&g.clip_path);
         let soft = match (&self.mode, &g.smask) {
             (Mode::Paint, Some(sm)) => self.soft_mask(sm),
@@ -432,11 +540,17 @@ impl<'a> Raster<'a> {
         }
         let clip = k.and_then(|k| self.masks[k].1.as_ref());
         // In a non-isolated group, the group's coverage too.
-        let shape = self.groups.last_mut().and_then(|l| l.shape.as_mut());
-        let paint = |m: Option<&Mask>| {
-            f(&mut self.pix, m);
-            if let Some(s) = shape {
-                f(s, m);
+        let (shape, knockout) = match self.groups.last_mut() {
+            Some(l) => (l.shape.as_mut(), l.knockout.as_mut()),
+            None => (None, None),
+        };
+        let paint = |m: Option<&Mask>| match knockout {
+            Some(ko) => ko.paint(&mut self.pix, shape, alpha, &f, m),
+            None => {
+                f(&mut self.pix, m);
+                if let Some(s) = shape {
+                    f(s, m);
+                }
             }
         };
         match (soft, clip) {
@@ -958,7 +1072,9 @@ impl<'a> Raster<'a> {
         let mut paint = Paint::default();
         paint.set_color(color);
         let r = tiny_skia::Rect::from_ltrb(0.0, 0.0, 1.0, 1.0).expect("unit rect");
-        self.draw(g, |pix, mask| pix.fill_rect(r, &paint, ts, mask));
+        self.draw(g, color.alpha() as f64, |pix, mask| {
+            pix.fill_rect(r, &paint, ts, mask)
+        });
     }
 
     fn decoded(
@@ -1078,7 +1194,9 @@ impl Device for Raster<'_> {
             FillRule::Winding
         };
         let ts = to_transform(&self.base);
-        self.draw(g, |pix, mask| pix.fill_path(&p, &paint, rule, ts, mask));
+        self.draw(g, g.fill_alpha, |pix, mask| {
+            pix.fill_path(&p, &paint, rule, ts, mask)
+        });
     }
 
     fn stroke(&mut self, path: &[PathEl], g: &GState) {
@@ -1104,7 +1222,7 @@ impl Device for Raster<'_> {
         let ts = to_transform(&m);
         let mut paint = src.paint(1.0, ts);
         paint.blend_mode = self.blend(g);
-        self.draw(g, |pix, mask| {
+        self.draw(g, g.stroke_alpha, |pix, mask| {
             pix.stroke_path(&p, &paint, &stroke, ts, mask)
         });
     }
@@ -1157,7 +1275,7 @@ impl Device for Raster<'_> {
             let mut paint = src.paint(faint, to_transform(&self.base));
             paint.blend_mode = self.blend(g);
             let ts = to_transform(&self.base);
-            self.draw(g, |pix, mask| {
+            self.draw(g, alpha * faint as f64, |pix, mask| {
                 pix.fill_path(&p, &paint, FillRule::Winding, ts, mask)
             });
             return;
@@ -1246,7 +1364,7 @@ impl Device for Raster<'_> {
         let r = tiny_skia::Rect::from_ltrb(0.0, 0.0, 1.0, 1.0).expect("unit rect");
         let ts = to_transform(&m);
         if !pattern {
-            self.draw(g, |p, mask| p.fill_rect(r, &paint, ts, mask));
+            self.draw(g, g.fill_alpha, |p, mask| p.fill_rect(r, &paint, ts, mask));
             return;
         }
         // A stencil mask filled with a pattern: the pattern through the
@@ -1287,7 +1405,7 @@ impl Device for Raster<'_> {
             clip_path: None,
             ..g.clone()
         };
-        self.draw(&unclipped, |p, soft| match soft {
+        self.draw(&unclipped, g.fill_alpha, |p, soft| match soft {
             Some(m) => {
                 let mut both = stencil.clone();
                 for (s, c) in both.data_mut().iter_mut().zip(m.data()) {
@@ -1301,13 +1419,11 @@ impl Device for Raster<'_> {
 
     fn begin_group(&mut self, group: &Group, _g: &GState) {
         let own = matches!(self.mode, Mode::Paint) && self.groups.len() < MAX_GROUPS;
-        if own && group.knockout {
-            self.note("knockout groups are drawn as ordinary ones");
-        }
         let (w, h) = (self.pix.width(), self.pix.height());
         let mut layer = Layer {
             parent: None,
             shape: None,
+            knockout: None,
         };
         if own {
             // An isolated group starts transparent, a non-isolated one
@@ -1323,6 +1439,9 @@ impl Device for Raster<'_> {
                 Pixmap::new(w, h)
             };
             if let Some(start) = start.filter(|_| group.isolated || shape.is_some()) {
+                if group.knockout {
+                    layer.knockout = Knockout::new(&start);
+                }
                 layer.parent = Some(std::mem::replace(&mut self.pix, start));
                 layer.shape = shape;
             }
@@ -1337,6 +1456,7 @@ impl Device for Raster<'_> {
         let Some(Layer {
             parent: Some(parent),
             shape,
+            ..
         }) = self.groups.pop()
         else {
             return;
@@ -1350,7 +1470,7 @@ impl Device for Raster<'_> {
             blend_mode: self.blend(g),
             quality: FilterQuality::Nearest,
         };
-        self.draw(g, |pix, mask| {
+        self.draw(g, g.fill_alpha, |pix, mask| {
             pix.draw_pixmap(0, 0, layer.as_ref(), &paint, Transform::identity(), mask)
         });
     }
@@ -1404,7 +1524,7 @@ impl Device for Raster<'_> {
         let r =
             tiny_skia::Rect::from_ltrb(area.0 as f32, area.1 as f32, area.2 as f32, area.3 as f32);
         let Some(r) = r else { return };
-        self.draw(g, |pix, mask| {
+        self.draw(g, g.fill_alpha, |pix, mask| {
             pix.fill_rect(r, &paint, Transform::identity(), mask)
         });
     }

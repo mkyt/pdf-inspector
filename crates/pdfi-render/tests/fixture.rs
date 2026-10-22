@@ -533,6 +533,12 @@ fn transparency() {
     // A non-isolated group multiplies white onto the red under it: red,
     // even composited at ca 0.5.
     assert_eq!(px(&o, 50, 250), [255, 0, 0, 255]);
+    // Knockout groups, red then blue at ca 0.5: the blue replaces the red
+    // where they overlap, over nothing (isolated) or over green.
+    assert!(near(px(&o, 115, 285), [255, 128, 128, 255], 2));
+    assert!(near(px(&o, 150, 250), [128, 128, 255, 255], 2));
+    assert!(near(px(&o, 215, 285), [128, 128, 0, 255], 2));
+    assert!(near(px(&o, 250, 250), [0, 128, 128, 255], 2));
     assert!(o.notes.is_empty(), "{:?}", o.notes);
 }
 

@@ -653,6 +653,13 @@ streams[56] = form(b"300 300 400 400", b"0 g 300 300 70 70 re f 330 330 70 70 re
 # Non-isolated: white multiplied onto the red under the group leaves red,
 # even at ca 0.5 (an isolated group would show pink).
 streams[57] = form(b"0 100 100 200", b"/M gs 1 g 0 100 100 100 re f", group=b"/Group << /S /Transparency >>", res=b"<< /ExtGState << /M << /BM /Multiply >> >> >>")
+# Knockout groups: red then blue at ca 0.5, overlapping. The blue
+# replaces the red where they overlap (isolated: over nothing; not
+# isolated: over the green under the group).
+KO = b"/H gs 1 0 0 rg %d 100 70 70 re f 0 0 1 rg %d 130 70 70 re f"
+KO_RES = b"<< /ExtGState << /H << /ca 0.5 >> >> >>"
+streams[58] = form(b"100 100 200 200", KO % (100, 130), group=b"/Group << /S /Transparency /I true /K true >>", res=KO_RES)
+streams[59] = form(b"200 100 300 200", KO % (200, 230), group=b"/Group << /S /Transparency /K true >>", res=KO_RES)
 page(b"""1 1 0 rg 0 300 70 70 re f q /Mul gs 0 1 1 rg 30 330 70 70 re f Q
 1 0 0 rg 100 300 70 70 re f q /Scr gs 0 0 1 rg 130 330 70 70 re f Q
 q /Half gs /Grp Do Q
@@ -662,7 +669,8 @@ q /SmA gs 0 0 1 rg 100 200 100 100 re f Q
 q /SmB gs 0 0.5 0 rg 200 200 100 100 re f Q
 q /SmT gs 0.5 0 0.5 rg 300 200 100 100 re f Q
 1 0 0 rg 0 100 100 100 re f q /Half gs /NonIso Do Q
-""", b"<< /ExtGState << /Mul << /BM /Multiply >> /Scr << /BM /Screen >> /Half << /ca 0.5 >> /SmL << /SMask << /S /Luminosity /G 50 0 R >> >> /SmA << /SMask << /S /Alpha /G 51 0 R >> >> /SmB << /SMask << /S /Luminosity /G 52 0 R /BC [1] >> >> /SmT << /SMask << /S /Luminosity /G 53 0 R /TR << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >> >> >> >> /XObject << /Grp 55 0 R /Plain 56 0 R /NonIso 57 0 R >> >>")
+/KoI Do 0 1 0 rg 200 100 100 100 re f /KoN Do
+""", b"<< /ExtGState << /Mul << /BM /Multiply >> /Scr << /BM /Screen >> /Half << /ca 0.5 >> /SmL << /SMask << /S /Luminosity /G 50 0 R >> >> /SmA << /SMask << /S /Alpha /G 51 0 R >> >> /SmB << /SMask << /S /Luminosity /G 52 0 R /BC [1] >> >> /SmT << /SMask << /S /Luminosity /G 53 0 R /TR << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >> >> >> >> /XObject << /Grp 55 0 R /Plain 56 0 R /NonIso 57 0 R /KoI 58 0 R /KoN 59 0 R >> >>")
 
 # Page 5: image codecs. JPEG 2000 (JP2 RGB; a raw codestream; RGBA with
 # /SMaskInData), JBIG2 (generic region; symbols with /JBIG2Globals as a
