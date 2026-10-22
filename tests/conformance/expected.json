@@ -5,7 +5,7 @@
       "ok": {
         "backend": null,
         "filesystem": null,
-        "protocol": 3,
+        "protocol": 4,
         "type": "hello",
         "version": "0.1.0"
       }
@@ -16,7 +16,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 999, backend speaks 3"
+        "message": "client speaks protocol 999, backend speaks 4"
       }
     }
   },
@@ -5215,6 +5215,2794 @@
     "blobs": [],
     "response": {
       "ok": {
+        "diagnostics": 0,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 10,
+          "name": "content.pdf",
+          "path": null,
+          "size": 3663
+        },
+        "info_dict": null,
+        "inventory": null,
+        "live_objects": 18,
+        "object_slots": 34,
+        "pages": 3,
+        "pdf_version": "1.7",
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 34,
+            "index": 0,
+            "kind": "table",
+            "offset": 2917,
+            "span": {
+              "end": 3641,
+              "start": 2917
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 34
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "approximate": false,
+        "bounds": {
+          "x0": 0.0,
+          "x1": 612.0,
+          "y0": 0.0,
+          "y1": 792.0
+        },
+        "content": {
+          "index": 0,
+          "kind": "page"
+        },
+        "counts": [
+          {
+            "category": "generalState",
+            "count": 2
+          },
+          {
+            "category": "specialState",
+            "count": 16
+          },
+          {
+            "category": "pathConstruction",
+            "count": 5
+          },
+          {
+            "category": "pathPainting",
+            "count": 4
+          },
+          {
+            "category": "clipping",
+            "count": 2
+          },
+          {
+            "category": "textObject",
+            "count": 4
+          },
+          {
+            "category": "textState",
+            "count": 3
+          },
+          {
+            "category": "textPositioning",
+            "count": 2
+          },
+          {
+            "category": "textShowing",
+            "count": 3
+          },
+          {
+            "category": "color",
+            "count": 4
+          },
+          {
+            "category": "shading",
+            "count": 1
+          },
+          {
+            "category": "inlineImage",
+            "count": 1
+          },
+          {
+            "category": "xObject",
+            "count": 2
+          },
+          {
+            "category": "markedContent",
+            "count": 4
+          },
+          {
+            "category": "compatibility",
+            "count": 2
+          },
+          {
+            "category": "unknown",
+            "count": 1
+          }
+        ],
+        "elements": 11,
+        "errors": 0,
+        "has_resources": true,
+        "id": {
+          "generation": 0,
+          "num": 3
+        },
+        "issues": 2,
+        "issues_dropped": 0,
+        "kind": "page",
+        "ops": 56,
+        "resources": null,
+        "sources": [
+          {
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 10
+            },
+            "len": 469
+          }
+        ],
+        "truncated": false,
+        "type": "content",
+        "warnings": 0
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "category": "specialState",
+            "depth": 0,
+            "element": null,
+            "index": 0,
+            "issues": [],
+            "operands": [],
+            "operator": "q",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 1,
+              "start": 0
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 1,
+            "element": null,
+            "index": 1,
+            "issues": [],
+            "operands": [
+              "1",
+              "0",
+              "0",
+              "1",
+              "50",
+              "50"
+            ],
+            "operator": "cm",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 18,
+              "start": 2
+            },
+            "text": null
+          },
+          {
+            "category": "color",
+            "depth": 1,
+            "element": null,
+            "index": 2,
+            "issues": [],
+            "operands": [
+              "0.5",
+              "0",
+              "0"
+            ],
+            "operator": "rg",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 29,
+              "start": 19
+            },
+            "text": null
+          },
+          {
+            "category": "pathConstruction",
+            "depth": 1,
+            "element": null,
+            "index": 3,
+            "issues": [],
+            "operands": [
+              "0",
+              "0",
+              "200",
+              "100"
+            ],
+            "operator": "re",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 44,
+              "start": 30
+            },
+            "text": null
+          },
+          {
+            "category": "pathPainting",
+            "depth": 1,
+            "element": {
+              "bbox": {
+                "x0": 50.0,
+                "x1": 250.0,
+                "y0": 50.0,
+                "y1": 150.0
+              },
+              "hidden": false,
+              "kind": "fill",
+              "op": 4
+            },
+            "index": 4,
+            "issues": [],
+            "operands": [],
+            "operator": "f",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 46,
+              "start": 45
+            },
+            "text": null
+          },
+          {
+            "category": "generalState",
+            "depth": 1,
+            "element": null,
+            "index": 5,
+            "issues": [],
+            "operands": [
+              "2"
+            ],
+            "operator": "w",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 50,
+              "start": 47
+            },
+            "text": null
+          },
+          {
+            "category": "color",
+            "depth": 1,
+            "element": null,
+            "index": 6,
+            "issues": [],
+            "operands": [
+              "0",
+              "0",
+              "1"
+            ],
+            "operator": "RG",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 59,
+              "start": 51
+            },
+            "text": null
+          },
+          {
+            "category": "pathConstruction",
+            "depth": 1,
+            "element": null,
+            "index": 7,
+            "issues": [],
+            "operands": [
+              "10",
+              "10"
+            ],
+            "operator": "m",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 67,
+              "start": 60
+            },
+            "text": null
+          },
+          {
+            "category": "pathConstruction",
+            "depth": 1,
+            "element": null,
+            "index": 8,
+            "issues": [],
+            "operands": [
+              "190",
+              "90"
+            ],
+            "operator": "l",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 76,
+              "start": 68
+            },
+            "text": null
+          },
+          {
+            "category": "pathPainting",
+            "depth": 1,
+            "element": {
+              "bbox": {
+                "x0": 59.0,
+                "x1": 241.0,
+                "y0": 59.0,
+                "y1": 141.0
+              },
+              "hidden": false,
+              "kind": "stroke",
+              "op": 9
+            },
+            "index": 9,
+            "issues": [],
+            "operands": [],
+            "operator": "S",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 78,
+              "start": 77
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 0,
+            "element": null,
+            "index": 10,
+            "issues": [],
+            "operands": [],
+            "operator": "Q",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 80,
+              "start": 79
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 0,
+            "element": null,
+            "index": 11,
+            "issues": [],
+            "operands": [],
+            "operator": "q",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 82,
+              "start": 81
+            },
+            "text": null
+          },
+          {
+            "category": "pathConstruction",
+            "depth": 1,
+            "element": null,
+            "index": 12,
+            "issues": [],
+            "operands": [
+              "0",
+              "0",
+              "612",
+              "720"
+            ],
+            "operator": "re",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 97,
+              "start": 83
+            },
+            "text": null
+          },
+          {
+            "category": "clipping",
+            "depth": 1,
+            "element": null,
+            "index": 13,
+            "issues": [],
+            "operands": [],
+            "operator": "W",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 99,
+              "start": 98
+            },
+            "text": null
+          },
+          {
+            "category": "pathPainting",
+            "depth": 1,
+            "element": {
+              "bbox": {
+                "x0": 0.0,
+                "x1": 612.0,
+                "y0": 0.0,
+                "y1": 720.0
+              },
+              "hidden": false,
+              "kind": "clip",
+              "op": 14
+            },
+            "index": 14,
+            "issues": [],
+            "operands": [],
+            "operator": "n",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 101,
+              "start": 100
+            },
+            "text": null
+          },
+          {
+            "category": "generalState",
+            "depth": 1,
+            "element": null,
+            "index": 15,
+            "issues": [],
+            "operands": [
+              "/GS1"
+            ],
+            "operator": "gs",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 109,
+              "start": 102
+            },
+            "text": null
+          },
+          {
+            "category": "color",
+            "depth": 1,
+            "element": null,
+            "index": 16,
+            "issues": [],
+            "operands": [
+              "/CS0"
+            ],
+            "operator": "cs",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 117,
+              "start": 110
+            },
+            "text": null
+          },
+          {
+            "category": "color",
+            "depth": 1,
+            "element": null,
+            "index": 17,
+            "issues": [
+              {
+                "code": "ColorSpace",
+                "message": "sc is meant for device, CIE-based and Indexed color spaces; with ICCBased use scN",
+                "op": 17,
+                "severity": "info",
+                "source": null,
+                "span": null
+              }
+            ],
+            "operands": [
+              "0.1",
+              "0.2",
+              "0.3"
+            ],
+            "operator": "sc",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 132,
+              "start": 118
+            },
+            "text": null
+          },
+          {
+            "category": "textObject",
+            "depth": 1,
+            "element": null,
+            "index": 18,
+            "issues": [],
+            "operands": [],
+            "operator": "BT",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 135,
+              "start": 133
+            },
+            "text": null
+          },
+          {
+            "category": "textState",
+            "depth": 2,
+            "element": null,
+            "index": 19,
+            "issues": [],
+            "operands": [
+              "/F1",
+              "24"
+            ],
+            "operator": "Tf",
+            "resource": {
+              "generation": 0,
+              "num": 20
+            },
+            "source": 0,
+            "span": {
+              "end": 145,
+              "start": 136
+            },
+            "text": null
+          },
+          {
+            "category": "textPositioning",
+            "depth": 2,
+            "element": null,
+            "index": 20,
+            "issues": [],
+            "operands": [
+              "72",
+              "700"
+            ],
+            "operator": "Td",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 155,
+              "start": 146
+            },
+            "text": null
+          },
+          {
+            "category": "textShowing",
+            "depth": 2,
+            "element": {
+              "bbox": {
+                "x0": 72.0,
+                "x1": 126.672,
+                "y0": 695.2,
+                "y1": 719.2
+              },
+              "hidden": false,
+              "kind": "text",
+              "op": 21
+            },
+            "index": 21,
+            "issues": [],
+            "operands": [
+              "(Hello)"
+            ],
+            "operator": "Tj",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 166,
+              "start": 156
+            },
+            "text": "Hello"
+          },
+          {
+            "category": "textShowing",
+            "depth": 2,
+            "element": {
+              "bbox": {
+                "x0": 126.672,
+                "x1": 195.336,
+                "y0": 695.2,
+                "y1": 719.2
+              },
+              "hidden": false,
+              "kind": "text",
+              "op": 22
+            },
+            "index": 22,
+            "issues": [],
+            "operands": [
+              "[(W) -250 (orld)]"
+            ],
+            "operator": "TJ",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 187,
+              "start": 167
+            },
+            "text": "W orld"
+          },
+          {
+            "category": "textObject",
+            "depth": 1,
+            "element": null,
+            "index": 23,
+            "issues": [],
+            "operands": [],
+            "operator": "ET",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 190,
+              "start": 188
+            },
+            "text": null
+          },
+          {
+            "category": "textObject",
+            "depth": 1,
+            "element": null,
+            "index": 24,
+            "issues": [],
+            "operands": [],
+            "operator": "BT",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 193,
+              "start": 191
+            },
+            "text": null
+          },
+          {
+            "category": "textState",
+            "depth": 2,
+            "element": null,
+            "index": 25,
+            "issues": [],
+            "operands": [
+              "/F2",
+              "12"
+            ],
+            "operator": "Tf",
+            "resource": {
+              "generation": 0,
+              "num": 21
+            },
+            "source": 0,
+            "span": {
+              "end": 203,
+              "start": 194
+            },
+            "text": null
+          },
+          {
+            "category": "textState",
+            "depth": 2,
+            "element": null,
+            "index": 26,
+            "issues": [],
+            "operands": [
+              "3"
+            ],
+            "operator": "Tr",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 208,
+              "start": 204
+            },
+            "text": null
+          },
+          {
+            "category": "textPositioning",
+            "depth": 2,
+            "element": null,
+            "index": 27,
+            "issues": [],
+            "operands": [
+              "1",
+              "0",
+              "0",
+              "1",
+              "72",
+              "650"
+            ],
+            "operator": "Tm",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 226,
+              "start": 209
+            },
+            "text": null
+          },
+          {
+            "category": "textShowing",
+            "depth": 2,
+            "element": {
+              "bbox": {
+                "x0": 72.0,
+                "x1": 85.2,
+                "y0": 647.6,
+                "y1": 660.8
+              },
+              "hidden": true,
+              "kind": "text",
+              "op": 28
+            },
+            "index": 28,
+            "issues": [],
+            "operands": [
+              "<00410042>"
+            ],
+            "operator": "Tj",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 240,
+              "start": 227
+            },
+            "text": "AB"
+          },
+          {
+            "category": "textObject",
+            "depth": 1,
+            "element": null,
+            "index": 29,
+            "issues": [],
+            "operands": [],
+            "operator": "ET",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 243,
+              "start": 241
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 0,
+            "element": null,
+            "index": 30,
+            "issues": [],
+            "operands": [],
+            "operator": "Q",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 245,
+              "start": 244
+            },
+            "text": null
+          },
+          {
+            "category": "markedContent",
+            "depth": 0,
+            "element": null,
+            "index": 31,
+            "issues": [],
+            "operands": [
+              "/P",
+              "<< /MCID 0 >>"
+            ],
+            "operator": "BDC",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 264,
+              "start": 246
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 1,
+            "element": null,
+            "index": 32,
+            "issues": [],
+            "operands": [],
+            "operator": "q",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 266,
+              "start": 265
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 2,
+            "element": null,
+            "index": 33,
+            "issues": [],
+            "operands": [
+              "100",
+              "0",
+              "0",
+              "50",
+              "300",
+              "400"
+            ],
+            "operator": "cm",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 288,
+              "start": 267
+            },
+            "text": null
+          },
+          {
+            "category": "xObject",
+            "depth": 2,
+            "element": {
+              "bbox": {
+                "x0": 300.0,
+                "x1": 400.0,
+                "y0": 400.0,
+                "y1": 450.0
+              },
+              "hidden": false,
+              "kind": "image",
+              "op": 34
+            },
+            "index": 34,
+            "issues": [],
+            "operands": [
+              "/Im1"
+            ],
+            "operator": "Do",
+            "resource": {
+              "generation": 0,
+              "num": 30
+            },
+            "source": 0,
+            "span": {
+              "end": 296,
+              "start": 289
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 1,
+            "element": null,
+            "index": 35,
+            "issues": [],
+            "operands": [],
+            "operator": "Q",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 298,
+              "start": 297
+            },
+            "text": null
+          },
+          {
+            "category": "markedContent",
+            "depth": 0,
+            "element": null,
+            "index": 36,
+            "issues": [],
+            "operands": [],
+            "operator": "EMC",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 302,
+              "start": 299
+            },
+            "text": null
+          },
+          {
+            "category": "markedContent",
+            "depth": 0,
+            "element": null,
+            "index": 37,
+            "issues": [],
+            "operands": [
+              "/OC",
+              "/MC0"
+            ],
+            "operator": "BDC",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 315,
+              "start": 303
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 1,
+            "element": null,
+            "index": 38,
+            "issues": [],
+            "operands": [],
+            "operator": "q",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 317,
+              "start": 316
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 2,
+            "element": null,
+            "index": 39,
+            "issues": [],
+            "operands": [
+              "1",
+              "0",
+              "0",
+              "1",
+              "100",
+              "100"
+            ],
+            "operator": "cm",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 336,
+              "start": 318
+            },
+            "text": null
+          },
+          {
+            "category": "xObject",
+            "depth": 2,
+            "element": {
+              "bbox": {
+                "x0": 100.0,
+                "x1": 201.0,
+                "y0": 100.0,
+                "y1": 201.0
+              },
+              "hidden": false,
+              "kind": "form",
+              "op": 40
+            },
+            "index": 40,
+            "issues": [],
+            "operands": [
+              "/Fm1"
+            ],
+            "operator": "Do",
+            "resource": {
+              "generation": 0,
+              "num": 31
+            },
+            "source": 0,
+            "span": {
+              "end": 344,
+              "start": 337
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 1,
+            "element": null,
+            "index": 41,
+            "issues": [],
+            "operands": [],
+            "operator": "Q",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 346,
+              "start": 345
+            },
+            "text": null
+          },
+          {
+            "category": "markedContent",
+            "depth": 0,
+            "element": null,
+            "index": 42,
+            "issues": [],
+            "operands": [],
+            "operator": "EMC",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 350,
+              "start": 347
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 0,
+            "element": null,
+            "index": 43,
+            "issues": [],
+            "operands": [],
+            "operator": "q",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 352,
+              "start": 351
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 1,
+            "element": null,
+            "index": 44,
+            "issues": [],
+            "operands": [
+              "20",
+              "0",
+              "0",
+              "20",
+              "400",
+              "600"
+            ],
+            "operator": "cm",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 373,
+              "start": 353
+            },
+            "text": null
+          },
+          {
+            "category": "inlineImage",
+            "depth": 1,
+            "element": {
+              "bbox": {
+                "x0": 400.0,
+                "x1": 420.0,
+                "y0": 600.0,
+                "y1": 620.0
+              },
+              "hidden": false,
+              "kind": "inlineImage",
+              "op": 45
+            },
+            "index": 45,
+            "issues": [],
+            "operands": [
+              "<< /W 2 /H 2 /CS /RGB /BPC 8 >>",
+              "ID … 12 bytes … EI"
+            ],
+            "operator": "BI",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 421,
+              "start": 374
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 0,
+            "element": null,
+            "index": 46,
+            "issues": [],
+            "operands": [],
+            "operator": "Q",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 423,
+              "start": 422
+            },
+            "text": null
+          },
+          {
+            "category": "compatibility",
+            "depth": 0,
+            "element": null,
+            "index": 47,
+            "issues": [],
+            "operands": [],
+            "operator": "BX",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 426,
+              "start": 424
+            },
+            "text": null
+          },
+          {
+            "category": "unknown",
+            "depth": 0,
+            "element": null,
+            "index": 48,
+            "issues": [
+              {
+                "code": "UnknownOperator",
+                "message": "unknown operator foo (ignored inside BX … EX)",
+                "op": 48,
+                "severity": "info",
+                "source": null,
+                "span": null
+              }
+            ],
+            "operands": [
+              "1",
+              "2"
+            ],
+            "operator": "foo",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 434,
+              "start": 427
+            },
+            "text": null
+          },
+          {
+            "category": "compatibility",
+            "depth": 0,
+            "element": null,
+            "index": 49,
+            "issues": [],
+            "operands": [],
+            "operator": "EX",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 437,
+              "start": 435
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 0,
+            "element": null,
+            "index": 50,
+            "issues": [],
+            "operands": [],
+            "operator": "q",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 439,
+              "start": 438
+            },
+            "text": null
+          },
+          {
+            "category": "pathConstruction",
+            "depth": 1,
+            "element": null,
+            "index": 51,
+            "issues": [],
+            "operands": [
+              "0",
+              "0",
+              "612",
+              "792"
+            ],
+            "operator": "re",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 454,
+              "start": 440
+            },
+            "text": null
+          },
+          {
+            "category": "clipping",
+            "depth": 1,
+            "element": null,
+            "index": 52,
+            "issues": [],
+            "operands": [],
+            "operator": "W",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 456,
+              "start": 455
+            },
+            "text": null
+          },
+          {
+            "category": "pathPainting",
+            "depth": 1,
+            "element": {
+              "bbox": {
+                "x0": 0.0,
+                "x1": 612.0,
+                "y0": 0.0,
+                "y1": 792.0
+              },
+              "hidden": false,
+              "kind": "clip",
+              "op": 53
+            },
+            "index": 53,
+            "issues": [],
+            "operands": [],
+            "operator": "n",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 458,
+              "start": 457
+            },
+            "text": null
+          },
+          {
+            "category": "shading",
+            "depth": 1,
+            "element": {
+              "bbox": {
+                "x0": 0.0,
+                "x1": 612.0,
+                "y0": 0.0,
+                "y1": 792.0
+              },
+              "hidden": false,
+              "kind": "shading",
+              "op": 54
+            },
+            "index": 54,
+            "issues": [],
+            "operands": [
+              "/Sh1"
+            ],
+            "operator": "sh",
+            "resource": {
+              "generation": 0,
+              "num": 33
+            },
+            "source": 0,
+            "span": {
+              "end": 466,
+              "start": 459
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 0,
+            "element": null,
+            "index": 55,
+            "issues": [],
+            "operands": [],
+            "operator": "Q",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 468,
+              "start": 467
+            },
+            "text": null
+          }
+        ],
+        "offset": 0,
+        "total": 56,
+        "type": "ops"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "bbox": {
+              "x0": 50.0,
+              "x1": 250.0,
+              "y0": 50.0,
+              "y1": 150.0
+            },
+            "hidden": false,
+            "kind": "fill",
+            "op": 4
+          },
+          {
+            "bbox": {
+              "x0": 59.0,
+              "x1": 241.0,
+              "y0": 59.0,
+              "y1": 141.0
+            },
+            "hidden": false,
+            "kind": "stroke",
+            "op": 9
+          },
+          {
+            "bbox": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 720.0
+            },
+            "hidden": false,
+            "kind": "clip",
+            "op": 14
+          },
+          {
+            "bbox": {
+              "x0": 72.0,
+              "x1": 126.672,
+              "y0": 695.2,
+              "y1": 719.2
+            },
+            "hidden": false,
+            "kind": "text",
+            "op": 21
+          },
+          {
+            "bbox": {
+              "x0": 126.672,
+              "x1": 195.336,
+              "y0": 695.2,
+              "y1": 719.2
+            },
+            "hidden": false,
+            "kind": "text",
+            "op": 22
+          },
+          {
+            "bbox": {
+              "x0": 72.0,
+              "x1": 85.2,
+              "y0": 647.6,
+              "y1": 660.8
+            },
+            "hidden": true,
+            "kind": "text",
+            "op": 28
+          },
+          {
+            "bbox": {
+              "x0": 300.0,
+              "x1": 400.0,
+              "y0": 400.0,
+              "y1": 450.0
+            },
+            "hidden": false,
+            "kind": "image",
+            "op": 34
+          },
+          {
+            "bbox": {
+              "x0": 100.0,
+              "x1": 201.0,
+              "y0": 100.0,
+              "y1": 201.0
+            },
+            "hidden": false,
+            "kind": "form",
+            "op": 40
+          },
+          {
+            "bbox": {
+              "x0": 400.0,
+              "x1": 420.0,
+              "y0": 600.0,
+              "y1": 620.0
+            },
+            "hidden": false,
+            "kind": "inlineImage",
+            "op": 45
+          },
+          {
+            "bbox": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            },
+            "hidden": false,
+            "kind": "clip",
+            "op": 53
+          },
+          {
+            "bbox": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            },
+            "hidden": false,
+            "kind": "shading",
+            "op": 54
+          }
+        ],
+        "offset": 0,
+        "total": 11,
+        "type": "elements"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "code": "ColorSpace",
+            "message": "sc is meant for device, CIE-based and Indexed color spaces; with ICCBased use scN",
+            "op": 17,
+            "severity": "info",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "UnknownOperator",
+            "message": "unknown operator foo (ignored inside BX … EX)",
+            "op": 48,
+            "severity": "info",
+            "source": null,
+            "span": null
+          }
+        ],
+        "offset": 0,
+        "total": 2,
+        "type": "contentIssues"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "after": {
+          "blend": "Multiply",
+          "char_spacing": 0.0,
+          "clip": {
+            "x0": 0.0,
+            "x1": 612.0,
+            "y0": 0.0,
+            "y1": 720.0
+          },
+          "ctm": [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          "current_point": null,
+          "dash": [],
+          "dash_phase": 0.0,
+          "ext_gstates": [
+            "GS1"
+          ],
+          "fill": {
+            "components": [
+              0.1,
+              0.2,
+              0.3
+            ],
+            "family": "ICCBased",
+            "pattern": null,
+            "space": "CS0"
+          },
+          "fill_alpha": 0.5,
+          "flatness": 1.0,
+          "font": {
+            "approximate": false,
+            "base_font": "Helvetica",
+            "id": {
+              "generation": 0,
+              "num": 20
+            },
+            "name": "F1",
+            "subtype": "Type1"
+          },
+          "font_size": 24.0,
+          "horizontal_scale": 100.0,
+          "in_text": true,
+          "intent": "RelativeColorimetric",
+          "leading": 0.0,
+          "line_cap": 0,
+          "line_join": 0,
+          "line_matrix": [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            72.0,
+            700.0
+          ],
+          "line_width": 3.0,
+          "marked": [],
+          "miter_limit": 10.0,
+          "path": null,
+          "render_mode": 0,
+          "rise": 0.0,
+          "saved": 1,
+          "soft_mask": null,
+          "stroke": {
+            "components": [
+              0.0
+            ],
+            "family": "DeviceGray",
+            "pattern": null,
+            "space": "DeviceGray"
+          },
+          "stroke_alpha": 0.5,
+          "text_matrix": [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            195.336,
+            700.0
+          ],
+          "word_spacing": 0.0
+        },
+        "before": {
+          "blend": "Multiply",
+          "char_spacing": 0.0,
+          "clip": {
+            "x0": 0.0,
+            "x1": 612.0,
+            "y0": 0.0,
+            "y1": 720.0
+          },
+          "ctm": [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          "current_point": null,
+          "dash": [],
+          "dash_phase": 0.0,
+          "ext_gstates": [
+            "GS1"
+          ],
+          "fill": {
+            "components": [
+              0.1,
+              0.2,
+              0.3
+            ],
+            "family": "ICCBased",
+            "pattern": null,
+            "space": "CS0"
+          },
+          "fill_alpha": 0.5,
+          "flatness": 1.0,
+          "font": {
+            "approximate": false,
+            "base_font": "Helvetica",
+            "id": {
+              "generation": 0,
+              "num": 20
+            },
+            "name": "F1",
+            "subtype": "Type1"
+          },
+          "font_size": 24.0,
+          "horizontal_scale": 100.0,
+          "in_text": true,
+          "intent": "RelativeColorimetric",
+          "leading": 0.0,
+          "line_cap": 0,
+          "line_join": 0,
+          "line_matrix": [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            72.0,
+            700.0
+          ],
+          "line_width": 3.0,
+          "marked": [],
+          "miter_limit": 10.0,
+          "path": null,
+          "render_mode": 0,
+          "rise": 0.0,
+          "saved": 1,
+          "soft_mask": null,
+          "stroke": {
+            "components": [
+              0.0
+            ],
+            "family": "DeviceGray",
+            "pattern": null,
+            "space": "DeviceGray"
+          },
+          "stroke_alpha": 0.5,
+          "text_matrix": [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            126.672,
+            700.0
+          ],
+          "word_spacing": 0.0
+        },
+        "description": "show text, allowing individual glyph positioning",
+        "index": 22,
+        "operator": "TJ",
+        "type": "opState"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "notFound",
+        "message": "no operation 999 (the content has 56)"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "approximate": false,
+        "bounds": {
+          "x0": 0.0,
+          "x1": 612.0,
+          "y0": 0.0,
+          "y1": 792.0
+        },
+        "content": {
+          "index": 1,
+          "kind": "page"
+        },
+        "counts": [
+          {
+            "category": "generalState",
+            "count": 1
+          },
+          {
+            "category": "specialState",
+            "count": 7
+          },
+          {
+            "category": "pathConstruction",
+            "count": 4
+          },
+          {
+            "category": "pathPainting",
+            "count": 2
+          },
+          {
+            "category": "clipping",
+            "count": 1
+          },
+          {
+            "category": "textObject",
+            "count": 3
+          },
+          {
+            "category": "textState",
+            "count": 2
+          },
+          {
+            "category": "textShowing",
+            "count": 2
+          },
+          {
+            "category": "color",
+            "count": 5
+          },
+          {
+            "category": "xObject",
+            "count": 1
+          },
+          {
+            "category": "markedContent",
+            "count": 3
+          },
+          {
+            "category": "unknown",
+            "count": 1
+          }
+        ],
+        "elements": 1,
+        "errors": 12,
+        "has_resources": true,
+        "id": {
+          "generation": 0,
+          "num": 4
+        },
+        "issues": 21,
+        "issues_dropped": 0,
+        "kind": "page",
+        "ops": 32,
+        "resources": null,
+        "sources": [
+          {
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 11
+            },
+            "len": 200
+          }
+        ],
+        "truncated": false,
+        "type": "content",
+        "warnings": 9
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "code": "Unbalanced",
+            "message": "2 q without Q at the end",
+            "op": null,
+            "severity": "warning",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "Unbalanced",
+            "message": "BT without ET at the end",
+            "op": null,
+            "severity": "warning",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "Unbalanced",
+            "message": "Q without a matching q",
+            "op": 0,
+            "severity": "error",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "Placement",
+            "message": "Tj outside a text object (BT … ET)",
+            "op": 1,
+            "severity": "error",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "NoFont",
+            "message": "text shown before a font is set (Tf)",
+            "op": 1,
+            "severity": "error",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "UndefinedResource",
+            "message": "/F9 is not in /Resources /Font",
+            "op": 3,
+            "severity": "error",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "NoFont",
+            "message": "text shown before a font is set (Tf)",
+            "op": 4,
+            "severity": "error",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "Placement",
+            "message": "q inside a text object (BT … ET)",
+            "op": 5,
+            "severity": "warning",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "Placement",
+            "message": "cm inside a text object (BT … ET)",
+            "op": 6,
+            "severity": "warning",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "Placement",
+            "message": "Q inside a text object (BT … ET)",
+            "op": 7,
+            "severity": "warning",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "Operands",
+            "message": "l takes 2 operand(s), 1 given",
+            "op": 10,
+            "severity": "error",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "Placement",
+            "message": "W / W* is not followed by a path-painting operator; the clip is ignored",
+            "op": 14,
+            "severity": "warning",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "Placement",
+            "message": "g inside a path object (between m / re and the painting operator)",
+            "op": 14,
+            "severity": "warning",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "Operands",
+            "message": "Tf takes 2 operand(s), 1 given",
+            "op": 16,
+            "severity": "error",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "Operands",
+            "message": "cm takes 6 operand(s), 7 given; the first 1 are ignored",
+            "op": 18,
+            "severity": "warning",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "ColorSpace",
+            "message": "the color space is Pattern: a pattern name is needed",
+            "op": 21,
+            "severity": "error",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "UndefinedResource",
+            "message": "/Im9 is not in /Resources /XObject",
+            "op": 22,
+            "severity": "error",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "UndefinedResource",
+            "message": "/GS9 is not in /Resources /ExtGState",
+            "op": 23,
+            "severity": "error",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "Unbalanced",
+            "message": "EMC without a matching BMC or BDC",
+            "op": 28,
+            "severity": "error",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "UnknownOperator",
+            "message": "unknown operator foo",
+            "op": 29,
+            "severity": "error",
+            "source": null,
+            "span": null
+          },
+          {
+            "code": "NoPath",
+            "message": "S without a current path: nothing is painted",
+            "op": 30,
+            "severity": "warning",
+            "source": null,
+            "span": null
+          }
+        ],
+        "offset": 0,
+        "total": 21,
+        "type": "contentIssues"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "category": "pathConstruction",
+            "depth": 0,
+            "element": null,
+            "index": 10,
+            "issues": [
+              {
+                "code": "Operands",
+                "message": "l takes 2 operand(s), 1 given",
+                "op": 10,
+                "severity": "error",
+                "source": null,
+                "span": null
+              }
+            ],
+            "operands": [
+              "3"
+            ],
+            "operator": "l",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 71,
+              "start": 68
+            },
+            "text": null
+          },
+          {
+            "category": "pathConstruction",
+            "depth": 0,
+            "element": null,
+            "index": 11,
+            "issues": [],
+            "operands": [
+              "0",
+              "0"
+            ],
+            "operator": "m",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 77,
+              "start": 72
+            },
+            "text": null
+          },
+          {
+            "category": "pathConstruction",
+            "depth": 0,
+            "element": null,
+            "index": 12,
+            "issues": [],
+            "operands": [
+              "10",
+              "10"
+            ],
+            "operator": "l",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 85,
+              "start": 78
+            },
+            "text": null
+          },
+          {
+            "category": "clipping",
+            "depth": 0,
+            "element": null,
+            "index": 13,
+            "issues": [],
+            "operands": [],
+            "operator": "W",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 87,
+              "start": 86
+            },
+            "text": null
+          },
+          {
+            "category": "color",
+            "depth": 0,
+            "element": null,
+            "index": 14,
+            "issues": [
+              {
+                "code": "Placement",
+                "message": "W / W* is not followed by a path-painting operator; the clip is ignored",
+                "op": 14,
+                "severity": "warning",
+                "source": null,
+                "span": null
+              },
+              {
+                "code": "Placement",
+                "message": "g inside a path object (between m / re and the painting operator)",
+                "op": 14,
+                "severity": "warning",
+                "source": null,
+                "span": null
+              }
+            ],
+            "operands": [
+              "0"
+            ],
+            "operator": "g",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 91,
+              "start": 88
+            },
+            "text": null
+          }
+        ],
+        "offset": 10,
+        "total": 32,
+        "type": "ops"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "after": {
+          "blend": "Normal",
+          "char_spacing": 0.0,
+          "clip": {
+            "x0": 0.0,
+            "x1": 612.0,
+            "y0": 0.0,
+            "y1": 792.0
+          },
+          "ctm": [
+            2.0,
+            3.0,
+            4.0,
+            5.0,
+            6.0,
+            7.0
+          ],
+          "current_point": null,
+          "dash": [],
+          "dash_phase": 0.0,
+          "ext_gstates": [],
+          "fill": {
+            "components": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "family": "DeviceRGB",
+            "pattern": null,
+            "space": "DeviceRGB"
+          },
+          "fill_alpha": 1.0,
+          "flatness": 1.0,
+          "font": null,
+          "font_size": 12.0,
+          "horizontal_scale": 100.0,
+          "in_text": false,
+          "intent": "RelativeColorimetric",
+          "leading": 0.0,
+          "line_cap": 0,
+          "line_join": 0,
+          "line_matrix": null,
+          "line_width": 1.0,
+          "marked": [],
+          "miter_limit": 10.0,
+          "path": null,
+          "render_mode": 0,
+          "rise": 0.0,
+          "saved": 0,
+          "soft_mask": null,
+          "stroke": {
+            "components": [
+              0.0
+            ],
+            "family": "DeviceGray",
+            "pattern": null,
+            "space": "DeviceGray"
+          },
+          "stroke_alpha": 1.0,
+          "text_matrix": null,
+          "word_spacing": 0.0
+        },
+        "before": {
+          "blend": "Normal",
+          "char_spacing": 0.0,
+          "clip": {
+            "x0": 0.0,
+            "x1": 612.0,
+            "y0": 0.0,
+            "y1": 792.0
+          },
+          "ctm": [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          "current_point": null,
+          "dash": [],
+          "dash_phase": 0.0,
+          "ext_gstates": [],
+          "fill": {
+            "components": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "family": "DeviceRGB",
+            "pattern": null,
+            "space": "DeviceRGB"
+          },
+          "fill_alpha": 1.0,
+          "flatness": 1.0,
+          "font": null,
+          "font_size": 12.0,
+          "horizontal_scale": 100.0,
+          "in_text": false,
+          "intent": "RelativeColorimetric",
+          "leading": 0.0,
+          "line_cap": 0,
+          "line_join": 0,
+          "line_matrix": null,
+          "line_width": 1.0,
+          "marked": [],
+          "miter_limit": 10.0,
+          "path": null,
+          "render_mode": 0,
+          "rise": 0.0,
+          "saved": 0,
+          "soft_mask": null,
+          "stroke": {
+            "components": [
+              0.0
+            ],
+            "family": "DeviceGray",
+            "pattern": null,
+            "space": "DeviceGray"
+          },
+          "stroke_alpha": 1.0,
+          "text_matrix": null,
+          "word_spacing": 0.0
+        },
+        "description": "concatenate matrix to the current transformation matrix",
+        "index": 18,
+        "operator": "cm",
+        "type": "opState"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "approximate": false,
+        "bounds": {
+          "x0": 0.0,
+          "x1": 612.0,
+          "y0": 0.0,
+          "y1": 792.0
+        },
+        "content": {
+          "index": 2,
+          "kind": "page"
+        },
+        "counts": [
+          {
+            "category": "pathConstruction",
+            "count": 1
+          },
+          {
+            "category": "pathPainting",
+            "count": 1
+          },
+          {
+            "category": "color",
+            "count": 1
+          }
+        ],
+        "elements": 1,
+        "errors": 0,
+        "has_resources": true,
+        "id": {
+          "generation": 0,
+          "num": 5
+        },
+        "issues": 0,
+        "issues_dropped": 0,
+        "kind": "page",
+        "ops": 3,
+        "resources": null,
+        "sources": [
+          {
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 12
+            },
+            "len": 5
+          },
+          {
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 13
+            },
+            "len": 21
+          }
+        ],
+        "truncated": false,
+        "type": "content",
+        "warnings": 0
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "category": "color",
+            "depth": 0,
+            "element": null,
+            "index": 0,
+            "issues": [],
+            "operands": [
+              "0",
+              "0",
+              "1"
+            ],
+            "operator": "rg",
+            "resource": null,
+            "source": 1,
+            "span": {
+              "end": 3,
+              "start": 1
+            },
+            "text": null
+          },
+          {
+            "category": "pathConstruction",
+            "depth": 0,
+            "element": null,
+            "index": 1,
+            "issues": [],
+            "operands": [
+              "10",
+              "10",
+              "50",
+              "50"
+            ],
+            "operator": "re",
+            "resource": null,
+            "source": 1,
+            "span": {
+              "end": 18,
+              "start": 4
+            },
+            "text": null
+          },
+          {
+            "category": "pathPainting",
+            "depth": 0,
+            "element": {
+              "bbox": {
+                "x0": 10.0,
+                "x1": 60.0,
+                "y0": 10.0,
+                "y1": 60.0
+              },
+              "hidden": false,
+              "kind": "fill",
+              "op": 2
+            },
+            "index": 2,
+            "issues": [],
+            "operands": [],
+            "operator": "f",
+            "resource": null,
+            "source": 1,
+            "span": {
+              "end": 20,
+              "start": 19
+            },
+            "text": null
+          }
+        ],
+        "offset": 0,
+        "total": 3,
+        "type": "ops"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "approximate": false,
+        "bounds": {
+          "x0": 0.0,
+          "x1": 100.0,
+          "y0": 0.0,
+          "y1": 100.0
+        },
+        "content": {
+          "id": {
+            "generation": 0,
+            "num": 31
+          },
+          "kind": "stream"
+        },
+        "counts": [
+          {
+            "category": "pathConstruction",
+            "count": 1
+          },
+          {
+            "category": "pathPainting",
+            "count": 1
+          },
+          {
+            "category": "textObject",
+            "count": 2
+          },
+          {
+            "category": "textState",
+            "count": 1
+          },
+          {
+            "category": "textPositioning",
+            "count": 1
+          },
+          {
+            "category": "textShowing",
+            "count": 1
+          }
+        ],
+        "elements": 2,
+        "errors": 0,
+        "has_resources": true,
+        "id": {
+          "generation": 0,
+          "num": 31
+        },
+        "issues": 0,
+        "issues_dropped": 0,
+        "kind": "form",
+        "ops": 7,
+        "resources": null,
+        "sources": [
+          {
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 31
+            },
+            "len": 51
+          }
+        ],
+        "truncated": false,
+        "type": "content",
+        "warnings": 0
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "category": "textObject",
+            "depth": 0,
+            "element": null,
+            "index": 0,
+            "issues": [],
+            "operands": [],
+            "operator": "BT",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 2,
+              "start": 0
+            },
+            "text": null
+          },
+          {
+            "category": "textState",
+            "depth": 1,
+            "element": null,
+            "index": 1,
+            "issues": [],
+            "operands": [
+              "/F1",
+              "10"
+            ],
+            "operator": "Tf",
+            "resource": {
+              "generation": 0,
+              "num": 20
+            },
+            "source": 0,
+            "span": {
+              "end": 12,
+              "start": 3
+            },
+            "text": null
+          },
+          {
+            "category": "textPositioning",
+            "depth": 1,
+            "element": null,
+            "index": 2,
+            "issues": [],
+            "operands": [
+              "5",
+              "5"
+            ],
+            "operator": "Td",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 19,
+              "start": 13
+            },
+            "text": null
+          },
+          {
+            "category": "textShowing",
+            "depth": 1,
+            "element": {
+              "bbox": {
+                "x0": 5.0,
+                "x1": 35.56,
+                "y0": 3.0,
+                "y1": 13.0
+              },
+              "hidden": false,
+              "kind": "text",
+              "op": 3
+            },
+            "index": 3,
+            "issues": [],
+            "operands": [
+              "(in form)"
+            ],
+            "operator": "Tj",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 32,
+              "start": 20
+            },
+            "text": "in form"
+          },
+          {
+            "category": "textObject",
+            "depth": 0,
+            "element": null,
+            "index": 4,
+            "issues": [],
+            "operands": [],
+            "operator": "ET",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 35,
+              "start": 33
+            },
+            "text": null
+          },
+          {
+            "category": "pathConstruction",
+            "depth": 0,
+            "element": null,
+            "index": 5,
+            "issues": [],
+            "operands": [
+              "0",
+              "0",
+              "50",
+              "50"
+            ],
+            "operator": "re",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 48,
+              "start": 36
+            },
+            "text": null
+          },
+          {
+            "category": "pathPainting",
+            "depth": 0,
+            "element": {
+              "bbox": {
+                "x0": -0.5,
+                "x1": 50.5,
+                "y0": -0.5,
+                "y1": 50.5
+              },
+              "hidden": false,
+              "kind": "stroke",
+              "op": 6
+            },
+            "index": 6,
+            "issues": [],
+            "operands": [],
+            "operator": "S",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 50,
+              "start": 49
+            },
+            "text": null
+          }
+        ],
+        "offset": 0,
+        "total": 7,
+        "type": "ops"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "notFound",
+        "message": "20 0 obj is not a stream (dictionary)"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "notFound",
+        "message": "no page 99; the document has 3"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "approximate": false,
+        "bounds": {
+          "x0": 0.0,
+          "x1": 612.0,
+          "y0": 0.0,
+          "y1": 792.0
+        },
+        "content": {
+          "index": 3,
+          "kind": "page"
+        },
+        "counts": [
+          {
+            "category": "specialState",
+            "count": 2
+          },
+          {
+            "category": "pathConstruction",
+            "count": 1
+          },
+          {
+            "category": "pathPainting",
+            "count": 1
+          },
+          {
+            "category": "color",
+            "count": 1
+          }
+        ],
+        "elements": 1,
+        "errors": 0,
+        "has_resources": true,
+        "id": {
+          "generation": 0,
+          "num": 13
+        },
+        "issues": 0,
+        "issues_dropped": 0,
+        "kind": "page",
+        "ops": 5,
+        "resources": null,
+        "sources": [
+          {
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 18
+            },
+            "len": 11
+          },
+          {
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 19
+            },
+            "len": 19
+          }
+        ],
+        "truncated": false,
+        "type": "content",
+        "warnings": 0
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "category": "specialState",
+            "depth": 0,
+            "element": null,
+            "index": 0,
+            "issues": [],
+            "operands": [],
+            "operator": "q",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 1,
+              "start": 0
+            },
+            "text": null
+          },
+          {
+            "category": "color",
+            "depth": 1,
+            "element": null,
+            "index": 1,
+            "issues": [],
+            "operands": [
+              "1",
+              "0",
+              "0"
+            ],
+            "operator": "rg",
+            "resource": null,
+            "source": 0,
+            "span": {
+              "end": 10,
+              "start": 2
+            },
+            "text": null
+          },
+          {
+            "category": "pathConstruction",
+            "depth": 1,
+            "element": null,
+            "index": 2,
+            "issues": [],
+            "operands": [
+              "0",
+              "0",
+              "100",
+              "100"
+            ],
+            "operator": "re",
+            "resource": null,
+            "source": 1,
+            "span": {
+              "end": 14,
+              "start": 0
+            },
+            "text": null
+          },
+          {
+            "category": "pathPainting",
+            "depth": 1,
+            "element": {
+              "bbox": {
+                "x0": 0.0,
+                "x1": 100.0,
+                "y0": 0.0,
+                "y1": 100.0
+              },
+              "hidden": false,
+              "kind": "fill",
+              "op": 3
+            },
+            "index": 3,
+            "issues": [],
+            "operands": [],
+            "operator": "f",
+            "resource": null,
+            "source": 1,
+            "span": {
+              "end": 16,
+              "start": 15
+            },
+            "text": null
+          },
+          {
+            "category": "specialState",
+            "depth": 0,
+            "element": null,
+            "index": 4,
+            "issues": [],
+            "operands": [],
+            "operator": "Q",
+            "resource": null,
+            "source": 1,
+            "span": {
+              "end": 18,
+              "start": 17
+            },
+            "text": null
+          }
+        ],
+        "offset": 0,
+        "total": 5,
+        "type": "ops"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [],
+        "offset": 0,
+        "total": 0,
+        "type": "ops"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
         "catalog": {
           "generation": 0,
           "num": 1
@@ -5370,6 +8158,12 @@
             "name": "model.pdf",
             "path": null,
             "size": 7314
+          },
+          {
+            "doc": 10,
+            "name": "content.pdf",
+            "path": null,
+            "size": 3663
           }
         ],
         "type": "docs"
@@ -5454,6 +8248,12 @@
             "name": "model.pdf",
             "path": null,
             "size": 7314
+          },
+          {
+            "doc": 10,
+            "name": "content.pdf",
+            "path": null,
+            "size": 3663
           }
         ],
         "type": "docs"

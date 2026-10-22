@@ -1,6 +1,6 @@
 // Generated from crates/pdfi-api by `UPDATE_TS=1 cargo test -p pdfi-api`. Do not edit.
 
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 export type DocId = number;
 export type JobId = number;
@@ -344,6 +344,150 @@ type_name: string | null,
  */
 paths: Array<string>, };
 
+export type ContentRef = { "kind": "page", index: number, } | { "kind": "stream", id: ObjRef, };
+
+export type ContentKind = "page" | "form" | "pattern" | "other";
+
+export type ContentSourceInfo = { id: ObjRef | null, 
+/**
+ * Decoded bytes parsed.
+ */
+len: number, error: string | null, };
+
+export type CategoryCount = { 
+/**
+ * Operator group: `pathConstruction`, `textShowing`, ...
+ */
+category: string, count: number, };
+
+export type ContentSummary = { content: ContentRef, kind: ContentKind, 
+/**
+ * The page or stream object.
+ */
+id: ObjRef, 
+/**
+ * The streams parsed, in order (several for a `/Contents` array).
+ */
+sources: Array<ContentSourceInfo>, ops: number, 
+/**
+ * Stopped at the operation limit.
+ */
+truncated: boolean, 
+/**
+ * Operations that paint something (see `ContentElements`).
+ */
+elements: number, issues: number, errors: number, warnings: number, 
+/**
+ * Issues beyond the kept ones.
+ */
+issues_dropped: number, 
+/**
+ * The page's visible area, or the form's `/BBox`; the initial clip.
+ */
+bounds: Rect | null, 
+/**
+ * The resource dictionary, when it is an indirect object.
+ */
+resources: ObjRef | null, has_resources: boolean, 
+/**
+ * Some text bounding boxes rest on guessed glyph widths.
+ */
+approximate: boolean, counts: Array<CategoryCount>, };
+
+export type ContentIssue = { op: number | null, severity: Severity, code: string, message: string, 
+/**
+ * For syntax problems: the stream and the bytes in its decoded data.
+ */
+source: number | null, span: Span | null, };
+
+export type ElementView = { op: number, 
+/**
+ * `fill`, `stroke`, `fillStroke`, `clip`, `text`, `image`,
+ * `inlineImage`, `form`, `shading`.
+ */
+kind: string, bbox: Rect, 
+/**
+ * Outside the clipping path, or invisible text.
+ */
+hidden: boolean, };
+
+export type OpView = { index: number, operator: string, 
+/**
+ * Operator group (see [`CategoryCount`]); `unknown` for unknown ones.
+ */
+category: string, 
+/**
+ * In PDF syntax, shortened.
+ */
+operands: Array<string>, 
+/**
+ * Nesting of `q`, `BT` and marked content; closers at their opener's.
+ */
+depth: number, 
+/**
+ * The stream it was read from and its bytes in that stream's decoded
+ * data.
+ */
+source: number | null, span: Span | null, 
+/**
+ * Decoded text of text-showing operators, when the font tells it.
+ */
+text: string | null, 
+/**
+ * The resource it names (`Tf`, `Do`, `gs`, `sh`, `cs`, `scn`, `BDC`),
+ * when it is an indirect object.
+ */
+resource: ObjRef | null, element: ElementView | null, issues: Array<ContentIssue>, };
+
+export type ColorView = { 
+/**
+ * As set: `DeviceRGB`, `Pattern`, or a `/ColorSpace` resource name.
+ */
+space: string, family: string, components: Array<number>, pattern: string | null, };
+
+export type FontView = { 
+/**
+ * Resource name (`ExtGState` when set by `gs`).
+ */
+name: string, id: ObjRef | null, base_font: string | null, subtype: string | null, 
+/**
+ * Widths are partly guessed.
+ */
+approximate: boolean, };
+
+export type GraphicsState = { 
+/**
+ * `[a b c d e f]`.
+ */
+ctm: Array<number>, 
+/**
+ * Bounding box of the clipping path (`None`: not clipped).
+ */
+clip: Rect | null, line_width: number, line_cap: number, line_join: number, miter_limit: number, dash: Array<number>, dash_phase: number, intent: string, flatness: number, stroke: ColorView, fill: ColorView, stroke_alpha: number, fill_alpha: number, blend: string, soft_mask: string | null, ext_gstates: Array<string>, font: FontView | null, font_size: number, char_spacing: number, word_spacing: number, 
+/**
+ * Percent.
+ */
+horizontal_scale: number, leading: number, render_mode: number, rise: number, in_text: boolean, 
+/**
+ * Text matrix and text line matrix (inside a text object).
+ */
+text_matrix: Array<number> | null, line_matrix: Array<number> | null, 
+/**
+ * Saved states (`q` depth).
+ */
+saved: number, 
+/**
+ * Open marked-content tags, outermost first.
+ */
+marked: Array<string>, 
+/**
+ * Bounding box of the path being built, and its current point (user
+ * space).
+ */
+path: Rect | null, current_point: Array<number> | null, };
+
+export type OpState = { index: number, operator: string, description: string, before: GraphicsState, after: GraphicsState, };
+
 export type BytesInfo = { part: number, offset: number, len: number, 
 /**
  * Length of the whole data, when known without decoding all of it.
@@ -387,7 +531,7 @@ export type Request = { "op": "hello", protocol: number, } | { "op": "listDir", 
 /**
  * Ignore the cross-reference data and rebuild it by scanning.
  */
-recover: boolean, } | { "op": "docs" } | { "op": "close", doc: number, } | { "op": "summary", doc: number, } | { "op": "objects", doc: number, range: Range, } | { "op": "object", doc: number, id: ObjRef, } | { "op": "children", doc: number, path: NodePath, range: Range, } | { "op": "xref", doc: number, revision: number | null, range: Range, } | { "op": "diagnostics", doc: number, range: Range, } | { "op": "schema", doc: number, root: NodeRoot, } | { "op": "document", doc: number, } | { "op": "xmp", doc: number, range: Range, } | { "op": "pages", doc: number, range: Range, } | { "op": "page", doc: number, index: number, } | { "op": "pageIndex", doc: number, id: ObjRef, } | { "op": "annotations", doc: number, page: number, range: Range, } | { "op": "outline", doc: number, parent: ObjRef | null, range: Range, } | { "op": "fonts", doc: number, range: Range, } | { "op": "images", doc: number, range: Range, } | { "op": "referrers", doc: number, id: ObjRef, range: Range, } | { "op": "unreferenced", doc: number, range: Range, } | { "op": "rawBytes", doc: number, offset: number, len: number, } | { "op": "streamData", doc: number, id: ObjRef, 
+recover: boolean, } | { "op": "docs" } | { "op": "close", doc: number, } | { "op": "summary", doc: number, } | { "op": "objects", doc: number, range: Range, } | { "op": "object", doc: number, id: ObjRef, } | { "op": "children", doc: number, path: NodePath, range: Range, } | { "op": "xref", doc: number, revision: number | null, range: Range, } | { "op": "diagnostics", doc: number, range: Range, } | { "op": "schema", doc: number, root: NodeRoot, } | { "op": "document", doc: number, } | { "op": "xmp", doc: number, range: Range, } | { "op": "pages", doc: number, range: Range, } | { "op": "page", doc: number, index: number, } | { "op": "pageIndex", doc: number, id: ObjRef, } | { "op": "annotations", doc: number, page: number, range: Range, } | { "op": "outline", doc: number, parent: ObjRef | null, range: Range, } | { "op": "fonts", doc: number, range: Range, } | { "op": "images", doc: number, range: Range, } | { "op": "referrers", doc: number, id: ObjRef, range: Range, } | { "op": "unreferenced", doc: number, range: Range, } | { "op": "content", doc: number, content: ContentRef, } | { "op": "contentOps", doc: number, content: ContentRef, range: Range, } | { "op": "contentIssues", doc: number, content: ContentRef, range: Range, } | { "op": "contentElements", doc: number, content: ContentRef, range: Range, } | { "op": "opState", doc: number, content: ContentRef, index: number, } | { "op": "rawBytes", doc: number, offset: number, len: number, } | { "op": "streamData", doc: number, id: ObjRef, 
 /**
  * Decrypt and apply filters; otherwise the bytes as stored.
  */
@@ -395,7 +539,7 @@ decoded: boolean, offset: number, len: number, } | { "op": "startJob", doc: numb
 
 export type Response = { "ok": ResponseBody } | { "err": ApiError };
 
-export type ResponseBody = { "type": "hello" } & HelloInfo | { "type": "dir" } & DirListing | { "type": "doc" } & DocSummary | { "type": "docs", docs: Array<DocInfo>, } | { "type": "objects" } & Page<ObjectSummary> | { "type": "object" } & ObjectView | { "type": "children" } & Page<NodeView> | { "type": "xref" } & Page<XrefRow> | { "type": "diagnostics" } & Page<DiagnosticInfo> | { "type": "schema" } & ObjectSchema | { "type": "document" } & DocumentView | { "type": "xmp" } & XmpView | { "type": "pages" } & Page<PageSummary> | { "type": "pageDetail" } & PageDetail | { "type": "pageIndex", index: number | null, } | { "type": "annotations" } & Page<AnnotInfo> | { "type": "outline" } & Page<OutlineItem> | { "type": "fonts" } & Page<FontInfo> | { "type": "images" } & Page<ImageInfo> | { "type": "referrers" } & Page<Referrer> | { "type": "objRefs" } & Page<ObjRef> | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "batch", responses: Array<Response>, } | { "type": "empty" };
+export type ResponseBody = { "type": "hello" } & HelloInfo | { "type": "dir" } & DirListing | { "type": "doc" } & DocSummary | { "type": "docs", docs: Array<DocInfo>, } | { "type": "objects" } & Page<ObjectSummary> | { "type": "object" } & ObjectView | { "type": "children" } & Page<NodeView> | { "type": "xref" } & Page<XrefRow> | { "type": "diagnostics" } & Page<DiagnosticInfo> | { "type": "schema" } & ObjectSchema | { "type": "document" } & DocumentView | { "type": "xmp" } & XmpView | { "type": "pages" } & Page<PageSummary> | { "type": "pageDetail" } & PageDetail | { "type": "pageIndex", index: number | null, } | { "type": "annotations" } & Page<AnnotInfo> | { "type": "outline" } & Page<OutlineItem> | { "type": "fonts" } & Page<FontInfo> | { "type": "images" } & Page<ImageInfo> | { "type": "referrers" } & Page<Referrer> | { "type": "objRefs" } & Page<ObjRef> | { "type": "content" } & ContentSummary | { "type": "ops" } & Page<OpView> | { "type": "contentIssues" } & Page<ContentIssue> | { "type": "elements" } & Page<ElementView> | { "type": "opState" } & OpState | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "batch", responses: Array<Response>, } | { "type": "empty" };
 
 export type HelloInfo = { protocol: number, backend: string, version: string, 
 /**

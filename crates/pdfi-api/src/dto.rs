@@ -757,3 +757,191 @@ pub struct Referrer {
     /// Where in it: `/Resources/Font/F1`, ...
     pub paths: Vec<String>,
 }
+
+// ------------------------------------------------------------------ content
+
+/// A content: a page's `/Contents` (with its resources) or a stream (form
+/// XObject, tiling pattern, glyph procedure, appearance stream, ...).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ContentRef {
+    Page { index: u32 },
+    Stream { id: ObjRef },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub enum ContentKind {
+    Page,
+    Form,
+    /// Tiling pattern.
+    Pattern,
+    /// A stream of unknown use.
+    Other,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct ContentSourceInfo {
+    pub id: Option<ObjRef>,
+    /// Decoded bytes parsed.
+    pub len: u64,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct CategoryCount {
+    /// Operator group: `pathConstruction`, `textShowing`, ...
+    pub category: String,
+    pub count: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct ContentSummary {
+    pub content: ContentRef,
+    pub kind: ContentKind,
+    /// The page or stream object.
+    pub id: ObjRef,
+    /// The streams parsed, in order (several for a `/Contents` array).
+    pub sources: Vec<ContentSourceInfo>,
+    pub ops: u64,
+    /// Stopped at the operation limit.
+    pub truncated: bool,
+    /// Operations that paint something (see `ContentElements`).
+    pub elements: u64,
+    pub issues: u64,
+    pub errors: u64,
+    pub warnings: u64,
+    /// Issues beyond the kept ones.
+    pub issues_dropped: u64,
+    /// The page's visible area, or the form's `/BBox`; the initial clip.
+    pub bounds: Option<Rect>,
+    /// The resource dictionary, when it is an indirect object.
+    pub resources: Option<ObjRef>,
+    pub has_resources: bool,
+    /// Some text bounding boxes rest on guessed glyph widths.
+    pub approximate: bool,
+    pub counts: Vec<CategoryCount>,
+}
+
+/// A problem of a content: of one operation, or (`op: None`) of the whole.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct ContentIssue {
+    pub op: Option<u32>,
+    pub severity: Severity,
+    pub code: String,
+    pub message: String,
+    /// For syntax problems: the stream and the bytes in its decoded data.
+    pub source: Option<u32>,
+    pub span: Option<Span>,
+}
+
+/// What an operation paints, in the content's space (default user space for
+/// pages).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct ElementView {
+    pub op: u32,
+    /// `fill`, `stroke`, `fillStroke`, `clip`, `text`, `image`,
+    /// `inlineImage`, `form`, `shading`.
+    pub kind: String,
+    pub bbox: Rect,
+    /// Outside the clipping path, or invisible text.
+    pub hidden: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct OpView {
+    pub index: u32,
+    pub operator: String,
+    /// Operator group (see [`CategoryCount`]); `unknown` for unknown ones.
+    pub category: String,
+    /// In PDF syntax, shortened.
+    pub operands: Vec<String>,
+    /// Nesting of `q`, `BT` and marked content; closers at their opener's.
+    pub depth: u32,
+    /// The stream it was read from and its bytes in that stream's decoded
+    /// data.
+    pub source: Option<u32>,
+    pub span: Option<Span>,
+    /// Decoded text of text-showing operators, when the font tells it.
+    pub text: Option<String>,
+    /// The resource it names (`Tf`, `Do`, `gs`, `sh`, `cs`, `scn`, `BDC`),
+    /// when it is an indirect object.
+    pub resource: Option<ObjRef>,
+    pub element: Option<ElementView>,
+    pub issues: Vec<ContentIssue>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct ColorView {
+    /// As set: `DeviceRGB`, `Pattern`, or a `/ColorSpace` resource name.
+    pub space: String,
+    pub family: String,
+    pub components: Vec<f64>,
+    pub pattern: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct FontView {
+    /// Resource name (`ExtGState` when set by `gs`).
+    pub name: String,
+    pub id: Option<ObjRef>,
+    pub base_font: Option<String>,
+    pub subtype: Option<String>,
+    /// Widths are partly guessed.
+    pub approximate: bool,
+}
+
+/// The graphics and text state around one operation.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct GraphicsState {
+    /// `[a b c d e f]`.
+    pub ctm: Vec<f64>,
+    /// Bounding box of the clipping path (`None`: not clipped).
+    pub clip: Option<Rect>,
+    pub line_width: f64,
+    pub line_cap: i64,
+    pub line_join: i64,
+    pub miter_limit: f64,
+    pub dash: Vec<f64>,
+    pub dash_phase: f64,
+    pub intent: String,
+    pub flatness: f64,
+    pub stroke: ColorView,
+    pub fill: ColorView,
+    pub stroke_alpha: f64,
+    pub fill_alpha: f64,
+    pub blend: String,
+    pub soft_mask: Option<String>,
+    pub ext_gstates: Vec<String>,
+    pub font: Option<FontView>,
+    pub font_size: f64,
+    pub char_spacing: f64,
+    pub word_spacing: f64,
+    /// Percent.
+    pub horizontal_scale: f64,
+    pub leading: f64,
+    pub render_mode: i64,
+    pub rise: f64,
+    pub in_text: bool,
+    /// Text matrix and text line matrix (inside a text object).
+    pub text_matrix: Option<Vec<f64>>,
+    pub line_matrix: Option<Vec<f64>>,
+    /// Saved states (`q` depth).
+    pub saved: u32,
+    /// Open marked-content tags, outermost first.
+    pub marked: Vec<String>,
+    /// Bounding box of the path being built, and its current point (user
+    /// space).
+    pub path: Option<Rect>,
+    pub current_point: Option<Vec<f64>>,
+}
+
+/// The state an operation runs in and the state it leaves.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct OpState {
+    pub index: u32,
+    pub operator: String,
+    pub description: String,
+    pub before: GraphicsState,
+    pub after: GraphicsState,
+}

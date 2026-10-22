@@ -23,6 +23,7 @@ import { FontsPanel, ImagesPanel } from "./components/InventoryPanels";
 import { OutlinePanel } from "./components/OutlinePanel";
 import { PageList } from "./components/PageList";
 import { PageView } from "./components/PageView";
+import { ContentView } from "./components/ContentView";
 import { HexView } from "./components/HexView";
 import { Inspector } from "./components/Inspector";
 import { ObjectList } from "./components/ObjectList";
@@ -33,7 +34,7 @@ import { SummaryCard } from "./components/SummaryCard";
 import { XrefPanel } from "./components/XrefPanel";
 import { DocContext, type DocState } from "./doc";
 import { useJob } from "./jobs";
-import { NavContext, sameTarget, type Nav, type Selection, type Target } from "./nav";
+import { contentKey, NavContext, sameTarget, type Nav, type Selection, type Target } from "./nav";
 import type { DocId, Span } from "./protocol/generated";
 import { DEFAULT_TAB, useRouter, type Router } from "./route";
 
@@ -196,6 +197,7 @@ function DocView({ doc, router }: { doc: DocId; router: Router }) {
       doc,
       target,
       open,
+      update: (t: Target) => replace({ ...route, target: t }),
       back: router.back,
       canBack: router.canBack,
       showBytes: setHexSpan,
@@ -203,7 +205,7 @@ function DocView({ doc, router }: { doc: DocId; router: Router }) {
       selection,
       select: (s) => setPicked(s && { target, selection: s }),
     }),
-    [doc, target, open, router.back, router.canBack, hexSpan, selection],
+    [doc, target, open, replace, route, router.back, router.canBack, hexSpan, selection],
   );
 
   const docState: DocState | null = useMemo(
@@ -304,6 +306,8 @@ function DocView({ doc, router }: { doc: DocId; router: Router }) {
                 <DocumentPanel />
               ) : t.kind === "page" ? (
                 <PageView key={t.index} index={t.index} />
+              ) : t.kind === "content" ? (
+                <ContentView key={contentKey(t.content).join("/")} content={t.content} op={t.op} />
               ) : (
                 <Inspector />
               )}

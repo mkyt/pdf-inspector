@@ -90,6 +90,13 @@ export function PageView({ index }: { index: number }) {
             {q.data.id.num} {q.data.id.generation} obj
           </Button>
         )}
+        <Button
+          size="compact-xs"
+          variant="light"
+          onClick={() => nav.open({ kind: "content", content: { kind: "page", index }, op: null })}
+        >
+          Operations
+        </Button>
       </Group>
       {q.error && (
         <Alert color="red" p={6}>
@@ -103,6 +110,7 @@ export function PageView({ index }: { index: number }) {
 }
 
 function Detail({ p }: { p: PageDetail }) {
+  const nav = useNav();
   return (
     <>
       <Group gap={4}>
@@ -212,7 +220,16 @@ function Detail({ p }: { p: PageDetail }) {
         )}
       </Section>
 
-      <Section title={`Contents (${p.contents.length})`}>
+      <Section
+        title={`Contents (${p.contents.length})`}
+        right={
+          p.contents.length > 0 && (
+            <Anchor size="xs" onClick={() => nav.open({ kind: "content", content: { kind: "page", index: p.index }, op: null })}>
+              operations →
+            </Anchor>
+          )
+        }
+      >
         {p.contents.length === 0 ? (
           <Text size="xs" c="dimmed">
             No /Contents: the page is blank.

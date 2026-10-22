@@ -3,6 +3,12 @@ import type { Backend, Reply } from "./backend/backend";
 import type {
   AnnotInfo,
   BytesInfo,
+  ContentIssue,
+  ContentRef,
+  ContentSummary,
+  ElementView,
+  OpState,
+  OpView,
   DirListing,
   DocId,
   DocInfo,
@@ -119,6 +125,16 @@ export const api = {
     (await call(b, "referrers", { op: "referrers", doc, id, range })).body,
   unreferenced: async (b: Backend, doc: DocId, range: Range, signal?: AbortSignal): Promise<Page<ObjRef>> =>
     (await call(b, "objRefs", { op: "unreferenced", doc, range }, signal)).body,
+  content: async (b: Backend, doc: DocId, content: ContentRef): Promise<ContentSummary> =>
+    (await call(b, "content", { op: "content", doc, content })).body,
+  contentOps: async (b: Backend, doc: DocId, content: ContentRef, range: Range, signal?: AbortSignal): Promise<Page<OpView>> =>
+    (await call(b, "ops", { op: "contentOps", doc, content, range }, signal)).body,
+  contentIssues: async (b: Backend, doc: DocId, content: ContentRef, range: Range): Promise<Page<ContentIssue>> =>
+    (await call(b, "contentIssues", { op: "contentIssues", doc, content, range })).body,
+  contentElements: async (b: Backend, doc: DocId, content: ContentRef, range: Range): Promise<Page<ElementView>> =>
+    (await call(b, "elements", { op: "contentElements", doc, content, range })).body,
+  opState: async (b: Backend, doc: DocId, content: ContentRef, index: number): Promise<OpState> =>
+    (await call(b, "opState", { op: "opState", doc, content, index })).body,
   rawBytes: async (b: Backend, doc: DocId, offset: number, len: number, signal?: AbortSignal): Promise<Bytes> =>
     bytes(await call(b, "bytes", { op: "rawBytes", doc, offset, len }, signal)),
   streamData: async (

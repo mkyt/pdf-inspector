@@ -5,6 +5,7 @@ use std::io::{self, Read};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
+use pdfi_content::DocContent;
 use pdfi_model::DocModel;
 use pdfi_model::inventory::Inventory;
 use pdfi_schema::{self as schema, Container, DocSchema, Origin};
@@ -15,9 +16,9 @@ use pdfi_syntax::{
 use crate::convert::{self, value_of};
 use crate::dto::*;
 use crate::job::{Executor, Job};
-use crate::model;
 use crate::protocol::*;
 use crate::source::SourceProvider;
+use crate::{content, model};
 
 /// Largest binary chunk returned by one request.
 pub const MAX_CHUNK: u32 = 4 << 20;
@@ -62,6 +63,7 @@ pub(crate) struct Doc {
     pub model: DocModel,
     /// Set by the inventory job.
     pub inventory: Mutex<Option<Arc<Inventory>>>,
+    pub content: DocContent,
 }
 
 impl Doc {
@@ -188,6 +190,7 @@ impl Session {
             schema: DocSchema::new(),
             model: DocModel::new(),
             inventory: Mutex::default(),
+            content: DocContent::new(),
         });
         lock(&self.docs).insert(id, doc.clone());
         self.bus.emit(&Event::DocOpened {
@@ -350,6 +353,46 @@ impl Session {
                 &*self.doc(doc)?,
                 range,
             )?)),
+            Request::Content { doc, content } => Ok(ResponseBody::Content(content::summary(
+                &*self.doc(doc)?,
+                content,
+            )?)),
+            Request::ContentOps {
+                doc,
+                content,
+                range,
+            } => Ok(ResponseBody::Ops(content::ops(
+                &*self.doc(doc)?,
+                content,
+                range,
+            )?)),
+            Request::ContentIssues {
+                doc,
+                content,
+                range,
+            } => Ok(ResponseBody::ContentIssues(content::issues(
+                &*self.doc(doc)?,
+                content,
+                range,
+            )?)),
+            Request::ContentElements {
+                doc,
+                content,
+                range,
+            } => Ok(ResponseBody::Elements(content::elements(
+                &*self.doc(doc)?,
+                content,
+                range,
+            )?)),
+            Request::OpState {
+                doc,
+                content,
+                index,
+            } => Ok(ResponseBody::OpState(Box::new(content::op_state(
+                &*self.doc(doc)?,
+                content,
+                index,
+            )?))),
             Request::RawBytes { doc, offset, len } => {
                 let d = self.doc(doc)?;
                 let len = check_chunk(len)?;

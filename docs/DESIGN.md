@@ -9,6 +9,7 @@
 > - v2.4: M3 実装で確定した事項を §5.3 / §7 に追記（JS 側 ByteSource、Worker ホストのスケジューリング、ファイルを開く経路、適合テストの形）
 > - v2.5: M4（macOS）を後回しにして M5 を先に実装。確定した事項を §4.2 / §4.8 に追記（codegen の形、述語の扱い、型推論、validation のスコープとジョブ、プロトコル v2）
 > - v2.6: M6 実装で確定した事項を §4.3 / §4.8 に追記（ページ索引、継承属性の出所、メタ情報、インベントリと被参照グラフ、プロトコル v3）
+> - v2.7: M7 実装で確定した事項を §4.5 / §4.6 / §4.8 に追記（命令列の読み直しとチェックポイント、validation の項目、bbox の求め方、暫定のフォント情報、プロトコル v4）
 
 ## 1. ゴール
 
@@ -208,6 +209,12 @@ pub enum OpPayload { InlineImage { dict, data } /* BI … ID … EI */ }
   - テキスト表示演算子（`Tj`, `TJ` など）は、フォントのエンコーディングで**デコードした文字列を併記**（編集時の再エンコード補助は将来）
 - **シリアライズ**: 変更のない op は元バイトを再利用、変更箇所だけ再生成（差分が最小になる）。保存時に「元のストリーム分割を維持」「1 本に統合」を選択可能、フィルタ（Flate 等）も選択可能
 - **大きな content stream** に備え、`ops(range)` で範囲取得、命令列はページ単位で遅延構築・キャッシュ
+- **M7 で確定した形**:
+  - `pdfi-content` は `pdfi-syntax` と `pdfi-model` に依存し、`DocContent`（ドキュメントごとのキャッシュ: 解析結果 4 件、フォーム XObject の復号データ 64 MB、フォント情報）を `on(Model)` で使う。対象は `Target::Page(index)`（`/Contents` を連結、継承込みのリソース、境界は CropBox ∩ MediaBox）と `Target::Stream(id)`（Form / タイリングパターン / その他。境界は `/BBox`、リソースはストリーム自身の `/Resources`）
+  - **命令列は保持しない**: 1 回の走査で検査・解釈し、残すのは復号済みデータ、1024 命令ごとのチェックポイント（読み取り位置 `ReadPoint` と解釈器の状態）、命令ごとのネスト深さ（`u16`）、描画要素、デコード済みテキスト、問題。`ops(range)` や「命令 N の状態」はチェックポイントから読み直して求める。160 万命令（10 MB）のページで解析 0.2 秒・常駐 50 MB（`Vec<Op>` で持つと 700 MB だった）。上限は 1 ストリーム 64 MB、400 万命令
+  - パーサ（`OpReader`）は配列の各ストリームを順に読み、オペランドが前のストリームに残っていれば持ち越す（その命令の `OpOrigin` は演算子のあるストリーム）。未知の演算子は `Operator::Unknown` として残し、`]` や `}` など置き場のないトークンは報告して読み飛ばす。インライン画像は `/L`（`/Length`）、フィルタなしなら `W × H × 成分 × BPC` から長さを求め、それ以外は空白に挟まれた `EI` の後が内容らしく見える位置を探す
+  - **validation の項目**: オペランドの数（不足は error でその命令は解釈しない、超過は warning で末尾 N 個を使う）と型、`q/Q`・`BT/ET`・`BMC/BDC/EMC`・`BX/EX` の対応（終端の未閉鎖は内容全体の warning）、テキストオブジェクト内で使えない演算子・外で使えない演算子、パスオブジェクト途中の他の演算子、`W` の後に描画演算子がない、カレントポイントなしの `l` / `c` / `h`、描画するパスがない、フォント未設定の文字表示、`d0`/`d1` の位置、未定義のリソース（`/Resources` を持たないストリームでは「親のものかもしれない」として info）、XObject の `/Subtype`、色空間の成分数・`sc` と `scn` の使い分け・Pattern 色空間でのパターン名、インライン画像の必須キー、線端・結合・`Tr`・レンダリングインテントの値域、ダッシュ配列。`BX … EX` 内の未知演算子は info
+  - テキスト表示演算子のデコード（M9 の pdfi-font までの暫定）: `/ToUnicode`（bfchar / bfrange）、単純フォントは WinAnsi / MacRoman / Standard と `/Differences`（主要なグリフ名と `uniXXXX`）、Type 0 は UCS2 / UTF16 系の定義済み CMap なら符号をそのまま。`TJ` の −180 以下の調整は空白として表示
 
 ### 4.6 インタプリタと pdfi-render — レンダリング
 
@@ -215,6 +222,11 @@ pub enum OpPayload { InlineImage { dict, data } /* BI … ID … EI */ }
   - 要素（path / glyph run / image / shading / clip / group）は **元の op index とページ座標の bbox** を持つ
   - → 「レンダ画像をクリック → 該当命令へ」「命令を選択 → 画像上をハイライト」「op N まで実行した状態で描画（ステップ実行）」
   - Form XObject / Type3 / パターンは再帰（深さ・回数制限あり）
+- **M7 で確定した形**（インタプリタと bbox）:
+  - 状態は `GState`（CTM、クリップの bbox、線幅・端・結合・マイター・ダッシュ、インテント、平坦度、塗り／線の色空間と成分、α、ブレンド、ソフトマスク、適用した ExtGState、テキスト状態）と、`q` のスタック・テキスト行列・テキストオブジェクト内か・作成中のパス・保留中の `W`・マーク付き内容のタグ。`gs` は LW / LC / LJ / ML / D / RI / FL / CA / ca / BM / SMask / Font を反映
+  - 描画要素は 1 命令に最大 1 つ（fill / stroke / fillStroke / clip（`W n`）/ text / image / inlineImage / form / shading）で、bbox は内容の空間（ページなら回転前の既定ユーザー空間）。パスは制御点まで含めた点の bbox、ストロークは線幅 × CTM の拡大率 / 2 だけ広げる、`sh` は現在のクリップ、画像は単位正方形 × CTM。文字は字送り幅とフォントの Ascent / Descent（なければ FontBBox）から求め、`Tc` / `Tw` / `Tz` / `Ts` / `TJ` を反映する。クリップの外にあるもの・不可視（`Tr` 3 / 7）は `hidden`
+  - 幅は単純フォントの `/Widths`（なければ標準 14 フォントの ASCII 幅、Courier は 600）、Type 0 の `/W` / `/DW`（埋め込み CMap の cidrange / cidchar で CID を引く。定義済み CMap は符号の長さだけ判定し幅は既定値）、Type 3 は `/FontMatrix` を掛ける。推測を含むフォントは `approximate`
+  - フォーム XObject は継承した状態のまま中身を解釈して（深さ 12、1 内容あたり 200 万命令まで、自己参照は error）描画範囲を求め、`/BBox` とクリップで切る。中の問題はフォーム自身の内容として見たときに報告する。パターン・Type 3 のグリフ手続きは辿らない
 - **Renderer trait**
 
 ```rust
@@ -272,6 +284,7 @@ impl Session {
   - ジョブは `step()` を繰り返す有界な作業単位。実行は `Executor` trait（server: ジョブごとのスレッド、wasm: `QueueExecutor` を協調的に回す）
   - ファイルアクセスは `SourceProvider` trait で注入（pdfi-api 自体は fs に触れない）
   - `Cancel(RequestId)` はトランスポート層で未着手のリクエストを破棄する。`Batch` はネスト不可
+- **M7 で追加（プロトコル v4）**: `ContentRef`（`page { index }` | `stream { id }`）を取る `Content`（`ContentSummary`: ストリーム一覧、命令数、描画要素数、問題の件数、境界、リソース、演算子グループ別の件数）、`ContentOps { range }`（`OpView`: 演算子・グループ・オペランドの PDF 構文表記・ネスト深さ・出所（ストリーム番号と復号データ中の範囲）・デコード済みテキスト・名前で指すリソース・描画要素・その命令の問題）、`ContentIssues { range }`（内容全体の問題が先、あとは命令順）、`ContentElements { range }`、`OpState { index }`（`GraphicsState` を命令の前後で）
 - **M6 で追加（プロトコル v3）**: `Document { doc }`（Info・カタログの宣言・XMP の有無・ページ数・モデルの問題）、`Xmp { doc, range }`（プロパティと木の範囲取得）、`Pages { doc, range }`、`Page { doc, index }`（`PageDetail`: 祖先、ボックスと出所、Rotate、リソース一覧、contents、注釈数、問題）、`PageIndex { doc, id }`、`Annotations { doc, page, range }`、`Outline { doc, parent, range }`、`JobKind::Inventory` とその結果を読む `Fonts` / `Images` / `Referrers { id }` / `Unreferenced`（ジョブ前は `ErrorCode::NotReady`）。`DocSummary.pages` と `DocSummary.inventory`（`InventoryStats`。リロード後も UI が件数を知れる）
 - **M5 で追加（プロトコル v2）**: `Schema { doc, root }`（型・推論の出所・仕様の参照・問題一覧）、`JobKind::Validate { root }`、`JobDiagnostics { job, range }`。`NodeView.schema`（キー定義 `KeyDoc`・値の型・そのエントリの問題）、`ObjectSummary.schema_type`、`DiagnosticInfo.path`（`/Pages/Kids[3]`）、`DocSummary.pdf_version`（Catalog の `/Version` を反映した実効バージョン）
 

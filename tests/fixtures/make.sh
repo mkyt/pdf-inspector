@@ -146,6 +146,85 @@ for n in range(1, size):
 out += b"trailer\n<< /Size %d /Root 1 0 R /Info 80 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (size, xref)
 open("model.pdf", "wb").write(out)
 PY
+# Content streams (pdfi-content): a page using every kind of resource and
+# operator group, a page full of mistakes, and a page whose /Contents array
+# splits operands from their operator.
+python3 -I - <<'PY'
+import zlib
+tounicode = b"/CIDInit /ProcSet findresource begin 12 dict begin begincmap 1 begincodespacerange <0000> <FFFF> endcodespacerange 2 beginbfchar <0041> <0041> <0042> <0042> endbfchar endcmap CMapName currentdict /CMap defineresource pop end end\n"
+page1 = b"""q
+1 0 0 1 50 50 cm
+0.5 0 0 rg 0 0 200 100 re f
+2 w 0 0 1 RG 10 10 m 190 90 l S
+Q
+q 0 0 612 720 re W n
+/GS1 gs
+/CS0 cs 0.1 0.2 0.3 sc
+BT /F1 24 Tf 72 700 Td (Hello) Tj [(W) -250 (orld)] TJ ET
+BT /F2 12 Tf 3 Tr 1 0 0 1 72 650 Tm <00410042> Tj ET
+Q
+/P <</MCID 0>> BDC q 100 0 0 50 300 400 cm /Im1 Do Q EMC
+/OC /MC0 BDC q 1 0 0 1 100 100 cm /Fm1 Do Q EMC
+q 20 0 0 20 400 600 cm BI /W 2 /H 2 /CS /RGB /BPC 8 ID """ + bytes(range(12)) + b""" EI Q
+BX 1 2 foo EX
+q 0 0 612 792 re W n /Sh1 sh Q
+"""
+page2 = b"""Q
+(Text outside) Tj
+BT /F9 12 Tf (x) Tj
+q 1 0 0 1 0 0 cm Q
+ET
+1 2 m 3 l
+0 0 m 10 10 l W 0 g f
+/F1 Tf
+1 0 0 rg 1 2 3 4 5 6 7 cm
+1 0 0 sc /Pattern cs 1 scn
+/Im9 Do /GS9 gs
+q q /Tag BMC
+EMC EMC
+foo
+S
+BT
+"""
+objs = {
+    1: b"<< /Type /Catalog /Pages 2 0 R >>",
+    2: b"<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 /MediaBox [0 0 612 792] >>",
+    3: b"<< /Type /Page /Parent 2 0 R /Contents 10 0 R /Resources << /Font << /F1 20 0 R /F2 21 0 R >> /XObject << /Im1 30 0 R /Fm1 31 0 R >> /ExtGState << /GS1 << /Type /ExtGState /CA 0.5 /ca 0.5 /LW 3 /BM /Multiply >> >> /ColorSpace << /CS0 [/ICCBased 32 0 R] >> /Shading << /Sh1 33 0 R >> /Properties << /MC0 << /Type /OCG /Name (Layer) >> >> >> >>",
+    4: b"<< /Type /Page /Parent 2 0 R /Contents 11 0 R /Resources << /Font << /F1 20 0 R >> >> >>",
+    5: b"<< /Type /Page /Parent 2 0 R /Contents [12 0 R 13 0 R] /Resources << >> >>",
+    20: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    21: b"<< /Type /Font /Subtype /Type0 /BaseFont /CIDFont /Encoding /Identity-H /DescendantFonts [22 0 R] /ToUnicode 24 0 R >>",
+    22: b"<< /Type /Font /Subtype /CIDFontType2 /BaseFont /CIDFont /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 23 0 R /W [65 [500 600]] /DW 1000 >>",
+    23: b"<< /Type /FontDescriptor /FontName /CIDFont /Flags 4 /FontBBox [0 -200 1000 900] /ItalicAngle 0 /Ascent 900 /Descent -200 /CapHeight 700 /StemV 80 >>",
+    33: b"<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 612 0] /Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >> >>",
+}
+streams = {
+    10: (b"<< /Length %d /Filter /FlateDecode >>", zlib.compress(page1)),
+    11: (b"<< /Length %d >>", page2),
+    12: (b"<< /Length %d >>", b"0 0 1"),
+    13: (b"<< /Length %d >>", b" rg 10 10 50 50 re f\n"),
+    24: (b"<< /Length %d >>", tounicode),
+    30: (b"<< /Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length %d >>", bytes(range(12))),
+    31: (b"<< /Type /XObject /Subtype /Form /BBox [0 0 100 100] /Matrix [2 0 0 2 0 0] /Resources << /Font << /F1 20 0 R >> >> /Length %d >>", b"BT /F1 10 Tf 5 5 Td (in form) Tj ET 0 0 50 50 re S\n"),
+    32: (b"<< /N 3 /Length %d >>", b"fake ICC profile"),
+}
+out = bytearray(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")
+offsets = {}
+for n in sorted(set(objs) | set(streams)):
+    offsets[n] = len(out)
+    if n in streams:
+        d, data = streams[n]
+        out += b"%d 0 obj\n" % n + d % len(data) + b"\nstream\n" + data + b"\nendstream\nendobj\n"
+    else:
+        out += b"%d 0 obj\n" % n + objs[n] + b"\nendobj\n"
+size = max(offsets) + 1
+xref = len(out)
+out += b"xref\n0 %d\n0000000000 65535 f\r\n" % size
+for n in range(1, size):
+    out += (b"%010d 00000 n\r\n" % offsets[n]) if n in offsets else b"0000000000 00000 f\r\n"
+out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (size, xref)
+open("content.pdf", "wb").write(out)
+PY
 qpdf --object-streams=generate base.pdf objstm.pdf
 qpdf --linearize base.pdf linearized.pdf
 qpdf --allow-weak-crypto --encrypt user owner 40 -- base.pdf rc4-40.pdf

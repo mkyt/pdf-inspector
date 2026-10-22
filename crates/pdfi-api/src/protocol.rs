@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 3;
+pub const PROTOCOL_VERSION: u32 = 4;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct ClientMessage {
@@ -123,6 +123,35 @@ pub enum Request {
         doc: DocId,
         range: Range,
     },
+    /// A content: its streams, size, problems and bounds.
+    Content {
+        doc: DocId,
+        content: ContentRef,
+    },
+    /// Operations of a content, with their problems and what they paint.
+    ContentOps {
+        doc: DocId,
+        content: ContentRef,
+        range: Range,
+    },
+    /// Problems of a content: content-wide ones first, then by operation.
+    ContentIssues {
+        doc: DocId,
+        content: ContentRef,
+        range: Range,
+    },
+    /// What the operations of a content paint, in operation order.
+    ContentElements {
+        doc: DocId,
+        content: ContentRef,
+        range: Range,
+    },
+    /// The graphics state an operation runs in and the one it leaves.
+    OpState {
+        doc: DocId,
+        content: ContentRef,
+        index: u32,
+    },
     RawBytes {
         doc: DocId,
         offset: u64,
@@ -193,6 +222,11 @@ pub enum ResponseBody {
     Images(Page<ImageInfo>),
     Referrers(Page<Referrer>),
     ObjRefs(Page<ObjRef>),
+    Content(ContentSummary),
+    Ops(Page<OpView>),
+    ContentIssues(Page<ContentIssue>),
+    Elements(Page<ElementView>),
+    OpState(Box<OpState>),
     Bytes(BytesInfo),
     Job(JobInfo),
     Batch { responses: Vec<Response> },

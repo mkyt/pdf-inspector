@@ -10,6 +10,7 @@ use pdfi_syntax::{
     FileSource, ObjId, ObjLocation, Object, OpenOptions, PdfFile, Recovery, Severity, write,
 };
 
+mod content;
 mod model;
 
 #[derive(Parser)]
@@ -110,6 +111,27 @@ enum Cmd {
         #[arg(long)]
         refs: Option<u32>,
     },
+    /// Operations of a page's content (1-based page number) or of a stream
+    /// (--obj): operands, decoded text, what they paint and their problems.
+    Ops {
+        #[command(flatten)]
+        f: FileArgs,
+        page: Option<u64>,
+        /// A stream object (form XObject, pattern, glyph procedure, ...).
+        #[arg(long)]
+        obj: Option<u32>,
+        /// First operation (0-based).
+        #[arg(long, default_value_t = 0)]
+        from: usize,
+        #[arg(long)]
+        count: Option<usize>,
+        /// Print the graphics state before and after this operation.
+        #[arg(long)]
+        state: Option<usize>,
+        /// Print the problems only.
+        #[arg(long)]
+        issues: bool,
+    },
     /// Rewrite as a plain file (object streams expanded, decrypted).
     Rewrite {
         #[command(flatten)]
@@ -163,6 +185,15 @@ fn main() -> Result<()> {
         Cmd::Outline(f) => model::outline(&open(&f)?),
         Cmd::Meta(f) => model::meta(&open(&f)?),
         Cmd::Inventory { f, refs } => model::inventory(&open(&f)?, refs),
+        Cmd::Ops {
+            f,
+            page,
+            obj,
+            from,
+            count,
+            state,
+            issues,
+        } => content::ops(&open(&f)?, page, obj, from, count, state, issues),
         Cmd::Xref { f, rev } => xref(&open(&f)?, rev),
         Cmd::Obj { f, num, generation } => {
             let file = open(&f)?;

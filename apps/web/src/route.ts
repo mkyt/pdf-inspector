@@ -16,7 +16,7 @@ export interface Route {
 
 export const DEFAULT_TAB = "pages";
 
-function parseTarget(v: string | null): Target {
+function parseTarget(v: string | null, op: string | null): Target {
   let m: RegExpMatchArray | null;
   if (v === "trailer") return { kind: "trailer" };
   if ((m = v?.match(/^obj:(\d+)\.(\d+)$/) ?? null)) {
@@ -24,6 +24,13 @@ function parseTarget(v: string | null): Target {
   }
   // Pages are 1-based in the URL, like everywhere else people see them.
   if ((m = v?.match(/^page:(\d+)$/) ?? null) && Number(m[1]) > 0) return { kind: "page", index: Number(m[1]) - 1 };
+  const sel = op !== null && /^\d+$/.test(op) ? Number(op) : null;
+  if ((m = v?.match(/^ops:page:(\d+)$/) ?? null) && Number(m[1]) > 0) {
+    return { kind: "content", content: { kind: "page", index: Number(m[1]) - 1 }, op: sel };
+  }
+  if ((m = v?.match(/^ops:obj:(\d+)\.(\d+)$/) ?? null)) {
+    return { kind: "content", content: { kind: "stream", id: { num: Number(m[1]), generation: Number(m[2]) } }, op: sel };
+  }
   return { kind: "document" };
 }
 
@@ -37,6 +44,10 @@ function targetParam(t: Target): string | null {
       return `obj:${t.id.num}.${t.id.generation}`;
     case "page":
       return `page:${t.index + 1}`;
+    case "content":
+      return t.content.kind === "page"
+        ? `ops:page:${t.content.index + 1}`
+        : `ops:obj:${t.content.id.num}.${t.content.id.generation}`;
   }
 }
 
@@ -45,7 +56,7 @@ export function parseRoute(search: string): Route {
   const doc = p.get("doc");
   return {
     doc: doc !== null && /^\d+$/.test(doc) ? Number(doc) : null,
-    target: parseTarget(p.get("view")),
+    target: parseTarget(p.get("view"), p.get("op")),
     tab: p.get("tab") ?? DEFAULT_TAB,
   };
 }
@@ -57,6 +68,7 @@ function routeUrl(r: Route): string {
     if (r.tab !== DEFAULT_TAB) p.set("tab", r.tab);
     const view = targetParam(r.target);
     if (view) p.set("view", view);
+    if (r.target.kind === "content" && r.target.op !== null) p.set("op", String(r.target.op));
   }
   const q = p.toString().replace(/%3A/g, ":");
   return location.pathname + (q ? `?${q}` : "") + location.hash;

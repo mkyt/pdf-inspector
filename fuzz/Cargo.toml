@@ -9,11 +9,18 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
+pdfi-content = { path = "../crates/pdfi-content" }
 pdfi-syntax = { path = "../crates/pdfi-syntax" }
 
 [[bin]]
 name = "open"
 path = "fuzz_targets/open.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "content"
+path = "fuzz_targets/content.rs"
 test = false
 doc = false
 

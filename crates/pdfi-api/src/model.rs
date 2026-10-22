@@ -19,7 +19,7 @@ const MAX_USAGE: usize = 100;
 /// Paths listed in a [`Referrer`].
 const MAX_PATHS: usize = 8;
 
-fn rect(r: pdfi_model::Rect) -> Rect {
+pub(crate) fn rect(r: pdfi_model::Rect) -> Rect {
     Rect {
         x0: r.x0,
         y0: r.y0,

@@ -1,7 +1,7 @@
 import { Loader, Text } from "@mantine/core";
 import { useQueries } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 import type { Page, Range } from "../protocol/generated";
 
 const PAGE = 200;
@@ -13,10 +13,13 @@ interface Props<T> {
   rowHeight?: number;
   renderRow: (item: T, index: number) => ReactNode;
   empty?: string;
+  /** Keep this row in view (scrolls when it changes). */
+  scrollTo?: number | null;
+  onKeyDown?: (e: KeyboardEvent<HTMLDivElement>) => void;
 }
 
 /** Virtualized list whose rows are fetched page by page as they scroll into view. */
-export function PagedList<T>({ total, queryKey, fetchPage, rowHeight = 26, renderRow, empty }: Props<T>) {
+export function PagedList<T>({ total, queryKey, fetchPage, rowHeight = 26, renderRow, empty, scrollTo, onKeyDown }: Props<T>) {
   const parent = useRef<HTMLDivElement>(null);
   const v = useVirtualizer({
     count: total,
@@ -24,6 +27,9 @@ export function PagedList<T>({ total, queryKey, fetchPage, rowHeight = 26, rende
     estimateSize: () => rowHeight,
     overscan: 20,
   });
+  useEffect(() => {
+    if (scrollTo !== null && scrollTo !== undefined && scrollTo < total) v.scrollToIndex(scrollTo, { align: "auto" });
+  }, [scrollTo, total, v]);
   const items = v.getVirtualItems();
   const pages = [...new Set(items.map((i) => Math.floor(i.index / PAGE)))];
   const results = useQueries({
@@ -42,7 +48,7 @@ export function PagedList<T>({ total, queryKey, fetchPage, rowHeight = 26, rende
     );
   }
   return (
-    <div ref={parent} style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+    <div ref={parent} style={{ flex: 1, minHeight: 0, overflow: "auto", outline: "none" }} tabIndex={onKeyDown ? 0 : undefined} onKeyDown={onKeyDown}>
       <div style={{ height: v.getTotalSize(), position: "relative" }}>
         {items.map((it) => {
           const page = byPage.get(Math.floor(it.index / PAGE));

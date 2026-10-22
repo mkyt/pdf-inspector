@@ -83,6 +83,7 @@ function ObjectInspector({ id }: { id: ObjRef }) {
       {o.value.type === "dict" && o.value.type_name === "Page" && <PageLink id={o.id} />}
       <Referrers id={o.id} />
       {o.stream && <ImagePreview id={o.id} info={o.stream} />}
+      {o.stream && <ContentLink id={o.id} />}
       <Tabs defaultValue="structure" keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="structure">Structure</Tabs.Tab>
@@ -102,6 +103,21 @@ function ObjectInspector({ id }: { id: ObjRef }) {
         </Tabs.Panel>
       </Tabs>
     </Stack>
+  );
+}
+
+/** Streams that are not content of any kind (by schema type). */
+const NOT_CONTENT = /Image|XRef|ObjStm|ObjectStream|Metadata|FontFile|ICC|EmbeddedFile|CMap|Function|Shading|Thumbnail|Halftone|JavaScript|SoftMask$/;
+
+/** For streams that may hold content (forms, patterns, glyph procedures, appearances): their operations. */
+function ContentLink({ id }: { id: ObjRef }) {
+  const nav = useNav();
+  const s = useSchema({ kind: "object", id }).data;
+  if (!s || (s.type_name && NOT_CONTENT.test(s.type_name))) return null;
+  return (
+    <Anchor size="xs" onClick={() => nav.open({ kind: "content", content: { kind: "stream", id }, op: null })}>
+      Read as a content stream →
+    </Anchor>
   );
 }
 
