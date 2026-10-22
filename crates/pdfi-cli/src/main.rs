@@ -11,6 +11,7 @@ use pdfi_syntax::{
 };
 
 mod content;
+mod font;
 mod model;
 
 #[derive(Parser)]
@@ -132,6 +133,15 @@ enum Cmd {
         #[arg(long)]
         issues: bool,
     },
+    /// A font: its dictionaries, program and problems; with --glyphs, the
+    /// code → glyph → text table.
+    Font {
+        #[command(flatten)]
+        f: FileArgs,
+        num: u32,
+        #[arg(long)]
+        glyphs: bool,
+    },
     /// Render a page (1-based page number) or a stream (--obj) to PNG.
     Render {
         #[command(flatten)]
@@ -221,6 +231,7 @@ fn main() -> Result<()> {
             state,
             issues,
         } => content::ops(&open(&f)?, page, obj, from, count, state, issues),
+        Cmd::Font { f, num, glyphs } => font::font(&open(&f)?, num, glyphs),
         Cmd::Render {
             f,
             page,

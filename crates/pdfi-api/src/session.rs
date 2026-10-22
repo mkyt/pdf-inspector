@@ -19,7 +19,7 @@ use crate::dto::*;
 use crate::job::{Executor, Job};
 use crate::protocol::*;
 use crate::source::SourceProvider;
-use crate::{content, model};
+use crate::{content, font, model};
 
 /// Largest binary chunk returned by one request.
 pub const MAX_CHUNK: u32 = 4 << 20;
@@ -403,6 +403,15 @@ impl Session {
                 content,
                 index,
             )?))),
+            Request::Font { doc, id } => Ok(ResponseBody::Font(Box::new(font::detail(
+                &*self.doc(doc)?,
+                id,
+            )?))),
+            Request::Glyphs { doc, id, range } => Ok(ResponseBody::Glyphs(font::glyphs(
+                &*self.doc(doc)?,
+                id,
+                range,
+            )?)),
             Request::Render {
                 doc,
                 content,

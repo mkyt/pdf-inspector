@@ -44,7 +44,7 @@ function Fonts() {
   const backend = useBackend();
   const nav = useNav();
   const { inventory } = useDoc();
-  const current = nav.target.kind === "object" ? nav.target.id.num : null;
+  const current = nav.target.kind === "object" || nav.target.kind === "font" ? nav.target.id.num : null;
   return (
     <PagedList
       total={inventory.stats?.fonts ?? 0}
@@ -53,7 +53,11 @@ function Fonts() {
       queryKey={["doc", nav.doc, "fonts"]}
       fetchPage={(r, signal) => api.fonts(backend, nav.doc, r, signal)}
       renderRow={(f) => (
-        <Row active={f.id.num === current} onClick={() => nav.open({ kind: "object", id: f.id })}>
+        <Row
+          active={f.id.num === current}
+          // Descendant CID fonts are shown through their Type 0 font.
+          onClick={() => nav.open({ kind: f.subtype?.startsWith("CIDFontType") ? "object" : "font", id: f.id })}
+        >
           <Num id={f.id} />
           <div style={{ minWidth: 0, flex: 1 }}>
             <Group gap={6} wrap="nowrap">

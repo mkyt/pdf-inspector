@@ -9,7 +9,6 @@
 //! again to paint it on a [`device::Device`].
 
 pub mod device;
-pub mod font;
 pub mod geom;
 pub mod interp;
 pub mod op;
@@ -22,8 +21,10 @@ use pdfi_model::{Model, Rect, resolve};
 use pdfi_syntax::parser::Parser;
 use pdfi_syntax::{Dict, DictExt, ObjId, Object, PdfFile, Severity, Span, Stream};
 
+pub use pdfi_font as font;
+
 use crate::device::Device;
-use crate::font::FontInfo;
+use crate::font::Font;
 use crate::geom::IDENTITY;
 use crate::interp::{Element, Env, GState, Interp, Kind, Rec, Resources, State};
 use crate::op::{ContentSource, Op, OpOrigin};
@@ -37,6 +38,8 @@ const MAX_ISSUES: usize = 100_000;
 const ANALYSES: usize = 4;
 /// Decoded bytes of form XObjects kept per document.
 const FORM_DATA: usize = 64 << 20;
+/// Fonts kept per document (each may hold its program once drawn).
+const FONTS: usize = 1024;
 /// Interpreter state saved every this many operations.
 pub const CHECKPOINT: usize = 1024;
 
@@ -236,7 +239,7 @@ struct FormData {
 pub struct DocContent {
     analyses: Mutex<Vec<(Key, Arc<Analysis>)>>,
     forms: Mutex<FormData>,
-    fonts: Mutex<HashMap<ObjId, Arc<FontInfo>>>,
+    fonts: Mutex<HashMap<ObjId, Arc<Font>>>,
 }
 
 impl DocContent {
@@ -248,8 +251,8 @@ impl DocContent {
         Content { m: model, c: self }
     }
 
-    /// Font information, cached by object.
-    pub fn font(&self, file: &PdfFile, id: Option<ObjId>, d: &Dict) -> Arc<FontInfo> {
+    /// A font, cached by object.
+    pub fn font(&self, file: &PdfFile, id: Option<ObjId>, d: &Dict) -> Arc<Font> {
         let Some(id) = id else {
             return Arc::new(font::load(file, None, d));
         };
@@ -257,7 +260,11 @@ impl DocContent {
             return f.clone();
         }
         let f = Arc::new(font::load(file, Some(id), d));
-        lock(&self.fonts).insert(id, f.clone());
+        let mut g = lock(&self.fonts);
+        if g.len() >= FONTS {
+            g.clear();
+        }
+        g.insert(id, f.clone());
         f
     }
 

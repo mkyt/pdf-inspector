@@ -11,6 +11,7 @@
 > - v2.6: M6 実装で確定した事項を §4.3 / §4.8 に追記（ページ索引、継承属性の出所、メタ情報、インベントリと被参照グラフ、プロトコル v3）
 > - v2.7: M7 実装で確定した事項を §4.5 / §4.6 / §4.8 に追記（命令列の読み直しとチェックポイント、validation の項目、bbox の求め方、暫定のフォント情報、プロトコル v4）
 > - v2.8: M8 実装で確定した事項を §4.6 / §4.8 / §4.9 / §8 に追記（ラスタライザは tiny-skia、Device による描画、ビュー座標、タイルと余白、ハイライト層とヒットテスト、プロトコル v5、サーバーでの並列描画）
+> - v2.9: M9 実装で確定した事項を §4.4 / §4.5 / §4.6 / §4.8 / §8 に追記（pdfi-font の形、ttf-parser と hayro-font、グリフ選択、Foxit 代替フォントと AFM 幅、Type 3 の手続き実行、テキストのクリップ、プロトコル v6）
 
 ## 1. ゴール
 
@@ -184,6 +185,13 @@ pub struct Node { pub obj: Object, pub span: Option<Span> }  // 編集で作っ�
   - アウトライン: TrueType / CFF / OpenType は `skrifa`、Type1 は自前パーサ（`hayro-font` を評価）
   - 非埋め込みの標準 14 フォント等の代替フォントは**ライセンスに注意**（§8）
   - UI: グリフ一覧、コード → グリフ → Unicode の対応表、メトリクス
+- **M9 で確定した形**（pdfi-font）:
+  - `pdfi-font` は `pdfi-syntax` と `pdfi-model` に依存し、M7 で pdfi-content に置いた辞書レベルの処理（符号の切り分け、幅、`/ToUnicode`、埋め込み CMap）もここへ移した（pdfi-content は `pdfi_font` を `font` として再公開）。`load` は辞書だけを読み、**フォントプログラムは最初にグリフを求められたときに読む**（`OnceLock`。解析だけならプログラムを開かない）。アウトラインはフォントごとに 1.6 万件までキャッシュ、`DocContent` のフォントは 1024 個を超えたら捨てて読み直す
+  - プログラムの形式は**キーではなく中身で判定**する（`/FontFile3 /Type1C` に OpenType が入っている等が多い）: sfnt（TrueType / `OTTO`）は **`ttf-parser`**、素の CFF と Type 1（PFB / PFA、Length1–3 の連結）は **`hayro-font`**。`head` などの必須テーブルが無い OpenType の subset は `CFF ` テーブルだけを CFF として読む。アウトラインはフォント行列（sfnt は `1 / unitsPerEm`）を掛けた「文字サイズ 1 のテキスト空間」で返し、二次曲線は三次にする
+  - **グリフ選択**: Type 1 は名前（`/Differences` → `/BaseEncoding` → プログラム内蔵のエンコーディング）、CFF は名前から charset で、無ければ内蔵エンコーディング。TrueType は ISO 32000 9.6.5.4 の順（名前 → AGL で Unicode → (3,1)、(3,0) を符号・`0xF000`〜`0xF200`+符号で、(1,0) を MacRoman 符号で、`post` の名前、cmap が無ければ符号 = グリフ番号）。Type 0 は CID → `/CIDToGIDMap`（CIDFontType2）か CID-keyed CFF の charset
+  - エンコーディングは**グリフ名の表**で持つ（Standard / WinAnsi / MacRoman と Adobe Glyph List は fontTools から `scripts/gen-font-tables.py` で生成）。テキストは `/ToUnicode` → UCS2 / UTF16 系の定義済み CMap → グリフ名（AGL、`uniXXXX`、`uXXXX`、`.suffix`、`f_i` の合字）
+  - **代替フォント**: 埋め込まれていない（または読めない）単純フォントは PDFium の Foxit フォント 14 書体（BSD-3。拡張子は `.pfb` だが中身は CFF、計 265 KB）を名前・`/Flags`・`/FontWeight`・`/ItalicAngle` から選び、バイナリに内蔵する（wasm でも同じ描画）。`/Widths` の無い標準 14 フォントは Adobe の AFM 幅（hayro-interpret の表から `scripts/gen-font-std14.py` で生成）をグリフ名で引くので近似ではなくなった。Symbol / ZapfDingbats は内蔵エンコーディングも使う。埋め込まれていない CID フォント（CJK 等）は代替を持たず、グリフの枠を描く（注記と警告）
+  - フォントの問題（`/Widths` の数、未知のエンコーディング、プログラムが読めない・宣言と形式が違う、埋め込みなし、`usecmap` 未対応など）は `Font.issues` と `Glyphs.issues` に集める
 - **画像**: 寸法、BPC、ColorSpace（Device*, Cal*, Lab, ICCBased, Indexed, Separation, DeviceN）、Filter、SMask / Mask、Decode、Interpolate
   - RGBA へのデコード。大きい画像は**縮小デコード / 領域デコード**の API を用意（数万 px 四方の画像対策）
 
@@ -215,7 +223,7 @@ pub enum OpPayload { InlineImage { dict, data } /* BI … ID … EI */ }
   - **命令列は保持しない**: 1 回の走査で検査・解釈し、残すのは復号済みデータ、1024 命令ごとのチェックポイント（読み取り位置 `ReadPoint` と解釈器の状態）、命令ごとのネスト深さ（`u16`）、描画要素、デコード済みテキスト、問題。`ops(range)` や「命令 N の状態」はチェックポイントから読み直して求める。160 万命令（10 MB）のページで解析 0.2 秒・常駐 50 MB（`Vec<Op>` で持つと 700 MB だった）。上限は 1 ストリーム 64 MB、400 万命令
   - パーサ（`OpReader`）は配列の各ストリームを順に読み、オペランドが前のストリームに残っていれば持ち越す（その命令の `OpOrigin` は演算子のあるストリーム）。未知の演算子は `Operator::Unknown` として残し、`]` や `}` など置き場のないトークンは報告して読み飛ばす。インライン画像は `/L`（`/Length`）、フィルタなしなら `W × H × 成分 × BPC` から長さを求め、それ以外は空白に挟まれた `EI` の後が内容らしく見える位置を探す
   - **validation の項目**: オペランドの数（不足は error でその命令は解釈しない、超過は warning で末尾 N 個を使う）と型、`q/Q`・`BT/ET`・`BMC/BDC/EMC`・`BX/EX` の対応（終端の未閉鎖は内容全体の warning）、テキストオブジェクト内で使えない演算子・外で使えない演算子、パスオブジェクト途中の他の演算子、`W` の後に描画演算子がない、カレントポイントなしの `l` / `c` / `h`、描画するパスがない、フォント未設定の文字表示、`d0`/`d1` の位置、未定義のリソース（`/Resources` を持たないストリームでは「親のものかもしれない」として info）、XObject の `/Subtype`、色空間の成分数・`sc` と `scn` の使い分け・Pattern 色空間でのパターン名、インライン画像の必須キー、線端・結合・`Tr`・レンダリングインテントの値域、ダッシュ配列。`BX … EX` 内の未知演算子は info
-  - テキスト表示演算子のデコード（M9 の pdfi-font までの暫定）: `/ToUnicode`（bfchar / bfrange）、単純フォントは WinAnsi / MacRoman / Standard と `/Differences`（主要なグリフ名と `uniXXXX`）、Type 0 は UCS2 / UTF16 系の定義済み CMap なら符号をそのまま。`TJ` の −180 以下の調整は空白として表示
+  - テキスト表示演算子のデコード（M9 の pdfi-font までの暫定）: `/ToUnicode`（bfchar / bfrange）、単純フォントは WinAnsi / MacRoman / Standard と `/Differences`（主要なグリフ名と `uniXXXX`）、Type 0 は UCS2 / UTF16 系の定義済み CMap なら符号をそのまま。`TJ` の −180 以下の調整は空白として表示（M9 で pdfi-font に移し、グリフ名は Adobe Glyph List 全体で引く）
 
 ### 4.6 インタプリタと pdfi-render — レンダリング
 
@@ -238,6 +246,11 @@ pub enum OpPayload { InlineImage { dict, data } /* BI … ID … EI */ }
   - 対応範囲: パス・塗り（非ゼロ / 偶奇）・線（幅・端・結合・マイター・ダッシュ、1 px 未満はヘアライン）・クリップ・定数 α（`CA` / `ca`）。色は Device* / Cal*（デバイス扱い）/ Lab / ICCBased（`/Alternate` か成分数）/ Indexed / Separation・DeviceN（関数型 2・3 の tint transform、それ以外は近似）。画像は 1/2/4/8/16 bit、`/Decode`、JPEG（YCCK は RGB 化、CMYK は `/Decode` どおり）、`/ImageMask`、`/SMask`、`/Mask`（ステンシル / 色キー）、インライン画像。縮小は 2 倍以上なら箱フィルタで縮めた版をキャッシュ、拡大は `/Interpolate` がなければ最近傍。デコード済み画像はドキュメントごとに 192 MB まで保持（同じ画像を複数スレッドが同時に要求しても 1 回だけデコード）
   - まだ描かないものは**注記**（`notes`）として返す: 文字（M9 まではグリフの枠を薄く描く）、shading・パターン色（灰色）、ソフトマスク・ブレンドモード、テキストのクリップモード、JPX / JBIG2 / CCITT（灰色の枠）
   - 1 ページ 80 万命令（25 万の塗り・線）で解釈 0.12 秒、72 dpi 全体 1 秒、300 dpi の 512 px タイル 0.25 秒（native release）
+- **M9 で確定した形**（自作レンダラ (2): 文字）:
+  - インタプリタは描画中だけ `GlyphRun` に符号（長さ込み）と原点を載せ、`GlyphRun::glyph_path` がアウトラインを内容の空間のパスにする（グリフ行列 = `[size·Tz, 0, 0, size, x, y]` × Tm × CTM。縦書きは既定の位置ベクトル (w/2, 0.88) で横書きの原点に直す）。レンダラは描画モードに従ってそれを既存の `fill` / `stroke` に渡すだけ（ヒットテスト・ハイライトも同じ経路）。アウトラインを持たないフォントだけ M8 のグリフの枠を薄く描く
+  - **Type 3**: インタプリタがグリフ手続きをフォーム XObject と同じ仕組み（`run_sub`: 深さ・命令数・自己参照の制限、復号データのキャッシュ）で実行する。行列は `/FontMatrix` × グリフ行列、リソースはフォントの `/Resources`（無ければ内容のもの）。`d1` のグリフ（uncolored）では色の演算子を無視する。描画はそれを呼んだ `Tj` の描画として扱う
+  - **テキストのクリップ**（`Tr` 4–7）: `BT` 以降にクリップモードで表示したグリフのパス（アウトラインが無ければ枠）と bbox を `State.text_clip` にためて、`ET` でクリップに重ねる。解析（bbox）でも同じく効く
+  - 注記は「どのフォントが代替で描かれたか」「どのフォントが枠で描かれたか」をフォントごとに返す（M8 の「文字はグリフの枠」は廃止）
 - **Renderer trait**
 
 ```rust
@@ -295,6 +308,7 @@ impl Session {
   - ジョブは `step()` を繰り返す有界な作業単位。実行は `Executor` trait（server: ジョブごとのスレッド、wasm: `QueueExecutor` を協調的に回す）
   - ファイルアクセスは `SourceProvider` trait で注入（pdfi-api 自体は fs に触れない）
   - `Cancel(RequestId)` はトランスポート層で未着手のリクエストを破棄する。`Batch` はネスト不可
+- **M9 で追加（プロトコル v6）**: `Font { doc, id }`（`FontDetail`: 種類、`/Subtype`・`/BaseFont`、子孫 CID フォント、記述子と `/Flags` の名前、エンコーディングの説明、縦書き、`/ToUnicode` と件数、`/CIDToGIDMap`、プログラム（キー・`/Subtype`・読めた形式・バイト数・グリフ数・unitsPerEm・CID-keyed）、何で描くか（`embedded` | `substitute` | `procedures` | `none`）と代替フォント名、ascent / descent、Type 3 の `/FontMatrix`、`Glyphs` の件数、問題）、`Glyphs { doc, id, range }`（`GlyphView`: 符号とそのバイト列、CID、グリフ番号、名前、テキスト、幅、アウトラインの SVG パス（1000 単位 / em、y 上向き）と bbox、Type 3 のグリフ手続き）。一覧に出す符号は単純フォントが 0–255、Type 0 は CMap / `/ToUnicode` に出てくる符号、identity なら `/CIDToGIDMap` の範囲かグリフ数。子孫の CID フォントは `BadRequest`（Type 0 から見る）
 - **M8 で追加（プロトコル v5）**: `Render { content, scale, tile, until, layer }`（`layer`: `content` | `highlight { ops }`。応答は `BitmapInfo`: タイルの位置と大きさ、ビュー全体のピクセル数、実行した命令数、注記。RGBA（非乗算）はバイナリ部）、`HitTest { content, x, y, radius, until }`（`Hits { ops }`、上から順）。`ContentSummary.view`（`ViewInfo`: ビューの大きさ（pt）、内容の空間 → ビューの行列、`/Rotate`）。`Session::dispatch_cancellable` で実行中の描画を止められる
 - **M7 で追加（プロトコル v4）**: `ContentRef`（`page { index }` | `stream { id }`）を取る `Content`（`ContentSummary`: ストリーム一覧、命令数、描画要素数、問題の件数、境界、リソース、演算子グループ別の件数）、`ContentOps { range }`（`OpView`: 演算子・グループ・オペランドの PDF 構文表記・ネスト深さ・出所（ストリーム番号と復号データ中の範囲）・デコード済みテキスト・名前で指すリソース・描画要素・その命令の問題）、`ContentIssues { range }`（内容全体の問題が先、あとは命令順）、`ContentElements { range }`、`OpState { index }`（`GraphicsState` を命令の前後で）
 - **M6 で追加（プロトコル v3）**: `Document { doc }`（Info・カタログの宣言・XMP の有無・ページ数・モデルの問題）、`Xmp { doc, range }`（プロパティと木の範囲取得）、`Pages { doc, range }`、`Page { doc, index }`（`PageDetail`: 祖先、ボックスと出所、Rotate、リソース一覧、contents、注釈数、問題）、`PageIndex { doc, id }`、`Annotations { doc, page, range }`、`Outline { doc, parent, range }`、`JobKind::Inventory` とその結果を読む `Fonts` / `Images` / `Referrers { id }` / `Unreferenced`（ジョブ前は `ErrorCode::NotReady`）。`DocSummary.pages` と `DocSummary.inventory`（`InventoryStats`。リロード後も UI が件数を知れる）
@@ -531,8 +545,9 @@ UI は同じものを使い、起動経路（静的ホスティング or `pdfi s
 | JBIG2 | 純 Rust 実装を評価、なければ自前 | — | **jbig2dec は AGPL のため不可** |
 | CCITT | `fax` | MIT | 要評価 |
 | ICC | `moxcms` / `qcms` | 要確認 / MIT | |
-| フォント | `skrifa` / `read-fonts`, `ttf-parser` | MIT/Apache | Type1 は `hayro-font` を評価 |
-| 代替フォント | PDFium 同梱の Foxit 標準フォント / Liberation 等 | BSD / OFL | **URW base35 は AGPL のため不可** |
+| フォント | `skrifa` / `read-fonts`, `ttf-parser` | MIT/Apache | M9 で TrueType / OpenType に `ttf-parser`、CFF / Type 1 に `hayro-font`（MIT/Apache）を採用 |
+| 代替フォント | PDFium 同梱の Foxit 標準フォント / Liberation 等 | BSD / OFL | M9 で Foxit フォント（BSD-3、`crates/pdfi-font/assets/LICENSE_FOXIT`）を採用。**URW base35 は AGPL のため不可**。`pdf-standard-fonts` crate も AGPL のため不可 |
+| 標準 14 の幅・グリフ名 | Adobe Core14 AFM、Adobe Glyph List | 再配布可 / BSD-3 | M9 で表に生成して内蔵 |
 | ラスタライザ | `tiny-skia` / `vello_cpu` | BSD-3 / Apache/MIT | M8 で tiny-skia を採用 |
 | PDFium | `pdfium-render` + PDFium バイナリ | MIT/Apache + BSD-3/Apache | PDFium 内の FreeType は FTL（表示義務あり） |
 | 暗号 | RustCrypto（`aes`, `cbc`, `md-5`, `sha2`, `rc4`） | MIT/Apache | |

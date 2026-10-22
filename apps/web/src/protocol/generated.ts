@@ -1,6 +1,6 @@
 // Generated from crates/pdfi-api by `UPDATE_TS=1 cargo test -p pdfi-api`. Do not edit.
 
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 export type DocId = number;
 export type JobId = number;
@@ -332,6 +332,93 @@ page_count: number,
  */
 pages: Array<number>, };
 
+export type FontKind = "simple" | "type0" | "type3";
+
+export type GlyphSourceKind = "embedded" | "substitute" | "procedures" | "none";
+
+export type FontProgramInfo = { stream: ObjRef | null, 
+/**
+ * `FontFile`, `FontFile2` or `FontFile3`.
+ */
+key: string, 
+/**
+ * `/Subtype` of a `FontFile3`.
+ */
+subtype: string | null, 
+/**
+ * As read: `TrueType`, `OpenType (CFF)`, `CFF`, `Type 1` (`None`:
+ * unreadable).
+ */
+format: string | null, 
+/**
+ * Decoded bytes.
+ */
+len: number, glyphs: number | null, units_per_em: number | null, cid_keyed: boolean, };
+
+export type FontDetail = { id: ObjRef, kind: FontKind, subtype: string | null, base_font: string | null, descendant: ObjRef | null, 
+/**
+ * `CIDFontType0` / `CIDFontType2`.
+ */
+cid_subtype: string | null, descriptor: ObjRef | null, 
+/**
+ * `WinAnsiEncoding + 3 differences`, `Identity-H`, `embedded CMap`, ...
+ */
+encoding: string | null, vertical: boolean, to_unicode: ObjRef | null, to_unicode_entries: number, 
+/**
+ * `Identity`, or the number of CIDs a `/CIDToGIDMap` stream maps.
+ */
+cid_to_gid: string | null, program: FontProgramInfo | null, glyph_source: GlyphSourceKind, 
+/**
+ * Name of the substitute font.
+ */
+substitute: string | null, 
+/**
+ * `/Flags` of the descriptor, and their names.
+ */
+flags: number | null, flag_names: Array<string>, symbolic: boolean, 
+/**
+ * Thousandths of an em (glyph space for Type 3).
+ */
+ascent: number, descent: number, 
+/**
+ * Type 3 `/FontMatrix`.
+ */
+font_matrix: Array<number> | null, 
+/**
+ * Widths are partly guessed.
+ */
+approximate: boolean, 
+/**
+ * Number of entries `Glyphs` lists.
+ */
+codes: number, issues: Array<DiagnosticInfo>, };
+
+export type GlyphView = { code: number, 
+/**
+ * The code's bytes in hex (`41`, `0041`).
+ */
+bytes: string, cid: number | null, gid: number | null, name: string | null, 
+/**
+ * From `/ToUnicode`, or the glyph name.
+ */
+text: string | null, 
+/**
+ * Advance width in glyph space (thousandths of an em but for Type 3).
+ */
+width: number, 
+/**
+ * SVG path data of the outline, 1000 units per em, y up.
+ */
+outline: string | null, 
+/**
+ * Bounding box of the outline, same units.
+ */
+bbox: Rect | null, 
+/**
+ * Type 3: the glyph procedure.
+ */
+procedure: ObjRef | null, };
+
 export type ImageInfo = { id: ObjRef, width: number | null, height: number | null, bits: number | null, color_space: string | null, filters: Array<string>, raw_len: number, image_mask: boolean, smask: ObjRef | null, mask: boolean, interpolate: boolean, page_count: number, pages: Array<number>, };
 
 export type Referrer = { from: NodeRoot, 
@@ -570,7 +657,7 @@ export type Request = { "op": "hello", protocol: number, } | { "op": "listDir", 
 /**
  * Ignore the cross-reference data and rebuild it by scanning.
  */
-recover: boolean, } | { "op": "docs" } | { "op": "close", doc: number, } | { "op": "summary", doc: number, } | { "op": "objects", doc: number, range: Range, } | { "op": "object", doc: number, id: ObjRef, } | { "op": "children", doc: number, path: NodePath, range: Range, } | { "op": "xref", doc: number, revision: number | null, range: Range, } | { "op": "diagnostics", doc: number, range: Range, } | { "op": "schema", doc: number, root: NodeRoot, } | { "op": "document", doc: number, } | { "op": "xmp", doc: number, range: Range, } | { "op": "pages", doc: number, range: Range, } | { "op": "page", doc: number, index: number, } | { "op": "pageIndex", doc: number, id: ObjRef, } | { "op": "annotations", doc: number, page: number, range: Range, } | { "op": "outline", doc: number, parent: ObjRef | null, range: Range, } | { "op": "fonts", doc: number, range: Range, } | { "op": "images", doc: number, range: Range, } | { "op": "referrers", doc: number, id: ObjRef, range: Range, } | { "op": "unreferenced", doc: number, range: Range, } | { "op": "content", doc: number, content: ContentRef, } | { "op": "contentOps", doc: number, content: ContentRef, range: Range, } | { "op": "contentIssues", doc: number, content: ContentRef, range: Range, } | { "op": "contentElements", doc: number, content: ContentRef, range: Range, } | { "op": "opState", doc: number, content: ContentRef, index: number, } | { "op": "render", doc: number, content: ContentRef, scale: number, 
+recover: boolean, } | { "op": "docs" } | { "op": "close", doc: number, } | { "op": "summary", doc: number, } | { "op": "objects", doc: number, range: Range, } | { "op": "object", doc: number, id: ObjRef, } | { "op": "children", doc: number, path: NodePath, range: Range, } | { "op": "xref", doc: number, revision: number | null, range: Range, } | { "op": "diagnostics", doc: number, range: Range, } | { "op": "schema", doc: number, root: NodeRoot, } | { "op": "document", doc: number, } | { "op": "xmp", doc: number, range: Range, } | { "op": "pages", doc: number, range: Range, } | { "op": "page", doc: number, index: number, } | { "op": "pageIndex", doc: number, id: ObjRef, } | { "op": "annotations", doc: number, page: number, range: Range, } | { "op": "outline", doc: number, parent: ObjRef | null, range: Range, } | { "op": "fonts", doc: number, range: Range, } | { "op": "images", doc: number, range: Range, } | { "op": "referrers", doc: number, id: ObjRef, range: Range, } | { "op": "unreferenced", doc: number, range: Range, } | { "op": "content", doc: number, content: ContentRef, } | { "op": "contentOps", doc: number, content: ContentRef, range: Range, } | { "op": "contentIssues", doc: number, content: ContentRef, range: Range, } | { "op": "contentElements", doc: number, content: ContentRef, range: Range, } | { "op": "opState", doc: number, content: ContentRef, index: number, } | { "op": "font", doc: number, id: ObjRef, } | { "op": "glyphs", doc: number, id: ObjRef, range: Range, } | { "op": "render", doc: number, content: ContentRef, scale: number, 
 /**
  * `None`: the whole view.
  */
@@ -586,7 +673,7 @@ decoded: boolean, offset: number, len: number, } | { "op": "startJob", doc: numb
 
 export type Response = { "ok": ResponseBody } | { "err": ApiError };
 
-export type ResponseBody = { "type": "hello" } & HelloInfo | { "type": "dir" } & DirListing | { "type": "doc" } & DocSummary | { "type": "docs", docs: Array<DocInfo>, } | { "type": "objects" } & Page<ObjectSummary> | { "type": "object" } & ObjectView | { "type": "children" } & Page<NodeView> | { "type": "xref" } & Page<XrefRow> | { "type": "diagnostics" } & Page<DiagnosticInfo> | { "type": "schema" } & ObjectSchema | { "type": "document" } & DocumentView | { "type": "xmp" } & XmpView | { "type": "pages" } & Page<PageSummary> | { "type": "pageDetail" } & PageDetail | { "type": "pageIndex", index: number | null, } | { "type": "annotations" } & Page<AnnotInfo> | { "type": "outline" } & Page<OutlineItem> | { "type": "fonts" } & Page<FontInfo> | { "type": "images" } & Page<ImageInfo> | { "type": "referrers" } & Page<Referrer> | { "type": "objRefs" } & Page<ObjRef> | { "type": "content" } & ContentSummary | { "type": "ops" } & Page<OpView> | { "type": "contentIssues" } & Page<ContentIssue> | { "type": "elements" } & Page<ElementView> | { "type": "opState" } & OpState | { "type": "bitmap" } & BitmapInfo | { "type": "hits", ops: Array<number>, } | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "batch", responses: Array<Response>, } | { "type": "empty" };
+export type ResponseBody = { "type": "hello" } & HelloInfo | { "type": "dir" } & DirListing | { "type": "doc" } & DocSummary | { "type": "docs", docs: Array<DocInfo>, } | { "type": "objects" } & Page<ObjectSummary> | { "type": "object" } & ObjectView | { "type": "children" } & Page<NodeView> | { "type": "xref" } & Page<XrefRow> | { "type": "diagnostics" } & Page<DiagnosticInfo> | { "type": "schema" } & ObjectSchema | { "type": "document" } & DocumentView | { "type": "xmp" } & XmpView | { "type": "pages" } & Page<PageSummary> | { "type": "pageDetail" } & PageDetail | { "type": "pageIndex", index: number | null, } | { "type": "annotations" } & Page<AnnotInfo> | { "type": "outline" } & Page<OutlineItem> | { "type": "fonts" } & Page<FontInfo> | { "type": "images" } & Page<ImageInfo> | { "type": "referrers" } & Page<Referrer> | { "type": "objRefs" } & Page<ObjRef> | { "type": "content" } & ContentSummary | { "type": "ops" } & Page<OpView> | { "type": "contentIssues" } & Page<ContentIssue> | { "type": "elements" } & Page<ElementView> | { "type": "opState" } & OpState | { "type": "font" } & FontDetail | { "type": "glyphs" } & Page<GlyphView> | { "type": "bitmap" } & BitmapInfo | { "type": "hits", ops: Array<number>, } | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "batch", responses: Array<Response>, } | { "type": "empty" };
 
 export type HelloInfo = { protocol: number, backend: string, version: string, 
 /**

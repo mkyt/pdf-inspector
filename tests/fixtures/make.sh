@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regenerate the test fixtures. Requires python3 and qpdf.
+# Regenerate the test fixtures. Requires python3 (with fontTools) and qpdf.
 set -euo pipefail
 cd "$(dirname "$0")"
 python3 -I - <<'PY'
@@ -330,6 +330,181 @@ for n in range(1, size):
     out += (b"%010d 00000 n\r\n" % offsets[n]) if n in offsets else b"0000000000 00000 f\r\n"
 out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (size, xref)
 open("render.pdf", "wb").write(out)
+PY
+python3 -I - <<'PY'
+# Fonts (pdfi-font): one page with each kind of font program, glyph
+# selection rule, Type 3 procedures and text rendering modes. Every glyph
+# drawn is the "square" (100..600 × 0..700 in a 1000-unit em) so pixels can
+# be checked; built with fontTools.
+import io
+import zlib
+from fontTools.fontBuilder import FontBuilder
+from fontTools.pens.t2CharStringPen import T2CharStringPen
+from fontTools.pens.ttGlyphPen import TTGlyphPen
+from fontTools.ttLib.tables._c_m_a_p import cmap_format_4
+
+def square(pen):
+    pen.moveTo((100, 0)); pen.lineTo((100, 700)); pen.lineTo((600, 700)); pen.lineTo((600, 0)); pen.closePath()
+
+def triangle(pen):
+    pen.moveTo((100, 0)); pen.lineTo((350, 700)); pen.lineTo((600, 0)); pen.closePath()
+
+def empty(pen):
+    pass
+
+ORDER = [".notdef", "A", "B"]
+SHAPES = {".notdef": empty, "A": square, "B": triangle}
+
+def sfnt(cff, symbolic=False):
+    fb = FontBuilder(1000, isTTF=not cff)
+    fb.setupGlyphOrder(ORDER)
+    fb.setupCharacterMap({0x41: "A", 0x42: "B"})
+    if cff:
+        cs = {}
+        for n in ORDER:
+            pen = T2CharStringPen(700, None)
+            SHAPES[n](pen)
+            cs[n] = pen.getCharString()
+        fb.setupCFF("PdfiTestCFF", {"FullName": "PdfiTestCFF"}, cs, {})
+    else:
+        glyphs = {}
+        for n in ORDER:
+            pen = TTGlyphPen(None)
+            SHAPES[n](pen)
+            glyphs[n] = pen.glyph()
+        fb.setupGlyf(glyphs)
+    fb.setupHorizontalMetrics({n: (700, 100) for n in ORDER})
+    fb.setupHorizontalHeader(ascent=800, descent=-200)
+    fb.setupNameTable({"familyName": "PdfiTest", "styleName": "Regular"})
+    fb.setupOS2()
+    fb.setupPost()
+    # Fixed timestamps: the fixture is the same on every run.
+    fb.updateHead(created=0, modified=0)
+    fb.font.recalcTimestamp = False
+    if symbolic:
+        sub = cmap_format_4(4)
+        sub.platformID, sub.platEncID, sub.language = 3, 0, 0
+        sub.cmap = {0xF041: "A", 0xF042: "B"}
+        fb.font["cmap"].tables = [sub]
+    b = io.BytesIO()
+    fb.save(b)
+    return b.getvalue(), fb.font
+
+tt, _ = sfnt(False)
+tt_sym, _ = sfnt(False, symbolic=True)
+otf, otf_font = sfnt(True)
+bare_cff = otf_font.getTableData("CFF ")
+
+# A Type 1 font written by hand: one square glyph, eexec encrypted.
+def t1num(v):
+    if -107 <= v <= 107:
+        return bytes([v + 139])
+    if 108 <= v <= 1131:
+        v -= 108
+        return bytes([(v >> 8) + 247, v & 0xFF])
+    if -1131 <= v <= -108:
+        v = -v - 108
+        return bytes([(v >> 8) + 251, v & 0xFF])
+    return b"\xff" + v.to_bytes(4, "big", signed=True)
+
+def t1cs(*items):
+    out = b""
+    for it in items:
+        out += t1num(it[0]) if isinstance(it, tuple) else bytes([it])
+    return out
+
+def encrypt(data, r):
+    out = bytearray()
+    for b in data:
+        c = b ^ (r >> 8)
+        r = ((c + r) * 52845 + 22719) & 0xFFFF
+        out.append(c)
+    return bytes(out)
+
+HSBW, RMOVETO, RLINETO, CLOSEPATH, ENDCHAR = 13, 21, 5, 9, 14
+charstrings = {
+    ".notdef": t1cs((0,), (250,), HSBW, ENDCHAR),
+    "A": t1cs((0,), (700,), HSBW, (100,), (0,), RMOVETO, (0,), (700,), RLINETO,
+              (500,), (0,), RLINETO, (0,), (-700,), RLINETO, CLOSEPATH, ENDCHAR),
+}
+private = b"dup /Private 8 dict dup begin\n/RD{string currentfile exch readstring pop}executeonly def\n/ND{noaccess def}executeonly def\n/NP{noaccess put}executeonly def\n/lenIV 4 def\n/Subrs 0 array\nND\n2 index /CharStrings %d dict dup begin\n" % len(charstrings)
+for n, cs in charstrings.items():
+    enc = encrypt(b"\0\0\0\0" + cs, 4330)
+    private += b"/%s %d RD " % (n.encode(), len(enc)) + enc + b" ND\n"
+private += b"end\nend\nreadonly put\nnoaccess put\ndup/FontName get exch definefont pop\nmark currentfile closefile\n"
+t1_clear = b"%!PS-AdobeFont-1.0: PdfiType1 001\n12 dict begin\n/FontName /PdfiType1 def\n/FontType 1 def\n/PaintType 0 def\n/FontMatrix [0.001 0 0 0.001 0 0] readonly def\n/FontBBox {0 0 700 700} readonly def\n/Encoding StandardEncoding def\ncurrentdict end\ncurrentfile eexec\n"
+t1_binary = encrypt(b"\0\0\0\0" + private, 55665)
+t1_trailer = (b"0" * 64 + b"\n") * 8 + b"cleartomark\n"
+
+desc = lambda flags, ff: b"<< /Type /FontDescriptor /FontName /PdfiTest /Flags %d /FontBBox [0 0 700 700] /ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 %s >>" % (flags, ff)
+simple = lambda sub, base, d, extra=b"": b"<< /Type /Font /Subtype /%s /BaseFont /%s /FirstChar 65 /LastChar 66 /Widths [700 700] /FontDescriptor %d 0 R %s >>" % (sub, base, d, extra)
+
+content = b"""BT /F1 100 Tf 50 650 Td (A) Tj ET
+BT /F2 100 Tf 170 650 Td (A) Tj ET
+BT /F3 100 Tf 290 650 Td (A) Tj ET
+BT /F4 100 Tf 410 650 Td (A) Tj ET
+BT /F5 100 Tf 50 500 Td <0005> Tj ET
+BT /F6 100 Tf 170 500 Td (A) Tj ET
+q 0 0 1 rg BT /F7 100 Tf 290 500 Td (ab) Tj ET Q
+BT /F8 100 Tf 470 500 Td (H) Tj ET
+q 0 0.6 0 RG 5 w BT 1 Tr /F1 100 Tf 50 350 Td (A) Tj ET Q
+q BT 7 Tr /F1 100 Tf 170 350 Td (A) Tj ET 0 0 1 rg 170 350 200 200 re f Q
+BT /F9 100 Tf 290 350 Td <0001> Tj ET
+BT /F3 100 Tf 410 350 Td (B) Tj ET
+"""
+font_res = b" ".join(b"/F%d %d 0 R" % (i, 20 + i) for i in range(1, 10))
+objs = {
+    1: b"<< /Type /Catalog /Pages 2 0 R >>",
+    2: b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 612 792] >>",
+    3: b"<< /Type /Page /Parent 2 0 R /Contents 10 0 R /Resources << /Font << " + font_res + b" >> >> >>",
+    21: simple(b"TrueType", b"PdfiTT", 41, b"/Encoding /WinAnsiEncoding"),
+    22: simple(b"TrueType", b"PdfiTTSymbol", 42),
+    23: simple(b"Type1", b"PdfiCFF", 43, b"/Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [66 /A] >>"),
+    24: simple(b"Type1", b"PdfiOTF", 44, b"/Encoding /WinAnsiEncoding"),
+    25: b"<< /Type /Font /Subtype /Type0 /BaseFont /PdfiTT /Encoding /Identity-H /DescendantFonts [35 0 R] /ToUnicode 36 0 R >>",
+    35: b"<< /Type /Font /Subtype /CIDFontType2 /BaseFont /PdfiTT /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 45 0 R /DW 1000 /W [5 [700]] /CIDToGIDMap 37 0 R >>",
+    26: simple(b"Type1", b"PdfiType1", 46),
+    27: b"<< /Type /Font /Subtype /Type3 /FontBBox [0 0 700 700] /FontMatrix [0.001 0 0 0.001 0 0] /CharProcs << /sq 50 0 R /tri 51 0 R >> /Encoding << /Type /Encoding /Differences [97 /sq /tri] >> /FirstChar 97 /LastChar 98 /Widths [700 700] /Resources << >> >>",
+    28: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+    29: b"<< /Type /Font /Subtype /Type0 /BaseFont /PdfiMissingCID /Encoding /Identity-H /DescendantFonts [<< /Type /Font /Subtype /CIDFontType2 /BaseFont /PdfiMissingCID /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 49 0 R /DW 700 >>] >>",
+    41: desc(32, b"/FontFile2 61 0 R"),
+    42: desc(4, b"/FontFile2 62 0 R"),
+    43: desc(32, b"/FontFile3 63 0 R"),
+    44: desc(32, b"/FontFile3 64 0 R"),
+    45: desc(4, b"/FontFile2 61 0 R"),
+    46: desc(32, b"/FontFile 66 0 R"),
+    49: desc(4, b""),
+}
+z = zlib.compress
+tounicode = b"/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /Pdfi-UCS def 1 begincodespacerange <0000> <FFFF> endcodespacerange 1 beginbfchar <0005> <0058> endbfchar endcmap CMapName currentdict /CMap defineresource pop end end"
+streams = {
+    10: (b"<< /Length %d /Filter /FlateDecode >>", z(content)),
+    36: (b"<< /Length %d >>", tounicode),
+    37: (b"<< /Length %d >>", bytes([0, 0] * 5 + [0, 1])),
+    50: (b"<< /Length %d >>", b"700 0 d0 1 0 0 rg 100 0 500 700 re f"),
+    51: (b"<< /Length %d >>", b"700 0 0 0 700 700 d1 0 1 0 rg 100 0 500 700 re f"),
+    61: (b"<< /Length %%d /Length1 %d /Filter /FlateDecode >>" % len(tt), z(tt)),
+    62: (b"<< /Length %%d /Length1 %d /Filter /FlateDecode >>" % len(tt_sym), z(tt_sym)),
+    63: (b"<< /Length %d /Subtype /Type1C /Filter /FlateDecode >>", z(bare_cff)),
+    64: (b"<< /Length %d /Subtype /OpenType /Filter /FlateDecode >>", z(otf)),
+    66: (b"<< /Length %%d /Length1 %d /Length2 %d /Length3 %d >>" % (len(t1_clear), len(t1_binary), len(t1_trailer)), t1_clear + t1_binary + t1_trailer),
+}
+out = bytearray(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")
+offsets = {}
+for n in sorted(set(objs) | set(streams)):
+    offsets[n] = len(out)
+    if n in streams:
+        d, data = streams[n]
+        out += b"%d 0 obj\n" % n + d % len(data) + b"\nstream\n" + data + b"\nendstream\nendobj\n"
+    else:
+        out += b"%d 0 obj\n" % n + objs[n] + b"\nendobj\n"
+size = max(offsets) + 1
+xref = len(out)
+out += b"xref\n0 %d\n0000000000 65535 f\r\n" % size
+for n in range(1, size):
+    out += (b"%010d 00000 n\r\n" % offsets[n]) if n in offsets else b"0000000000 00000 f\r\n"
+out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (size, xref)
+open("fonts.pdf", "wb").write(out)
 PY
 qpdf --object-streams=generate base.pdf objstm.pdf
 qpdf --linearize base.pdf linearized.pdf

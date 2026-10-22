@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { api, useBackend } from "../api";
 import { bytesAsText } from "../format";
 import { contentKey, useNav } from "../nav";
-import type { ColorView, ContentRef, ContentSummary, GraphicsState, Rect } from "../protocol/generated";
+import type { ColorView, ContentRef, ContentSummary, GraphicsState, ObjRef, Rect } from "../protocol/generated";
 import { categoryColor } from "./ContentView";
 import { severityColor } from "./DiagnosticsPanel";
 import { ObjLink } from "./DocumentPanel";
@@ -91,6 +91,7 @@ const fields: Field[] = [
             {g.font.base_font && ` (${g.font.base_font}${g.font.subtype ? `, ${g.font.subtype}` : ""})`}
           </span>
           {g.font.id && <ObjLink id={g.font.id} />}
+          {g.font.id && <FontAnchor id={g.font.id} />}
         </Group>
       ) : (
         "none"
@@ -229,5 +230,15 @@ export function OpStatePanel({ content, summary, index }: { content: ContentRef;
         </Table.Tbody>
       </Table>
     </Stack>
+  );
+}
+
+/** Open the font view (program, encoding, glyphs). */
+function FontAnchor({ id }: { id: ObjRef }) {
+  const nav = useNav();
+  return (
+    <Anchor size="xs" onClick={() => nav.open({ kind: "font", id })}>
+      glyphs
+    </Anchor>
   );
 }

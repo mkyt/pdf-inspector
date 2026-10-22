@@ -243,3 +243,47 @@ fn state_past_checkpoints() {
     assert_eq!(a.depth[4 * 2500 + 2], 1);
     assert!(c.state_at(&a, a.ops).is_none());
 }
+
+#[test]
+fn text_clipping_modes() {
+    // fonts.pdf: `BT 7 Tr … (A) Tj ET` then a fill: the clip after ET is
+    // the glyph's box (advance 70 × ascent / descent 80 / -20 at 100 pt).
+    let file = open("fonts.pdf");
+    let (model, content) = (DocModel::new(), DocContent::new());
+    let c = content.on(model.on(&file));
+    let a = c.analyze(Target::Page(0)).unwrap();
+    let ops = a.read_ops(0, a.ops);
+    let tr7 = ops
+        .iter()
+        .position(|o| o.operator == Operator::RenderMode && o.operands[0].obj.as_i64() == Some(7))
+        .unwrap();
+    let fill = tr7
+        + ops[tr7..]
+            .iter()
+            .position(|o| o.operator == Operator::Fill)
+            .unwrap();
+    let (before, _) = c.state_at(&a, fill).unwrap();
+    assert_eq!(
+        before.g.clip,
+        Some(Rect {
+            x0: 170.0,
+            y0: 330.0,
+            x1: 240.0,
+            y1: 430.0
+        })
+    );
+    // The text itself is hidden (Tr 7), the fill is not.
+    assert!(a.element_of(tr7 as u32 + 3).is_some_and(|e| e.hidden));
+    assert!(a.element_of(fill as u32).is_some_and(|e| !e.hidden));
+    // Text after the next BT is not clipped by it.
+    let (s, _) = c.state_at(&a, fill + 3).unwrap();
+    assert_eq!(
+        s.g.clip,
+        Some(Rect {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 612.0,
+            y1: 792.0
+        })
+    );
+}

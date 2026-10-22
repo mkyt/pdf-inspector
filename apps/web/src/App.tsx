@@ -24,6 +24,7 @@ import { OutlinePanel } from "./components/OutlinePanel";
 import { PageList } from "./components/PageList";
 import { PageView } from "./components/PageView";
 import { ContentView } from "./components/ContentView";
+import { FontView } from "./components/FontView";
 import { HexView } from "./components/HexView";
 import { Inspector } from "./components/Inspector";
 import { ObjectList } from "./components/ObjectList";
@@ -308,6 +309,8 @@ function DocView({ doc, router }: { doc: DocId; router: Router }) {
                 <PageView key={t.index} index={t.index} />
               ) : t.kind === "content" ? (
                 <ContentView key={contentKey(t.content).join("/")} content={t.content} op={t.op} />
+              ) : t.kind === "font" ? (
+                <FontView key={`${t.id.num}/${t.id.generation}`} id={t.id} />
               ) : (
                 <Inspector />
               )}

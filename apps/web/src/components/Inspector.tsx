@@ -81,6 +81,7 @@ function ObjectInspector({ id }: { id: ObjRef }) {
       ))}
       <SchemaIssues root={{ kind: "object", id: o.id }} />
       {o.value.type === "dict" && o.value.type_name === "Page" && <PageLink id={o.id} />}
+      {o.value.type === "dict" && <FontLink id={o.id} />}
       <Referrers id={o.id} />
       {o.stream && <ImagePreview id={o.id} info={o.stream} />}
       {o.stream && <ContentLink id={o.id} />}
@@ -117,6 +118,21 @@ function ContentLink({ id }: { id: ObjRef }) {
   return (
     <Anchor size="xs" onClick={() => nav.open({ kind: "content", content: { kind: "stream", id }, op: null })}>
       Read as a content stream →
+    </Anchor>
+  );
+}
+
+/** Font dictionaries (by schema type; descendant CID fonts are reached from their Type 0 font). */
+const FONT = /^Font(Type[013]|TrueType|MultipleMaster)$/;
+
+/** For font dictionaries: open the font view. */
+function FontLink({ id }: { id: ObjRef }) {
+  const nav = useNav();
+  const s = useSchema({ kind: "object", id }).data;
+  if (!s?.type_name || !FONT.test(s.type_name)) return null;
+  return (
+    <Anchor size="xs" onClick={() => nav.open({ kind: "font", id })}>
+      Program, encoding and glyphs →
     </Anchor>
   );
 }

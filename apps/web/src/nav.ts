@@ -8,7 +8,9 @@ export type Target =
   /** A page by 0-based index. */
   | { kind: "page"; index: number }
   /** The operations of a content, with one of them selected. */
-  | { kind: "content"; content: ContentRef; op: number | null };
+  | { kind: "content"; content: ContentRef; op: number | null }
+  /** A font dictionary: program, encoding and glyphs. */
+  | { kind: "font"; id: ObjRef };
 
 /** An entry picked in the structure tree, shown in the schema panel. */
 export interface Selection {
@@ -46,7 +48,8 @@ export function sameTarget(a: Target, b: Target): boolean {
     case "trailer":
       return a.kind === b.kind;
     case "object":
-      return b.kind === "object" && a.id.num === b.id.num && a.id.generation === b.id.generation;
+    case "font":
+      return b.kind === a.kind && a.id.num === b.id.num && a.id.generation === b.id.generation;
     case "page":
       return b.kind === "page" && a.index === b.index;
     case "content":

@@ -6,10 +6,11 @@
 
 use std::sync::Arc;
 
+use pdfi_font::{Code, Seg};
 use pdfi_model::Rect;
-use pdfi_syntax::{Dict, ObjId, Object, Stream};
+use pdfi_syntax::{Dict, ObjId, Object, PdfFile, Stream};
 
-use crate::geom::Matrix;
+use crate::geom::{Matrix, apply, mul};
 use crate::interp::{FontRef, GState, Resources};
 
 /// One element of a path, in the content's space (the CTM applied).
@@ -45,9 +46,9 @@ impl Drop for ClipPath {
 /// One character shown.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Glyph {
-    pub code: u32,
-    /// Origin in text space (before the text matrix), font size and
-    /// horizontal scaling applied.
+    pub code: Code,
+    /// Where the glyph's (horizontal) origin is, in text space (before the
+    /// text matrix), font size and horizontal scaling applied.
     pub x: f64,
     pub y: f64,
     /// The box the bounding boxes use (advance × ascent / descent).
@@ -65,6 +66,60 @@ pub struct GlyphRun<'a> {
     pub scale: f64,
     pub rise: f64,
     pub glyphs: Vec<Glyph>,
+}
+
+impl GlyphRun<'_> {
+    /// Glyph outline space (text space for a font size of 1) to the
+    /// content's space.
+    pub fn glyph_matrix(&self, g: &Glyph) -> Matrix {
+        mul(
+            &[self.size * self.scale, 0.0, 0.0, self.size, g.x, g.y],
+            &self.matrix,
+        )
+    }
+
+    /// Append the outline of a glyph in the content's space; its box when
+    /// the font has no outlines. Returns whether there was an outline.
+    pub fn glyph_path(&self, file: &PdfFile, g: &Glyph, out: &mut Vec<PathEl>) -> bool {
+        let font = &self.font.info;
+        if !font.has_outlines(file) {
+            let b = &g.bbox;
+            let p = |x, y| apply(&self.matrix, x, y);
+            let [a, bb, c, d] = [p(b.x0, b.y0), p(b.x1, b.y0), p(b.x1, b.y1), p(b.x0, b.y1)];
+            out.extend([
+                PathEl::Move(a.0, a.1),
+                PathEl::Line(bb.0, bb.1),
+                PathEl::Line(c.0, c.1),
+                PathEl::Line(d.0, d.1),
+                PathEl::Close,
+            ]);
+            return false;
+        }
+        let Some(o) = font.outline(file, g.code) else {
+            return false;
+        };
+        let m = self.glyph_matrix(g);
+        let p = |x: f32, y: f32| apply(&m, x.into(), y.into());
+        out.reserve(o.segs.len());
+        for s in &o.segs {
+            out.push(match *s {
+                Seg::Move(x, y) => {
+                    let (x, y) = p(x, y);
+                    PathEl::Move(x, y)
+                }
+                Seg::Line(x, y) => {
+                    let (x, y) = p(x, y);
+                    PathEl::Line(x, y)
+                }
+                Seg::Curve(a, b, c, d, e, f) => {
+                    let ((a, b), (c, d), (e, f)) = (p(a, b), p(c, d), p(e, f));
+                    PathEl::Curve(a, b, c, d, e, f)
+                }
+                Seg::Close => PathEl::Close,
+            });
+        }
+        true
+    }
 }
 
 /// An image to paint in the unit square of user space.
@@ -88,8 +143,9 @@ pub trait Device {
 
     fn stroke(&mut self, path: &[PathEl], g: &GState);
 
-    /// Text in render modes that paint (not 3 / 7; clipping modes are
-    /// painted without the clip).
+    /// Text in render modes that paint (not 3 / 7; the clipping modes
+    /// clip after `ET`). Type 3 glyphs come as the paths and images of
+    /// their procedures instead.
     fn text(&mut self, run: &GlyphRun<'_>, g: &GState);
 
     /// `res`: the resources of the content (inline images name color

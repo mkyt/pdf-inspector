@@ -1,0 +1,16 @@
+[package]
+name = "pdfi-font"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+hayro-font = "0.4.0"
+pdfi-model = { version = "0.1.0", path = "../pdfi-model" }
+pdfi-syntax = { version = "0.1.0", path = "../pdfi-syntax" }
+ttf-parser = { version = "0.25.1", default-features = false, features = ["std", "glyph-names"] }
+
+[lints]
+workspace = true

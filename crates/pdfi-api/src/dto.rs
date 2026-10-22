@@ -731,6 +731,107 @@ pub struct FontInfo {
     pub pages: Vec<u32>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub enum FontKind {
+    /// Type 1, TrueType, MMType1.
+    Simple,
+    Type0,
+    Type3,
+}
+
+/// What draws a font's glyphs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub enum GlyphSourceKind {
+    /// The embedded program.
+    Embedded,
+    /// A compiled-in font (simple fonts not embedded, or whose program
+    /// cannot be read).
+    Substitute,
+    /// Type 3 glyph procedures.
+    Procedures,
+    /// Nothing: glyphs are drawn as boxes.
+    None,
+}
+
+/// An embedded font program.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct FontProgramInfo {
+    pub stream: Option<ObjRef>,
+    /// `FontFile`, `FontFile2` or `FontFile3`.
+    pub key: String,
+    /// `/Subtype` of a `FontFile3`.
+    pub subtype: Option<String>,
+    /// As read: `TrueType`, `OpenType (CFF)`, `CFF`, `Type 1` (`None`:
+    /// unreadable).
+    pub format: Option<String>,
+    /// Decoded bytes.
+    pub len: u64,
+    pub glyphs: Option<u32>,
+    pub units_per_em: Option<u32>,
+    pub cid_keyed: bool,
+}
+
+/// A font: dictionaries, encoding, program and problems.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct FontDetail {
+    pub id: ObjRef,
+    pub kind: FontKind,
+    pub subtype: Option<String>,
+    pub base_font: Option<String>,
+    pub descendant: Option<ObjRef>,
+    /// `CIDFontType0` / `CIDFontType2`.
+    pub cid_subtype: Option<String>,
+    pub descriptor: Option<ObjRef>,
+    /// `WinAnsiEncoding + 3 differences`, `Identity-H`, `embedded CMap`, ...
+    pub encoding: Option<String>,
+    pub vertical: bool,
+    pub to_unicode: Option<ObjRef>,
+    pub to_unicode_entries: u32,
+    /// `Identity`, or the number of CIDs a `/CIDToGIDMap` stream maps.
+    pub cid_to_gid: Option<String>,
+    pub program: Option<FontProgramInfo>,
+    pub glyph_source: GlyphSourceKind,
+    /// Name of the substitute font.
+    pub substitute: Option<String>,
+    /// `/Flags` of the descriptor, and their names.
+    pub flags: Option<i64>,
+    pub flag_names: Vec<String>,
+    pub symbolic: bool,
+    /// Thousandths of an em (glyph space for Type 3).
+    pub ascent: f64,
+    pub descent: f64,
+    /// Type 3 `/FontMatrix`.
+    pub font_matrix: Option<Vec<f64>>,
+    /// Widths are partly guessed.
+    pub approximate: bool,
+    /// Number of entries `Glyphs` lists.
+    pub codes: u32,
+    pub issues: Vec<DiagnosticInfo>,
+}
+
+/// One code of a font and the glyph it selects.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct GlyphView {
+    pub code: u32,
+    /// The code's bytes in hex (`41`, `0041`).
+    pub bytes: String,
+    pub cid: Option<u32>,
+    pub gid: Option<u32>,
+    pub name: Option<String>,
+    /// From `/ToUnicode`, or the glyph name.
+    pub text: Option<String>,
+    /// Advance width in glyph space (thousandths of an em but for Type 3).
+    pub width: f64,
+    /// SVG path data of the outline, 1000 units per em, y up.
+    pub outline: Option<String>,
+    /// Bounding box of the outline, same units.
+    pub bbox: Option<Rect>,
+    /// Type 3: the glyph procedure.
+    pub procedure: Option<ObjRef>,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct ImageInfo {
     pub id: ObjRef,

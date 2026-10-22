@@ -1,7 +1,8 @@
 //! The raster renderer: runs a content again through the interpreter and
-//! paints paths, strokes, clips and images with tiny-skia. Text is drawn
-//! as glyph boxes until fonts are rendered; shadings, patterns, soft masks
-//! and blend modes come later (what a pass leaves out is reported as
+//! paints paths, strokes, clips, images and text (glyph outlines of the
+//! embedded or substituted font program; Type 3 glyphs through their
+//! procedures) with tiny-skia. Shadings, patterns, soft masks and blend
+//! modes come later (what a pass leaves out or approximates is reported as
 //! notes).
 //!
 //! Coordinates: a content's *view* is what is shown, in points with the

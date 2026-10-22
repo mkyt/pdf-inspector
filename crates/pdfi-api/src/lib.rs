@@ -8,6 +8,7 @@ pub mod conformance;
 mod content;
 mod convert;
 pub mod dto;
+mod font;
 pub mod job;
 mod model;
 pub mod protocol;

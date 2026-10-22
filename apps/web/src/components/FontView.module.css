@@ -1,0 +1,43 @@
+.grid {
+  overflow: auto;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-sm);
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 3px 2px;
+  border-right: 1px solid var(--mantine-color-default-border);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+
+  @mixin hover {
+    background: var(--mantine-color-default-hover);
+  }
+
+  &[data-empty] {
+    opacity: 0.45;
+  }
+
+  &[data-active] {
+    background: var(--mantine-primary-color-light);
+    opacity: 1;
+  }
+}
+
+.picked {
+  padding: 6px;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-sm);
+}
+
+.big {
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

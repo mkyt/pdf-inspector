@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use pdfi_content::device::{ClipPath, Device, GlyphRun, ImageData, PathEl};
+use pdfi_content::font::GlyphSource;
 use pdfi_content::geom::{Matrix, apply, mul, scale_of};
 use pdfi_content::interp::{Color, GState, Resources};
 use pdfi_syntax::{Object, PdfFile};
@@ -25,7 +26,7 @@ use crate::image::{self, Decoded};
 const MASKS: usize = 8;
 /// Color spaces kept per pass.
 const SPACES: usize = 32;
-/// Opacity of text placeholders (glyphs are not drawn yet).
+/// Opacity of glyph boxes (fonts without glyphs).
 const TEXT_ALPHA: f32 = 0.35;
 /// Strokes of a highlight are at least this wide (pixels).
 const HIGHLIGHT_WIDTH: f64 = 3.0;
@@ -519,45 +520,58 @@ impl Device for Raster<'_> {
         if !self.active {
             return;
         }
+        let font = &run.font.info;
+        let outlines = font.has_outlines(self.file);
         if let Mode::Paint = self.mode {
-            self.note("text is drawn as glyph boxes (fonts are not rendered yet)");
-            if g.text.render >= 4 {
-                self.note("text clipping (Tr 4–7) is not applied");
+            let name = match &font.base_font {
+                Some(b) => format!("/{} ({b})", run.font.name),
+                None => format!("/{}", run.font.name),
+            };
+            match &font.glyphs(self.file).source {
+                GlyphSource::Substitute { name: with, .. } => {
+                    self.note(format!("font {name} is drawn with {with}"));
+                }
+                GlyphSource::None => {
+                    self.note(format!("font {name} has no glyphs: text is drawn as boxes"));
+                }
+                _ => {}
             }
         }
-        let mut els = Vec::with_capacity(run.glyphs.len() * 5);
+        let mut els = Vec::with_capacity(run.glyphs.len() * 24);
         for gl in &run.glyphs {
-            let b = &gl.bbox;
-            let p = |x, y| apply(&run.matrix, x, y);
-            let [a, bb, c, d] = [p(b.x0, b.y0), p(b.x1, b.y0), p(b.x1, b.y1), p(b.x0, b.y1)];
-            els.extend([
-                PathEl::Move(a.0, a.1),
-                PathEl::Line(bb.0, bb.1),
-                PathEl::Line(c.0, c.1),
-                PathEl::Line(d.0, d.1),
-                PathEl::Close,
-            ]);
+            run.glyph_path(self.file, gl, &mut els);
         }
-        if self.misses(bounds(&els, &self.base), 1.0) {
+        if els.is_empty() || self.misses(bounds(&els, &self.base), 1.0) {
             return;
         }
-        let Some(p) = build(&els, None) else { return };
-        // Stroke-only modes take the stroke color.
-        let (color, alpha) = if matches!(g.text.render, 1 | 5) {
-            (&g.stroke, g.stroke_alpha)
-        } else {
-            (&g.fill, g.fill_alpha)
-        };
-        let Some(mut paint) = self.paint_for(color, alpha) else {
+        if !outlines {
+            // Glyph boxes, faint: where the text is, not what it says.
+            let Some(p) = build(&els, None) else { return };
+            let (color, alpha) = if matches!(g.text.render, 1 | 5) {
+                (&g.stroke, g.stroke_alpha)
+            } else {
+                (&g.fill, g.fill_alpha)
+            };
+            let Some(mut paint) = self.paint_for(color, alpha) else {
+                return;
+            };
+            if let (Mode::Paint, tiny_skia::Shader::SolidColor(c)) = (&self.mode, &mut paint.shader)
+            {
+                c.apply_opacity(TEXT_ALPHA);
+            }
+            let ts = to_transform(&self.base);
+            self.draw(g, |pix, mask| {
+                pix.fill_path(&p, &paint, FillRule::Winding, ts, mask)
+            });
             return;
-        };
-        if let (Mode::Paint, tiny_skia::Shader::SolidColor(c)) = (&self.mode, &mut paint.shader) {
-            c.apply_opacity(TEXT_ALPHA);
         }
-        let ts = to_transform(&self.base);
-        self.draw(g, |pix, mask| {
-            pix.fill_path(&p, &paint, FillRule::Winding, ts, mask)
-        });
+        let r = g.text.render;
+        if matches!(r, 0 | 2 | 4 | 6) {
+            self.fill(&els, false, g);
+        }
+        if matches!(r, 1 | 2 | 5 | 6) {
+            self.stroke(&els, g);
+        }
     }
 
     fn image(&mut self, img: ImageData<'_>, res: &Resources, g: &GState) {

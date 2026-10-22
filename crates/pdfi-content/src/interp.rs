@@ -20,7 +20,7 @@ use pdfi_model::{Rect, resolve};
 use pdfi_syntax::{Dict, DictExt, Name, Node, ObjId, Object, PdfFile, Severity, Stream};
 
 use crate::device::{ClipPath, Device, Glyph, GlyphRun, ImageData, PathEl};
-use crate::font::FontInfo;
+use crate::font::{Font, FontKind};
 use crate::geom::{
     IDENTITY, Matrix, add_point, apply, grow, intersect, mul, scale_of, transform, translate,
     union, unit_square,
@@ -77,7 +77,7 @@ pub struct FontRef {
     /// Resource name, or `ExtGState` for a font set by `gs`.
     pub name: String,
     pub id: Option<ObjId>,
-    pub info: Arc<FontInfo>,
+    pub info: Arc<Font>,
 }
 
 #[derive(Clone, Debug)]
@@ -186,6 +186,18 @@ pub struct State {
     pub marked: Vec<String>,
     /// Open `BX` sections.
     pub compat: u32,
+    /// Text shown in a clipping mode (`Tr` 4–7) since `BT`: it clips at
+    /// `ET`.
+    pub text_clip: Option<TextClip>,
+}
+
+/// What text in clipping modes adds to the clip.
+#[derive(Clone, Debug, Default)]
+pub struct TextClip {
+    /// In the content's space.
+    pub bbox: Option<Rect>,
+    /// The glyph outlines (only while drawing).
+    pub els: Vec<PathEl>,
 }
 
 impl State {
@@ -201,6 +213,7 @@ impl State {
             pending_clip: None,
             marked: Vec::new(),
             compat: 0,
+            text_clip: None,
         }
     }
 
@@ -284,6 +297,15 @@ impl Resources {
         Resources {
             known: dict.is_some(),
             dict,
+            fonts: RefCell::default(),
+        }
+    }
+
+    /// The same resources for a stream that has none of its own.
+    pub fn inherit(&self) -> Self {
+        Resources {
+            dict: self.dict.clone(),
+            known: self.known,
             fonts: RefCell::default(),
         }
     }
@@ -559,6 +581,9 @@ pub struct Interp<'r> {
     /// The decoded streams the operations come from (for inline image
     /// data while drawing).
     data: &'r [SourceData],
+    /// A Type 3 glyph declared uncolored (`d1`): color operators are
+    /// ignored.
+    uncolored: bool,
 }
 
 impl<'r> Interp<'r> {
@@ -568,6 +593,7 @@ impl<'r> Interp<'r> {
             res,
             kind,
             data: &[],
+            uncolored: false,
         }
     }
 
@@ -729,6 +755,9 @@ impl<'r> Interp<'r> {
         let Some(args) = self.operands(i, op, rec) else {
             return;
         };
+        if self.uncolored && cat == Category::Color {
+            return;
+        }
         let g = &mut self.s.g;
         match &op.operator {
             Operator::LineWidth => g.line_width = num(&args[0]),
@@ -937,12 +966,16 @@ impl<'r> Interp<'r> {
                 self.s.in_text = true;
                 self.s.tm = IDENTITY;
                 self.s.tlm = IDENTITY;
+                self.s.text_clip = None;
             }
             Operator::EndText => {
                 if !self.s.in_text {
                     rec.error(i, "Unbalanced", "ET without a matching BT");
                 }
                 self.s.in_text = false;
+                if let Some(tc) = self.s.text_clip.take() {
+                    self.text_clip(tc, rec);
+                }
             }
             Operator::CharSpacing => g.text.char_spacing = num(&args[0]),
             Operator::WordSpacing => g.text.word_spacing = num(&args[0]),
@@ -984,14 +1017,14 @@ impl<'r> Interp<'r> {
             }
             Operator::ShowText => {
                 if let Some(s) = args[0].obj.as_string() {
-                    self.show(i, &[Piece::Str(&s.bytes)], rec);
+                    self.show(env, i, &[Piece::Str(&s.bytes)], rec);
                 }
             }
             Operator::NextLineShow => {
                 let l = self.s.g.text.leading;
                 self.text_move(0.0, -l);
                 if let Some(s) = args[0].obj.as_string() {
-                    self.show(i, &[Piece::Str(&s.bytes)], rec);
+                    self.show(env, i, &[Piece::Str(&s.bytes)], rec);
                 }
             }
             Operator::NextLineSpacingShow => {
@@ -1000,7 +1033,7 @@ impl<'r> Interp<'r> {
                 let l = self.s.g.text.leading;
                 self.text_move(0.0, -l);
                 if let Some(s) = args[2].obj.as_string() {
-                    self.show(i, &[Piece::Str(&s.bytes)], rec);
+                    self.show(env, i, &[Piece::Str(&s.bytes)], rec);
                 }
             }
             Operator::ShowTextArray => {
@@ -1021,9 +1054,12 @@ impl<'r> Interp<'r> {
                         "TJ array elements must be strings and numbers",
                     );
                 }
-                self.show(i, &pieces, rec);
+                self.show(env, i, &pieces, rec);
             }
             Operator::GlyphWidth | Operator::GlyphWidthBox => {
+                if op.operator == Operator::GlyphWidthBox && i == 0 {
+                    self.uncolored = true;
+                }
                 if self.kind == Kind::Page || i != 0 {
                     rec.warning(
                         i,
@@ -1262,7 +1298,7 @@ impl<'r> Interp<'r> {
     }
 
     /// Show strings (with `TJ` adjustments), advancing the text matrix.
-    fn show(&mut self, i: u32, pieces: &[Piece], rec: &mut Rec) {
+    fn show(&mut self, env: &mut Env, i: u32, pieces: &[Piece], rec: &mut Rec) {
         let t = self.s.g.text.clone();
         let Some(font) = t.font.as_ref() else {
             rec.error(i, "NoFont", "text shown before a font is set (Tf)");
@@ -1318,10 +1354,18 @@ impl<'r> Interp<'r> {
                         };
                         bbox = Some(union(bbox, glyph));
                         if drawing {
+                            // Vertical: the glyph's horizontal origin is
+                            // half its width left and 0.88 em below (the
+                            // default position vector).
+                            let (gx, gy) = if f.vertical {
+                                (-0.5 * f.glyph_width(c) * f.scale * size, oy - 0.88 * size)
+                            } else {
+                                (ox, oy + t.rise)
+                            };
                             glyphs.push(Glyph {
-                                code: c.code,
-                                x: ox,
-                                y: oy + t.rise,
+                                code: c,
+                                x: gx,
+                                y: gy,
                                 bbox: glyph,
                             });
                         }
@@ -1336,10 +1380,12 @@ impl<'r> Interp<'r> {
                 }
             }
         }
+        let m = mul(&self.s.tm, &self.s.g.ctm);
+        let invisible = t.render == 3 || t.render == 7;
+        let clipping = (4..=7).contains(&t.render);
         if rec.record {
             if let Some(b) = bbox {
-                let m = mul(&self.s.tm, &self.s.g.ctm);
-                let hidden = t.render == 3 || t.render == 7;
+                let hidden = invisible;
                 self.element(i, ElementKind::Text, transform(&b, &m), rec);
                 if hidden {
                     if let Some(e) = rec.elements.last_mut() {
@@ -1352,22 +1398,93 @@ impl<'r> Interp<'r> {
                 rec.texts.push((i, text));
             }
         }
-        if let Some(d) = rec.device.as_deref_mut() {
-            if !glyphs.is_empty() && t.render != 3 && t.render != 7 {
-                d.text(
-                    &GlyphRun {
-                        font,
-                        matrix: mul(&self.s.tm, &self.s.g.ctm),
-                        size,
-                        scale: th,
-                        rise: t.rise,
-                        glyphs,
-                    },
-                    &self.s.g,
-                );
+        if clipping {
+            if let Some(b) = bbox {
+                let tc = self.s.text_clip.get_or_insert_with(TextClip::default);
+                tc.bbox = Some(union(tc.bbox, transform(&b, &m)));
+            }
+        }
+        if drawing && !glyphs.is_empty() {
+            let run = GlyphRun {
+                font,
+                matrix: m,
+                size,
+                scale: th,
+                rise: t.rise,
+                glyphs,
+            };
+            if f.kind == FontKind::Type3 {
+                if !invisible {
+                    self.type3(env, i, &run, rec);
+                }
+            } else {
+                if clipping {
+                    let tc = self.s.text_clip.get_or_insert_with(TextClip::default);
+                    for g in &run.glyphs {
+                        run.glyph_path(env.file, g, &mut tc.els);
+                    }
+                }
+                if let Some(d) = rec.device.as_deref_mut() {
+                    if !invisible {
+                        d.text(&run, &self.s.g);
+                    }
+                }
             }
         }
         self.s.tm = mul(&translate(x, y), &self.s.tm);
+    }
+
+    /// `ET` after text in a clipping mode: intersect the clip with the
+    /// glyphs.
+    fn text_clip(&mut self, tc: TextClip, rec: &mut Rec) {
+        let Some(bbox) = tc.bbox else { return };
+        let g = &mut self.s.g;
+        g.clip = Some(match g.clip {
+            None => bbox,
+            Some(c) => intersect(&c, &bbox).unwrap_or(Rect {
+                x0: c.x0,
+                y0: c.y0,
+                x1: c.x0,
+                y1: c.y0,
+            }),
+        });
+        if rec.drawing() {
+            g.clip_path = Some(Arc::new(ClipPath {
+                path: tc.els,
+                even_odd: false,
+                parent: g.clip_path.take(),
+            }));
+        }
+    }
+
+    /// Run the glyph procedures of a Type 3 font for the glyphs of a run.
+    fn type3(&mut self, env: &mut Env, i: u32, run: &GlyphRun<'_>, rec: &mut Rec) {
+        let f = &run.font.info;
+        let Some(t3) = f.type3.as_ref() else { return };
+        for gl in &run.glyphs {
+            let Some((id, o)) = f.char_proc(env.file, gl.code) else {
+                continue;
+            };
+            let Some(s) = o.as_stream() else { continue };
+            let Some(id) = id else { continue };
+            let m = mul(
+                &t3.matrix,
+                &mul(
+                    &[run.size * run.scale, 0.0, 0.0, run.size, gl.x, gl.y],
+                    &run.matrix,
+                ),
+            );
+            let res = match &t3.resources {
+                Some(r) => Resources::new(env.file, Some(r)),
+                None => self.res.inherit(),
+            };
+            let mut g = self.s.g.clone();
+            g.ctm = m;
+            self.run_sub(env, i, id, s, &res, g, Kind::Other, rec);
+            if env.budget == 0 {
+                break;
+            }
+        }
     }
 
     fn color_space(&mut self, env: &Env, i: u32, rec: &mut Rec, n: &Name) -> Color {
@@ -1702,15 +1819,10 @@ impl<'r> Interp<'r> {
         if env.active.len() as u32 >= MAX_FORM_DEPTH || env.budget == 0 {
             return bbox_t;
         }
-        let data = env.cache.form_data(f, id, s);
         let res = match s.dict.get_key("Resources") {
             Some(r) => Resources::new(f, Some(r)),
             // Resources inherited from the page (allowed before PDF 1.2).
-            None => Resources {
-                dict: self.res.dict.clone(),
-                known: self.res.known,
-                fonts: RefCell::default(),
-            },
+            None => self.res.inherit(),
         };
         let mut g = self.s.g.clone();
         g.ctm = ctm;
@@ -1732,7 +1844,36 @@ impl<'r> Interp<'r> {
                 }));
             }
         }
-        let mut sub = Interp::new(State::new(g), &res, Kind::Form).with_data(&data);
+        let inner = self.run_sub(env, i, id, s, &res, g, Kind::Form, rec);
+        match (inner, bbox_t) {
+            (Some(a), Some(b)) => intersect(&a, &b),
+            (a, b) => a.or(b),
+        }
+    }
+
+    /// Run a stream the content calls (form XObject, glyph procedure) in
+    /// state `g`; returns the bounding box of what it paints.
+    #[allow(clippy::too_many_arguments)]
+    fn run_sub(
+        &mut self,
+        env: &mut Env,
+        i: u32,
+        id: ObjId,
+        s: &Stream,
+        res: &Resources,
+        g: GState,
+        kind: Kind,
+        rec: &mut Rec,
+    ) -> Option<Rect> {
+        if env.active.contains(&id) {
+            rec.error(i, "RecursiveForm", format!("{id} obj paints itself"));
+            return None;
+        }
+        if env.active.len() as u32 >= MAX_FORM_DEPTH || env.budget == 0 {
+            return None;
+        }
+        let data = env.cache.form_data(env.file, id, s);
+        let mut sub = Interp::new(State::new(g), res, kind).with_data(&data);
         let mut srec = Rec {
             device: rec.device.as_deref_mut().map(|d| d as &mut dyn Device),
             ..if rec.record {
@@ -1772,10 +1913,7 @@ impl<'r> Interp<'r> {
             );
         }
         rec.approximate |= approximate;
-        match (inner, bbox_t) {
-            (Some(a), Some(b)) => intersect(&a, &b),
-            (a, b) => a.or(b),
-        }
+        inner
     }
 
     /// Problems left open at the end of the content (content-wide).

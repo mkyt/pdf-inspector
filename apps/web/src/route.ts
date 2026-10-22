@@ -22,6 +22,9 @@ function parseTarget(v: string | null, op: string | null): Target {
   if ((m = v?.match(/^obj:(\d+)\.(\d+)$/) ?? null)) {
     return { kind: "object", id: { num: Number(m[1]), generation: Number(m[2]) } };
   }
+  if ((m = v?.match(/^font:(\d+)\.(\d+)$/) ?? null)) {
+    return { kind: "font", id: { num: Number(m[1]), generation: Number(m[2]) } };
+  }
   // Pages are 1-based in the URL, like everywhere else people see them.
   if ((m = v?.match(/^page:(\d+)$/) ?? null) && Number(m[1]) > 0) return { kind: "page", index: Number(m[1]) - 1 };
   const sel = op !== null && /^\d+$/.test(op) ? Number(op) : null;
@@ -42,6 +45,8 @@ function targetParam(t: Target): string | null {
       return "trailer";
     case "object":
       return `obj:${t.id.num}.${t.id.generation}`;
+    case "font":
+      return `font:${t.id.num}.${t.id.generation}`;
     case "page":
       return `page:${t.index + 1}`;
     case "content":

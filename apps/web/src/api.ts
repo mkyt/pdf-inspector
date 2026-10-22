@@ -16,7 +16,9 @@ import type {
   DocSummary,
   DiagnosticInfo,
   DocumentView,
+  FontDetail,
   FontInfo,
+  GlyphView,
   ImageInfo,
   JobInfo,
   JobKind,
@@ -142,6 +144,10 @@ export const api = {
     (await call(b, "contentIssues", { op: "contentIssues", doc, content, range })).body,
   contentElements: async (b: Backend, doc: DocId, content: ContentRef, range: Range): Promise<Page<ElementView>> =>
     (await call(b, "elements", { op: "contentElements", doc, content, range })).body,
+  font: async (b: Backend, doc: DocId, id: ObjRef): Promise<FontDetail> =>
+    (await call(b, "font", { op: "font", doc, id })).body,
+  glyphs: async (b: Backend, doc: DocId, id: ObjRef, range: Range, signal?: AbortSignal): Promise<Page<GlyphView>> =>
+    (await call(b, "glyphs", { op: "glyphs", doc, id, range }, signal)).body,
   opState: async (b: Backend, doc: DocId, content: ContentRef, index: number): Promise<OpState> =>
     (await call(b, "opState", { op: "opState", doc, content, index })).body,
   render: async (

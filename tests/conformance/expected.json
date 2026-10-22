@@ -5,7 +5,7 @@
       "ok": {
         "backend": null,
         "filesystem": null,
-        "protocol": 5,
+        "protocol": 6,
         "type": "hello",
         "version": "0.1.0"
       }
@@ -16,7 +16,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 999, backend speaks 5"
+        "message": "client speaks protocol 999, backend speaks 6"
       }
     }
   },
@@ -8279,7 +8279,7 @@
   },
   {
     "blobs": [
-      "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffedeff1ffe7eaecffedeff1ffedeff1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc0c0c1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff404141ff414243ff424344ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff444445ff454546ff464747ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff383838ff404040ff383838ffdfdfdfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5f5f5fffbfbfbfff606060ff7f7f7ffffbfbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffcf9f9fffa04040ff502020ffa04040ff401a33ff1d0c5dffac84afffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbf7f7fff800000ff1a0017ff0d0048ff08003eff3c0041ffbf7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaf758aff1200dcff2700b1ff60003fff800000ff800000ffbf7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd3c4e2ffc0a5c8ffdfbfbfffdfbfbfffdfbfbfffdfbfbfffefdfdfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeff1f3fffafbfbfffafbfbffeff1f3ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc0c0c1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff404141ff414243ff424344ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff444445ff454546ff464747ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff383838ff404040ff383838ffdfdfdfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5f5f5fffbfbfbfff606060ff7f7f7ffffbfbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffcf9f9fffa04040ff502020ffa04040ff401a33ff1d0c5dffac84afffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbf7f7fff800000ff1b0018ff0d004cff090040ff3c0041ffbf7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaf758aff1200dcff2700b1ff60003fff800000ff800000ffbf7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd3c4e2ffc0a5c8ffdfbfbfffdfbfbfffdfbfbfffdfbfbfffefdfdfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
     ],
     "response": {
       "ok": {
@@ -8291,12 +8291,12 @@
             "message": "blend mode /Multiply is drawn as /Normal"
           },
           {
-            "count": 1,
-            "message": "shadings (sh) are not drawn yet"
+            "count": 3,
+            "message": "font /F1 (Helvetica) is drawn with Foxit Sans"
           },
           {
-            "count": 3,
-            "message": "text is drawn as glyph boxes (fonts are not rendered yet)"
+            "count": 1,
+            "message": "shadings (sh) are not drawn yet"
           }
         ],
         "ops": 56,
@@ -8314,7 +8314,7 @@
   },
   {
     "blobs": [
-      "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007f0000007f0000007f0000007f0000007f0000000000000000000000000000000000000000000000bf000000800000008000000080000000bf0000008000000000000000000000000000000000000000800000000000000000000000000000007f0000008000000000000000000000000000000000000000800000000000000000000000000000007f00000080000000000000000000000000000000000000008600000017000000170000000c0000007f0000008000000000000000000000000000000000000000c7000000a1000000a100000090000000bf0000008000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007f0000007f0000007f0000007f0000007f0000000000000000000000000000000000000000000000bf000000800000008000000080000000bf0000008000000000000000000000000000000000000000800000000000000000000000000000007f0000008000000000000000000000000000000000000000800000000000000000000000000000007f0000008000000000000000000000000000000000000000880000000000000000000000000000007f0000008000000000000000000000000000000000000000cf000000870000008f0000008f000000bf0000008000000000000000000000000000000000"
     ],
     "response": {
       "ok": {
@@ -8323,7 +8323,7 @@
         "notes": [
           {
             "count": 1,
-            "message": "text is drawn as glyph boxes (fonts are not rendered yet)"
+            "message": "font /F1 (Helvetica) is drawn with Foxit Sans"
           }
         ],
         "ops": 7,
@@ -8395,6 +8395,804 @@
       "ok": {
         "ops": [
           2
+        ],
+        "type": "hits"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 0,
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 12,
+          "name": "fonts.pdf",
+          "path": null,
+          "size": 8492
+        },
+        "info_dict": null,
+        "inventory": null,
+        "live_objects": 30,
+        "object_slots": 67,
+        "pages": 1,
+        "pdf_version": "1.7",
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 67,
+            "index": 0,
+            "kind": "table",
+            "offset": 7086,
+            "span": {
+              "end": 8470,
+              "start": 7086
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 67
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "approximate": false,
+        "ascent": 800.0,
+        "base_font": "PdfiTT",
+        "cid_subtype": null,
+        "cid_to_gid": null,
+        "codes": 256,
+        "descendant": null,
+        "descent": -200.0,
+        "descriptor": {
+          "generation": 0,
+          "num": 41
+        },
+        "encoding": "WinAnsiEncoding",
+        "flag_names": [
+          "Nonsymbolic"
+        ],
+        "flags": 32,
+        "font_matrix": null,
+        "glyph_source": "embedded",
+        "id": {
+          "generation": 0,
+          "num": 21
+        },
+        "issues": [],
+        "kind": "simple",
+        "program": {
+          "cid_keyed": false,
+          "format": "TrueType",
+          "glyphs": 3,
+          "key": "FontFile2",
+          "len": 652,
+          "stream": {
+            "generation": 0,
+            "num": 61
+          },
+          "subtype": null,
+          "units_per_em": 1000
+        },
+        "substitute": null,
+        "subtype": "TrueType",
+        "symbolic": false,
+        "to_unicode": null,
+        "to_unicode_entries": 0,
+        "type": "font",
+        "vertical": false
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "approximate": false,
+        "ascent": 800.0,
+        "base_font": "PdfiTTSymbol",
+        "cid_subtype": null,
+        "cid_to_gid": null,
+        "codes": 256,
+        "descendant": null,
+        "descent": -200.0,
+        "descriptor": {
+          "generation": 0,
+          "num": 42
+        },
+        "encoding": null,
+        "flag_names": [
+          "Symbolic"
+        ],
+        "flags": 4,
+        "font_matrix": null,
+        "glyph_source": "embedded",
+        "id": {
+          "generation": 0,
+          "num": 22
+        },
+        "issues": [],
+        "kind": "simple",
+        "program": {
+          "cid_keyed": false,
+          "format": "TrueType",
+          "glyphs": 3,
+          "key": "FontFile2",
+          "len": 644,
+          "stream": {
+            "generation": 0,
+            "num": 62
+          },
+          "subtype": null,
+          "units_per_em": 1000
+        },
+        "substitute": null,
+        "subtype": "TrueType",
+        "symbolic": true,
+        "to_unicode": null,
+        "to_unicode_entries": 0,
+        "type": "font",
+        "vertical": false
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "approximate": false,
+        "ascent": 800.0,
+        "base_font": "PdfiCFF",
+        "cid_subtype": null,
+        "cid_to_gid": null,
+        "codes": 256,
+        "descendant": null,
+        "descent": -200.0,
+        "descriptor": {
+          "generation": 0,
+          "num": 43
+        },
+        "encoding": "WinAnsiEncoding + 1 differences",
+        "flag_names": [
+          "Nonsymbolic"
+        ],
+        "flags": 32,
+        "font_matrix": null,
+        "glyph_source": "embedded",
+        "id": {
+          "generation": 0,
+          "num": 23
+        },
+        "issues": [],
+        "kind": "simple",
+        "program": {
+          "cid_keyed": false,
+          "format": "CFF",
+          "glyphs": 3,
+          "key": "FontFile3",
+          "len": 100,
+          "stream": {
+            "generation": 0,
+            "num": 63
+          },
+          "subtype": "Type1C",
+          "units_per_em": null
+        },
+        "substitute": null,
+        "subtype": "Type1",
+        "symbolic": false,
+        "to_unicode": null,
+        "to_unicode_entries": 0,
+        "type": "font",
+        "vertical": false
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "approximate": false,
+        "ascent": 800.0,
+        "base_font": "PdfiOTF",
+        "cid_subtype": null,
+        "cid_to_gid": null,
+        "codes": 256,
+        "descendant": null,
+        "descent": -200.0,
+        "descriptor": {
+          "generation": 0,
+          "num": 44
+        },
+        "encoding": "WinAnsiEncoding",
+        "flag_names": [
+          "Nonsymbolic"
+        ],
+        "flags": 32,
+        "font_matrix": null,
+        "glyph_source": "embedded",
+        "id": {
+          "generation": 0,
+          "num": 24
+        },
+        "issues": [],
+        "kind": "simple",
+        "program": {
+          "cid_keyed": false,
+          "format": "OpenType (CFF)",
+          "glyphs": 3,
+          "key": "FontFile3",
+          "len": 644,
+          "stream": {
+            "generation": 0,
+            "num": 64
+          },
+          "subtype": "OpenType",
+          "units_per_em": 1000
+        },
+        "substitute": null,
+        "subtype": "Type1",
+        "symbolic": false,
+        "to_unicode": null,
+        "to_unicode_entries": 0,
+        "type": "font",
+        "vertical": false
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "approximate": false,
+        "ascent": 800.0,
+        "base_font": "PdfiTT",
+        "cid_subtype": "CIDFontType2",
+        "cid_to_gid": "map of 6 CIDs",
+        "codes": 6,
+        "descendant": {
+          "generation": 0,
+          "num": 35
+        },
+        "descent": -200.0,
+        "descriptor": {
+          "generation": 0,
+          "num": 45
+        },
+        "encoding": "Identity-H",
+        "flag_names": [
+          "Symbolic"
+        ],
+        "flags": 4,
+        "font_matrix": null,
+        "glyph_source": "embedded",
+        "id": {
+          "generation": 0,
+          "num": 25
+        },
+        "issues": [],
+        "kind": "type0",
+        "program": {
+          "cid_keyed": false,
+          "format": "TrueType",
+          "glyphs": 3,
+          "key": "FontFile2",
+          "len": 652,
+          "stream": {
+            "generation": 0,
+            "num": 61
+          },
+          "subtype": null,
+          "units_per_em": 1000
+        },
+        "substitute": null,
+        "subtype": "Type0",
+        "symbolic": true,
+        "to_unicode": {
+          "generation": 0,
+          "num": 36
+        },
+        "to_unicode_entries": 1,
+        "type": "font",
+        "vertical": false
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "approximate": false,
+        "ascent": 800.0,
+        "base_font": "PdfiType1",
+        "cid_subtype": null,
+        "cid_to_gid": null,
+        "codes": 256,
+        "descendant": null,
+        "descent": -200.0,
+        "descriptor": {
+          "generation": 0,
+          "num": 46
+        },
+        "encoding": null,
+        "flag_names": [
+          "Nonsymbolic"
+        ],
+        "flags": 32,
+        "font_matrix": null,
+        "glyph_source": "embedded",
+        "id": {
+          "generation": 0,
+          "num": 26
+        },
+        "issues": [],
+        "kind": "simple",
+        "program": {
+          "cid_keyed": false,
+          "format": "Type 1",
+          "glyphs": null,
+          "key": "FontFile",
+          "len": 1178,
+          "stream": {
+            "generation": 0,
+            "num": 66
+          },
+          "subtype": null,
+          "units_per_em": null
+        },
+        "substitute": null,
+        "subtype": "Type1",
+        "symbolic": false,
+        "to_unicode": null,
+        "to_unicode_entries": 0,
+        "type": "font",
+        "vertical": false
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "approximate": false,
+        "ascent": 700.0,
+        "base_font": null,
+        "cid_subtype": null,
+        "cid_to_gid": null,
+        "codes": 256,
+        "descendant": null,
+        "descent": 0.0,
+        "descriptor": null,
+        "encoding": "built-in + 2 differences",
+        "flag_names": [],
+        "flags": null,
+        "font_matrix": [
+          0.001,
+          0.0,
+          0.0,
+          0.001,
+          0.0,
+          0.0
+        ],
+        "glyph_source": "procedures",
+        "id": {
+          "generation": 0,
+          "num": 27
+        },
+        "issues": [],
+        "kind": "type3",
+        "program": null,
+        "substitute": null,
+        "subtype": "Type3",
+        "symbolic": false,
+        "to_unicode": null,
+        "to_unicode_entries": 0,
+        "type": "font",
+        "vertical": false
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "approximate": false,
+        "ascent": 800.0,
+        "base_font": "Helvetica",
+        "cid_subtype": null,
+        "cid_to_gid": null,
+        "codes": 256,
+        "descendant": null,
+        "descent": -200.0,
+        "descriptor": null,
+        "encoding": "WinAnsiEncoding",
+        "flag_names": [],
+        "flags": null,
+        "font_matrix": null,
+        "glyph_source": "substitute",
+        "id": {
+          "generation": 0,
+          "num": 28
+        },
+        "issues": [
+          {
+            "code": "Font",
+            "message": "not embedded: drawn with Foxit Sans",
+            "obj": {
+              "generation": 0,
+              "num": 28
+            },
+            "path": null,
+            "severity": "info",
+            "span": null
+          }
+        ],
+        "kind": "simple",
+        "program": null,
+        "substitute": "Foxit Sans",
+        "subtype": "Type1",
+        "symbolic": false,
+        "to_unicode": null,
+        "to_unicode_entries": 0,
+        "type": "font",
+        "vertical": false
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "approximate": false,
+        "ascent": 800.0,
+        "base_font": "PdfiMissingCID",
+        "cid_subtype": "CIDFontType2",
+        "cid_to_gid": null,
+        "codes": 0,
+        "descendant": null,
+        "descent": -200.0,
+        "descriptor": {
+          "generation": 0,
+          "num": 49
+        },
+        "encoding": "Identity-H",
+        "flag_names": [
+          "Symbolic"
+        ],
+        "flags": 4,
+        "font_matrix": null,
+        "glyph_source": "none",
+        "id": {
+          "generation": 0,
+          "num": 29
+        },
+        "issues": [
+          {
+            "code": "Font",
+            "message": "the CID font is not embedded and there is no substitute for it: glyphs are drawn as boxes",
+            "obj": {
+              "generation": 0,
+              "num": 29
+            },
+            "path": null,
+            "severity": "warning",
+            "span": null
+          }
+        ],
+        "kind": "type0",
+        "program": null,
+        "substitute": null,
+        "subtype": "Type0",
+        "symbolic": true,
+        "to_unicode": null,
+        "to_unicode_entries": 0,
+        "type": "font",
+        "vertical": false
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "badRequest",
+        "message": "3 0 obj is not a font dictionary"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "badRequest",
+        "message": "35 0 obj is a CID font: open the Type 0 font that uses it"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "bbox": null,
+            "bytes": "40",
+            "cid": null,
+            "code": 64,
+            "gid": null,
+            "name": "at",
+            "outline": null,
+            "procedure": null,
+            "text": "@",
+            "width": 0.0
+          },
+          {
+            "bbox": {
+              "x0": 100.0,
+              "x1": 600.0,
+              "y0": 0.0,
+              "y1": 700.0
+            },
+            "bytes": "41",
+            "cid": null,
+            "code": 65,
+            "gid": null,
+            "name": "A",
+            "outline": "M100 0L100 700L600 700L600 0Z",
+            "procedure": null,
+            "text": "A",
+            "width": 700.0
+          },
+          {
+            "bbox": null,
+            "bytes": "42",
+            "cid": null,
+            "code": 66,
+            "gid": null,
+            "name": "B",
+            "outline": null,
+            "procedure": null,
+            "text": "B",
+            "width": 700.0
+          }
+        ],
+        "offset": 64,
+        "total": 256,
+        "type": "glyphs"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "bbox": null,
+            "bytes": "0000",
+            "cid": 0,
+            "code": 0,
+            "gid": 0,
+            "name": ".notdef",
+            "outline": null,
+            "procedure": null,
+            "text": null,
+            "width": 1000.0
+          },
+          {
+            "bbox": null,
+            "bytes": "0001",
+            "cid": 1,
+            "code": 1,
+            "gid": 0,
+            "name": ".notdef",
+            "outline": null,
+            "procedure": null,
+            "text": null,
+            "width": 1000.0
+          },
+          {
+            "bbox": null,
+            "bytes": "0002",
+            "cid": 2,
+            "code": 2,
+            "gid": 0,
+            "name": ".notdef",
+            "outline": null,
+            "procedure": null,
+            "text": null,
+            "width": 1000.0
+          },
+          {
+            "bbox": null,
+            "bytes": "0003",
+            "cid": 3,
+            "code": 3,
+            "gid": 0,
+            "name": ".notdef",
+            "outline": null,
+            "procedure": null,
+            "text": null,
+            "width": 1000.0
+          },
+          {
+            "bbox": null,
+            "bytes": "0004",
+            "cid": 4,
+            "code": 4,
+            "gid": 0,
+            "name": ".notdef",
+            "outline": null,
+            "procedure": null,
+            "text": null,
+            "width": 1000.0
+          },
+          {
+            "bbox": {
+              "x0": 100.0,
+              "x1": 600.0,
+              "y0": 0.0,
+              "y1": 700.0
+            },
+            "bytes": "0005",
+            "cid": 5,
+            "code": 5,
+            "gid": 1,
+            "name": "A",
+            "outline": "M100 0L100 700L600 700L600 0L100 0Z",
+            "procedure": null,
+            "text": "X",
+            "width": 700.0
+          }
+        ],
+        "offset": 0,
+        "total": 6,
+        "type": "glyphs"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "bbox": null,
+            "bytes": "60",
+            "cid": null,
+            "code": 96,
+            "gid": null,
+            "name": null,
+            "outline": null,
+            "procedure": null,
+            "text": "‘",
+            "width": 0.0
+          },
+          {
+            "bbox": null,
+            "bytes": "61",
+            "cid": null,
+            "code": 97,
+            "gid": null,
+            "name": "sq",
+            "outline": null,
+            "procedure": {
+              "generation": 0,
+              "num": 50
+            },
+            "text": null,
+            "width": 700.0
+          },
+          {
+            "bbox": null,
+            "bytes": "62",
+            "cid": null,
+            "code": 98,
+            "gid": null,
+            "name": "tri",
+            "outline": null,
+            "procedure": {
+              "generation": 0,
+              "num": 51
+            },
+            "text": null,
+            "width": 700.0
+          }
+        ],
+        "offset": 96,
+        "total": 256,
+        "type": "glyphs"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "bbox": {
+              "x0": 77.0,
+              "x1": 646.0,
+              "y0": 0.0,
+              "y1": 718.0
+            },
+            "bytes": "48",
+            "cid": null,
+            "code": 72,
+            "gid": null,
+            "name": "H",
+            "outline": "M77 0L172 0L172 337L551 337L551 0L646 0L646 718L551 718L551 422L172 422L172 718L77 718Z",
+            "procedure": null,
+            "text": "H",
+            "width": 722.0
+          }
+        ],
+        "offset": 72,
+        "total": 256,
+        "type": "glyphs"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [],
+        "offset": 0,
+        "total": 0,
+        "type": "glyphs"
+      }
+    }
+  },
+  {
+    "blobs": [
+      "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff808080ff808080ffbfbfbfffffffffffffffffffffffffff808080ff808080ffbfbfbfffffffffffffffffffffffffff808080ff808080ffbfbfbfffffffffffffffffffffffffff808080ff808080ffbfbfbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffffff0000ffff0000ffff7f7fff7f7fffff0000ffff0000ffffffffffffffffffffffffffffbfbfbfffffffffff7f7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffffff0000ffff0000ffff7f7fff7f7fffff0000ffff0000ffffffffffffffffffffffffffff606060ff808080ff5f5f5fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffffff0000ffff0000ffff7f7fff7f7fffff0000ffff0000ffffffffffffffffffffffffffffbfbfbfffffffffff7f7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f7f7fff7f7f7fffbfbfbfffffffffffffffffffffffffff7f7f7fff7f7f7fffbfbfbfffffffffffffffffffffffffffff7f7fffff7f7fffffbfbfffbfbfffff7f7fffff7f7fffffffffffffffffffffffffffffdfdfdfffffffffffbfbfbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffcceaccff14a014ff18a218ff54ba54ffffffffffffffffffffffffff8080ffff8080ffffbfbfffffffffffffffffffffd2d2d2ffa6a6a6ffa6a6a6ffa6a6a6ffffffffffffffffffffffffff808080ff808080ffbfbfbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80cc80ff73c773ffe7f5e7ff009900ffffffffffffffffffffffffff0000ffff0000ffff7f7fffffffffffffffffffffd2d2d2ffa6a6a6ffa6a6a6ffa6a6a6ffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80cc80ff7fcc7fffffffffff009900ffffffffffffffffffffffffff0000ffff0000ffff7f7fffffffffffffffffffffd2d2d2ffa6a6a6ffa6a6a6ffa6a6a6ffffffffffffffffffffffffff000000ff000000ff7f7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80cc80ff4cb74cff98d598ff009900ffffffffffffffffffffffffff0000ffff0000ffff7f7fffffffffffffffffffffd2d2d2ffa6a6a6ffa6a6a6ffa6a6a6ffffffffffffffffffffffffff000000ff000000ff7f7f7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff4faf4ff62c062ff67c267ffa3d9a3ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd2d2d2ffa6a6a6ffa6a6a6ffa6a6a6ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    ],
+    "response": {
+      "ok": {
+        "full_height": 40,
+        "full_width": 31,
+        "notes": [
+          {
+            "count": 1,
+            "message": "font /F8 (Helvetica) is drawn with Foxit Sans"
+          },
+          {
+            "count": 1,
+            "message": "font /F9 (PdfiMissingCID) has no glyphs: text is drawn as boxes"
+          }
+        ],
+        "ops": 74,
+        "part": 0,
+        "rect": {
+          "height": 40,
+          "width": 31,
+          "x": 0,
+          "y": 0
+        },
+        "scale": 0.05,
+        "type": "bitmap"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "ops": [
+          35
         ],
         "type": "hits"
       }
@@ -8571,6 +9369,12 @@
             "name": "render.pdf",
             "path": null,
             "size": 5213
+          },
+          {
+            "doc": 12,
+            "name": "fonts.pdf",
+            "path": null,
+            "size": 8492
           }
         ],
         "type": "docs"
@@ -8667,6 +9471,12 @@
             "name": "render.pdf",
             "path": null,
             "size": 5213
+          },
+          {
+            "doc": 12,
+            "name": "fonts.pdf",
+            "path": null,
+            "size": 8492
           }
         ],
         "type": "docs"

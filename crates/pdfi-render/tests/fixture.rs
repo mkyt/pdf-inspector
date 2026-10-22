@@ -243,7 +243,10 @@ fn notes_for_what_is_left_out() {
     let o = d.render(Target::Page(0), &opts(0.5));
     let notes: Vec<&str> = o.notes.iter().map(|(n, _)| n.as_str()).collect();
     assert!(notes.iter().any(|n| n.contains("shadings")), "{notes:?}");
-    assert!(notes.iter().any(|n| n.contains("glyph boxes")), "{notes:?}");
+    assert!(
+        notes.iter().any(|n| n.contains("drawn with Foxit Sans")),
+        "{notes:?}"
+    );
 }
 
 #[test]
@@ -337,4 +340,75 @@ fn hostile_contents_finish() {
     let o = one_page(&c).render(Target::Page(0), &opts(1.0));
     assert_px(&o, 0, 199, [0, 0, 255, 255]);
     assert!(t.elapsed().as_secs() < 20, "{:?}", t.elapsed());
+}
+
+/// fonts.pdf draws the same square glyph (10..60 × 0..70 pt from each text
+/// origin) with every kind of font program.
+#[test]
+fn text() {
+    let d = Doc::new("fonts.pdf");
+    let o = d.render(Target::Page(0), &opts(1.0));
+    const BLACK: [u8; 4] = [0, 0, 0, 255];
+    // Glyph centers: (x + 35, 792 - y - 35) for text at (x, y).
+    let center = |x: u32, y: u32| (x + 35, 792 - y - 35);
+    // TrueType, symbolic TrueType, bare CFF, OpenType (CFF).
+    for x in [50, 170, 290, 410] {
+        let (cx, cy) = center(x, 650);
+        assert_px(&o, cx, cy, BLACK);
+        assert_px(&o, x + 5, cy, WHITE);
+    }
+    // Type 0 (CIDToGIDMap), Type 1.
+    for x in [50, 170] {
+        let (cx, cy) = center(x, 500);
+        assert_px(&o, cx, cy, BLACK);
+    }
+    // Type 3: a colored glyph (red), an uncolored one (the blue fill; its
+    // own `rg` is ignored).
+    let (cx, cy) = center(290, 500);
+    assert_px(&o, cx, cy, [255, 0, 0, 255]);
+    assert_px(&o, cx + 70, cy, [0, 0, 255, 255]);
+    // Helvetica, not embedded: Foxit Sans. The left stem of the H.
+    assert_px(&o, 481, cy, BLACK);
+    assert_px(&o, 505, cy - 20, WHITE);
+    // Stroked text (Tr 1): the outline only.
+    let (cx, cy) = center(50, 350);
+    assert_px(&o, cx, cy, WHITE);
+    assert_px(&o, 60, cy, [0, 153, 0, 255]);
+    // Clipping text (Tr 7): the fill after ET shows inside the glyph only.
+    let (cx, cy) = center(170, 350);
+    assert_px(&o, cx, cy, [0, 0, 255, 255]);
+    assert_px(&o, 175, cy, WHITE);
+    assert_px(&o, 250, cy, WHITE);
+    // A CID font that is not embedded: a faint box.
+    let (cx, cy) = center(290, 350);
+    let p = px(&o, cx, cy);
+    assert!(p[0] > 120 && p[0] < 220, "{p:?}");
+    // /Differences maps B to the square.
+    let (cx, cy) = center(410, 350);
+    assert_px(&o, cx, cy, BLACK);
+    let notes: Vec<&str> = o.notes.iter().map(|(n, _)| n.as_str()).collect();
+    assert_eq!(
+        notes,
+        [
+            "font /F8 (Helvetica) is drawn with Foxit Sans",
+            "font /F9 (PdfiMissingCID) has no glyphs: text is drawn as boxes"
+        ]
+    );
+
+    // Type 3 glyphs hit test and highlight as their Tj.
+    let (cx, cy) = center(290, 500);
+    let hits = d.hits(Target::Page(0), cx as f64, cy as f64);
+    assert_eq!(hits.len(), 1);
+    let c = d.content.on(d.model.on(&d.file));
+    let a = c.analyze(Target::Page(0)).unwrap();
+    assert_eq!(a.read_ops(hits[0] as usize, 1)[0].operator.name(), "Tj");
+    let mut h = opts(1.0);
+    h.layer = Layer::Highlight(hits.clone());
+    let hl = d.render(Target::Page(0), &h);
+    assert!(px(&hl, cx, cy)[3] == 255);
+    assert!(px(&hl, center(50, 650).0, center(50, 650).1)[3] == 0);
+    // Glyph outlines hit, the space between glyph boxes does not.
+    let (cx, cy) = center(410, 650);
+    assert_eq!(d.hits(Target::Page(0), cx as f64, cy as f64).len(), 1);
+    assert!(d.hits(Target::Page(0), 415.0, cy as f64).is_empty());
 }
