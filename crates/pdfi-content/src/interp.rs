@@ -50,6 +50,8 @@ pub struct Color {
     pub components: Vec<f64>,
     /// Pattern name (`scn` with a pattern color space).
     pub pattern: Option<String>,
+    /// The pattern it names, resolved (with its object number).
+    pub pattern_def: Option<Arc<(Option<ObjId>, Object)>>,
     /// The color space object of a `/ColorSpace` resource (`None` for the
     /// device spaces and `Pattern` without a base).
     pub def: Option<Arc<Object>>,
@@ -63,6 +65,7 @@ impl Color {
             n: Some(components.len()),
             components,
             pattern: None,
+            pattern_def: None,
             def: None,
         }
     }
@@ -97,6 +100,9 @@ pub struct TextState {
 #[derive(Clone, Debug)]
 pub struct GState {
     pub ctm: Matrix,
+    /// Pattern space without the pattern's matrix: the CTM the content
+    /// started with (a page's default space, a form's space, a glyph's).
+    pub pattern_ctm: Matrix,
     /// Bounding box of the clipping path; `None`: not clipped.
     pub clip: Option<Rect>,
     /// The clipping paths themselves (only while drawing).
@@ -125,6 +131,7 @@ impl GState {
     pub fn new(ctm: Matrix, clip: Option<Rect>) -> Self {
         GState {
             ctm,
+            pattern_ctm: ctm,
             clip,
             clip_path: None,
             line_width: 1.0,
@@ -552,6 +559,7 @@ fn initial_color(
         n,
         components,
         pattern: None,
+        pattern_def: None,
         def,
     }
 }
@@ -1107,12 +1115,12 @@ impl<'r> Interp<'r> {
             }
             Operator::Shade => {
                 if let Some(n) = args[0].obj.as_name() {
-                    if let Some((_, o)) = self.resource(env, i, rec, "Shading", n) {
+                    if let Some((id, o)) = self.resource(env, i, rec, "Shading", n) {
                         if let Some(c) = self.s.g.clip {
                             self.element(i, ElementKind::Shading, c, rec);
                         }
                         if let Some(d) = rec.device.as_deref_mut() {
-                            d.shading(&o, &self.s.g);
+                            d.shading(id, &o, &self.s.g);
                         }
                     }
                 }
@@ -1480,6 +1488,7 @@ impl<'r> Interp<'r> {
             };
             let mut g = self.s.g.clone();
             g.ctm = m;
+            g.pattern_ctm = m;
             self.run_sub(env, i, id, s, &res, g, Kind::Other, rec);
             if env.budget == 0 {
                 break;
@@ -1615,9 +1624,10 @@ impl<'r> Interp<'r> {
                 );
             }
         }
-        if let Some(p) = &pattern {
-            self.resource(env, i, rec, "Pattern", p);
-        }
+        let def = pattern
+            .as_ref()
+            .and_then(|p| self.resource(env, i, rec, "Pattern", p))
+            .map(Arc::new);
         let c = if stroke {
             &mut self.s.g.stroke
         } else {
@@ -1625,6 +1635,7 @@ impl<'r> Interp<'r> {
         };
         c.components = operands.iter().map(num).collect();
         c.pattern = pattern.as_ref().map(name_text);
+        c.pattern_def = def;
     }
 
     fn ext_gstate(&mut self, env: &Env, i: u32, name: &str, d: &Dict, rec: &mut Rec) {
@@ -1826,6 +1837,7 @@ impl<'r> Interp<'r> {
         };
         let mut g = self.s.g.clone();
         g.ctm = ctm;
+        g.pattern_ctm = ctm;
         if let Some(b) = bbox_t {
             g.clip = Some(match g.clip {
                 Some(c) => intersect(&c, &b).unwrap_or(Rect {

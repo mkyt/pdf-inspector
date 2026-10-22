@@ -152,6 +152,7 @@ pub trait Device {
     /// spaces through them).
     fn image(&mut self, image: ImageData<'_>, res: &Resources, g: &GState);
 
-    /// `sh`: fill the current clip with a shading.
-    fn shading(&mut self, _shading: &Object, _g: &GState) {}
+    /// `sh`: fill the current clip with a shading (`id`: its object, for
+    /// the data of mesh shadings).
+    fn shading(&mut self, _id: Option<ObjId>, _shading: &Object, _g: &GState) {}
 }

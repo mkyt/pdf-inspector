@@ -369,6 +369,11 @@ impl<'a> Bits<'a> {
         }
         Some(v as u32)
     }
+
+    /// Skip to the next byte.
+    pub fn align(&mut self) {
+        self.pos = self.pos.div_ceil(8) * 8;
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

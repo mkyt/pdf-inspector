@@ -572,6 +572,41 @@ page(b"""/ICCG cs 0.5 sc 0 300 100 100 re f
 q 200 0 0 100 200 200 cm /Img Do Q
 """, b"<< /ColorSpace << /ICCG [/ICCBased 20 0 R] /ICCR [/ICCBased 21 0 R] /CalG [/CalGray << /WhitePoint [0.9505 1 1.089] /Gamma 2.2 >>] /Sep [/Separation /Red /DeviceCMYK 22 0 R] /DevN [/DeviceN [/A /B] /DeviceRGB 23 0 R] >> /XObject << /Img 24 0 R >> >>")
 
+# Page 2: shadings. Axial, radial, function-based (sh in a clip); a
+# shading pattern filling a rectangle, stroking and through a stencil
+# mask; triangle meshes (free-form, lattice), Coons and tensor patches.
+def mesh(kind, extra, data):
+    return (b"<< /ShadingType %d /ColorSpace /DeviceRGB /BitsPerCoordinate 16 /BitsPerComponent 8 %s /Length %%d >>" % (kind, extra), data)
+def v16(x, y):
+    return struct.pack(">HH", x, y)
+streams[30] = (b"<< /FunctionType 4 /Domain [0 1 0 1] /Range [0 1 0 1 0 1] /Length %d >>", b"{ 0 }")
+# Free-form triangles: flag 0, then flag 1 continuing with one vertex.
+streams[31] = mesh(4, b"/BitsPerFlag 8 /Decode [0 100 0 100 0 1 0 1 0 1]",
+    b"\0" + v16(0, 0) + b"\xff\0\0" + b"\0" + v16(65535, 0) + b"\0\xff\0" + b"\0" + v16(0, 65535) + b"\0\0\xff"
+    + b"\1" + v16(65535, 65535) + b"\xff\xff\xff")
+streams[32] = mesh(5, b"/VerticesPerRow 2 /Decode [0 100 0 100 0 1 0 1 0 1]",
+    v16(0, 0) + b"\xff\0\0" + v16(65535, 0) + b"\0\xff\0" + v16(0, 65535) + b"\0\0\xff" + v16(65535, 65535) + b"\xff\xff\0")
+# Coons: the boundary of a square with a bulging top edge.
+coons = [(0, 0), (0, 33), (0, 66), (0, 100), (33, 130), (66, 130), (100, 100), (100, 66), (100, 33), (100, 0), (66, 0), (33, 0)]
+streams[33] = mesh(6, b"/BitsPerFlag 8 /Decode [0 100 0 100 0 1 0 1 0 1]",
+    b"\0" + b"".join(v16(x * 500, y * 500) for x, y in coons) + b"\xff\0\0" + b"\0\xff\0" + b"\0\0\xff" + b"\xff\xff\0")
+tensor = coons + [(33, 33), (33, 66), (66, 66), (66, 33)]
+streams[34] = mesh(7, b"/BitsPerFlag 8 /Decode [0 100 0 100 0 1 0 1 0 1]",
+    b"\0" + b"".join(v16(x * 500, y * 500) for x, y in tensor) + b"\0\0\0" + b"\xff\xff\xff" + b"\0\0\0" + b"\xff\xff\xff")
+streams[35] = (b"<< /Type /XObject /Subtype /Image /Width 8 /Height 8 /ImageMask true /Length %d >>", bytes([0xF0] * 4 + [0x0F] * 4))
+objs[36] = b"<< /PatternType 2 /Matrix [1 0 0 1 100 200] /Shading << /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 100 0] /Function << /FunctionType 2 /Domain [0 1] /C0 [0 1 0] /C1 [1 1 0] /N 1 >> /Extend [true true] >> >>"
+page(b"""q 0 300 100 100 re W n /Ax sh Q
+q 100 300 100 100 re W n /Rad sh Q
+q 200 300 100 100 re W n /Fn sh Q
+/Pattern cs /P0 scn 100 200 100 100 re f
+/Pattern CS /P0 SCN 20 w 300 350 m 400 350 l S
+q 1 0 0 1 200 200 cm /Tri sh Q
+q 1 0 0 1 300 200 cm /Lat sh Q
+q 1 0 0 1 0 50 cm /Coons sh Q
+q 1 0 0 1 100 50 cm /Tensor sh Q
+q /Pattern cs /P0 scn 100 0 0 100 0 200 cm /Mask Do Q
+""", b"<< /Shading << /Ax << /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 100 0] /Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >> /Extend [true true] >> /Rad << /ShadingType 3 /ColorSpace /DeviceGray /Coords [150 350 0 150 350 50] /Function << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >> >> /Fn << /ShadingType 1 /ColorSpace /DeviceRGB /Matrix [100 0 0 100 200 300] /Function 30 0 R >> /Tri 31 0 R /Lat 32 0 R /Coons 33 0 R /Tensor 34 0 R >> /Pattern << /P0 36 0 R >> /XObject << /Mask 35 0 R >> >>")
+
 objs[2] = b"<< /Type /Pages /Kids [%s] /Count %d /MediaBox [0 0 400 400] >>" % (b" ".join(b"%d 0 R" % n for n in pages), len(pages))
 out = bytearray(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")
 offsets = {}

@@ -12,15 +12,16 @@ use pdfi_content::device::{ClipPath, Device, GlyphRun, ImageData, PathEl};
 use pdfi_content::font::GlyphSource;
 use pdfi_content::geom::{Matrix, apply, mul, scale_of};
 use pdfi_content::interp::{Color, GState, Resources};
-use pdfi_syntax::{Object, PdfFile};
+use pdfi_syntax::{DictExt, ObjId, Object, PdfFile};
 use tiny_skia::{
-    FillRule, FilterQuality, LineCap, LineJoin, Mask, Paint, PathBuilder, Pattern, Pixmap,
-    SpreadMode, Stroke, StrokeDash, Transform,
+    FillRule, FilterQuality, LineCap, LineJoin, Mask, MaskType, Paint, PathBuilder, Pattern,
+    Pixmap, SpreadMode, Stroke, StrokeDash, Transform,
 };
 
 use crate::DocRender;
 use crate::color::{self, Approx, Space};
 use crate::image::{self, Decoded};
+use crate::shading::Shading;
 
 /// Clip masks kept per pass (saved states switch between a few).
 const MASKS: usize = 8;
@@ -183,6 +184,81 @@ fn rgb_color(rgb: [f32; 3], alpha: f32) -> tiny_skia::Color {
 
 fn highlight() -> tiny_skia::Color {
     tiny_skia::Color::from_rgba8(255, 64, 0, 255)
+}
+
+/// What a fill or stroke paints with.
+enum Src {
+    Solid(tiny_skia::Color),
+    /// A bitmap (`ts`: its pixels to device pixels), tiled or not.
+    Image {
+        pix: Pixmap,
+        ts: Transform,
+        repeat: bool,
+        quality: FilterQuality,
+    },
+}
+
+impl Src {
+    /// Multiply the opacity by `a`.
+    fn with_alpha(self, a: f32) -> Src {
+        match self {
+            Src::Solid(mut c) => {
+                c.apply_opacity(a);
+                Src::Solid(c)
+            }
+            Src::Image {
+                mut pix,
+                ts,
+                repeat,
+                quality,
+            } => {
+                if a < 1.0 {
+                    let k = a.clamp(0.0, 1.0);
+                    for v in pix.data_mut() {
+                        *v = (*v as f32 * k + 0.5) as u8;
+                    }
+                }
+                Src::Image {
+                    pix,
+                    ts,
+                    repeat,
+                    quality,
+                }
+            }
+        }
+    }
+
+    /// The paint, its opacity multiplied by `a`.
+    fn paint(&self, a: f32) -> Paint<'_> {
+        match self {
+            Src::Solid(c) => {
+                let mut c = *c;
+                c.apply_opacity(a);
+                let mut p = Paint::default();
+                p.set_color(c);
+                p
+            }
+            Src::Image {
+                pix,
+                ts,
+                repeat,
+                quality,
+            } => Paint {
+                shader: Pattern::new(
+                    pix.as_ref(),
+                    if *repeat {
+                        SpreadMode::Repeat
+                    } else {
+                        SpreadMode::Pad
+                    },
+                    *quality,
+                    a,
+                    *ts,
+                ),
+                ..Paint::default()
+            },
+        }
+    }
 }
 
 impl<'a> Raster<'a> {
@@ -349,16 +425,134 @@ impl<'a> Raster<'a> {
         out
     }
 
-    /// The paint for a color with an alpha, by mode.
-    fn paint_for(&mut self, c: &Color, alpha: f64) -> Option<Paint<'static>> {
-        let color = match self.mode {
+    /// What a color paints with (by mode) over `area` (device pixels):
+    /// `None` paints nothing.
+    fn source(
+        &mut self,
+        c: &Color,
+        alpha: f64,
+        g: &GState,
+        area: Option<(f64, f64, f64, f64)>,
+    ) -> Option<Src> {
+        Some(Src::Solid(match self.mode {
             Mode::Probe => tiny_skia::Color::BLACK,
             Mode::Highlight(_) => highlight(),
+            Mode::Paint if c.family == "Pattern" => return self.pattern(c, alpha, g, area?),
             Mode::Paint => rgb_color(self.rgb(c)?, alpha as f32),
+        }))
+    }
+
+    /// Device pixels of `area` that can be painted with `g` (inside the
+    /// bitmap and the clip's bounding box), as whole pixels.
+    fn paintable(&self, g: &GState, area: (f64, f64, f64, f64)) -> Option<(i32, i32, i32, i32)> {
+        let (w, h) = (self.pix.width() as f64, self.pix.height() as f64);
+        let (mut x0, mut y0, mut x1, mut y1) = (
+            area.0.max(0.0),
+            area.1.max(0.0),
+            area.2.min(w),
+            area.3.min(h),
+        );
+        if let Some(c) = g.clip {
+            let r = [
+                PathEl::Move(c.x0, c.y0),
+                PathEl::Line(c.x1, c.y0),
+                PathEl::Line(c.x1, c.y1),
+                PathEl::Line(c.x0, c.y1),
+            ];
+            if let Some(b) = bounds(&r, &self.base) {
+                (x0, y0, x1, y1) = (x0.max(b.0), y0.max(b.1), x1.min(b.2), y1.min(b.3));
+            }
+        }
+        let r = (
+            x0.floor() as i32,
+            y0.floor() as i32,
+            x1.ceil() as i32,
+            y1.ceil() as i32,
+        );
+        (r.0 < r.2 && r.1 < r.3).then_some(r)
+    }
+
+    /// A shading, parsed (cached per document by object).
+    fn shading_of(
+        &mut self,
+        key: Option<(ObjId, bool)>,
+        id: Option<ObjId>,
+        o: &Object,
+    ) -> Arc<Result<Shading, String>> {
+        let parse = || Arc::new(Shading::parse(self.file, &self.cache.profiles, id, o));
+        match key {
+            Some(k) => self.cache.shading(k, parse),
+            None => parse(),
+        }
+    }
+
+    /// Paint a shading over device pixels `area` (`m`: its space to the
+    /// device); notes why when it cannot.
+    fn shade(
+        &mut self,
+        sh: &Result<Shading, String>,
+        m: &Matrix,
+        area: (i32, i32, i32, i32),
+        background: bool,
+    ) -> Option<Src> {
+        let sh = match sh {
+            Ok(sh) => sh,
+            Err(e) => {
+                self.note(format!("shading not drawn: {e}"));
+                return None;
+            }
         };
-        let mut p = Paint::default();
-        p.set_color(color);
-        Some(p)
+        if sh.approximate {
+            self.note("Separation / DeviceN colors are approximated");
+        }
+        let pix = sh.paint(m, area, background)?;
+        Some(Src::Image {
+            pix,
+            ts: Transform::from_translate(area.0 as f32, area.1 as f32),
+            repeat: false,
+            quality: FilterQuality::Nearest,
+        })
+    }
+
+    /// The source of a pattern color over `area`.
+    fn pattern(
+        &mut self,
+        c: &Color,
+        alpha: f64,
+        g: &GState,
+        area: (f64, f64, f64, f64),
+    ) -> Option<Src> {
+        let Some(def) = c.pattern_def.clone() else {
+            self.note("a pattern color names no pattern: nothing is painted");
+            return None;
+        };
+        let (pid, o) = &*def;
+        let d = match o {
+            Object::Dict(d) => d,
+            Object::Stream(s) => &s.dict,
+            _ => return None,
+        };
+        let matrix = d
+            .get_key("Matrix")
+            .and_then(|m| crate::function::nums(self.file, Some(m)))
+            .and_then(|m| <[f64; 6]>::try_from(m).ok())
+            .unwrap_or([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+        let m = mul(&mul(&matrix, &g.pattern_ctm), &self.base);
+        let src = match d.get_i64("PatternType") {
+            Some(2) => {
+                let area = self.paintable(g, area)?;
+                let so = d.get_key("Shading")?;
+                let (sid, _) = pdfi_model::resolve(self.file, so);
+                let key = sid.map(|i| (i, false)).or(pid.map(|i| (i, true)));
+                let sh = self.shading_of(key, sid, so);
+                self.shade(&sh, &m, area, true)
+            }
+            _ => {
+                self.note("tiling patterns are drawn as gray");
+                Some(Src::Solid(rgb_color([0.5; 3], 1.0)))
+            }
+        };
+        src.map(|s| s.with_alpha(alpha as f32))
     }
 
     fn stroke_style(&self, g: &GState, ts: &Matrix) -> Stroke {
@@ -478,13 +672,16 @@ impl Device for Raster<'_> {
     }
 
     fn fill(&mut self, path: &[PathEl], even_odd: bool, g: &GState) {
-        if !self.active || self.misses(bounds(path, &self.base), 1.0) {
+        let b = bounds(path, &self.base);
+        if !self.active || self.misses(b, 1.0) {
             return;
         }
         let Some(p) = build(path, None) else { return };
-        let Some(paint) = self.paint_for(&g.fill, g.fill_alpha) else {
+        let area = b.map(|b| (b.0 - 1.0, b.1 - 1.0, b.2 + 1.0, b.3 + 1.0));
+        let Some(src) = self.source(&g.fill, g.fill_alpha, g, area) else {
             return;
         };
+        let paint = src.paint(1.0);
         let rule = if even_odd {
             FillRule::EvenOdd
         } else {
@@ -502,16 +699,19 @@ impl Device for Raster<'_> {
         let Some(p) = build(path, Some(&inv)) else {
             return;
         };
-        let Some(paint) = self.paint_for(&g.stroke, g.stroke_alpha) else {
-            return;
-        };
         let m = mul(&g.ctm, &self.base);
         let stroke = self.stroke_style(g, &m);
         // Half the width, as far as miters reach, in pixels (and a hairline).
         let reach = stroke.width as f64 * scale_of(&m) * g.miter_limit.max(1.0) / 2.0 + 2.0;
-        if self.misses(bounds(path, &self.base), reach) {
+        let b = bounds(path, &self.base);
+        if self.misses(b, reach) {
             return;
         }
+        let area = b.map(|b| (b.0 - reach, b.1 - reach, b.2 + reach, b.3 + reach));
+        let Some(src) = self.source(&g.stroke, g.stroke_alpha, g, area) else {
+            return;
+        };
+        let paint = src.paint(1.0);
         let ts = to_transform(&m);
         self.draw(g, |pix, mask| {
             pix.stroke_path(&p, &paint, &stroke, ts, mask)
@@ -543,7 +743,8 @@ impl Device for Raster<'_> {
         for gl in &run.glyphs {
             run.glyph_path(self.file, gl, &mut els);
         }
-        if els.is_empty() || self.misses(bounds(&els, &self.base), 1.0) {
+        let b = bounds(&els, &self.base);
+        if els.is_empty() || self.misses(b, 1.0) {
             return;
         }
         if !outlines {
@@ -554,13 +755,15 @@ impl Device for Raster<'_> {
             } else {
                 (&g.fill, g.fill_alpha)
             };
-            let Some(mut paint) = self.paint_for(color, alpha) else {
+            let Some(src) = self.source(color, alpha, g, b) else {
                 return;
             };
-            if let (Mode::Paint, tiny_skia::Shader::SolidColor(c)) = (&self.mode, &mut paint.shader)
-            {
-                c.apply_opacity(TEXT_ALPHA);
-            }
+            let faint = if let Mode::Paint = self.mode {
+                TEXT_ALPHA
+            } else {
+                1.0
+            };
+            let paint = src.paint(faint);
             let ts = to_transform(&self.base);
             self.draw(g, |pix, mask| {
                 pix.fill_path(&p, &paint, FillRule::Winding, ts, mask)
@@ -609,7 +812,8 @@ impl Device for Raster<'_> {
             self.note("Separation / DeviceN colors are approximated");
         }
         let colored;
-        let pix = if d.stencil {
+        let pattern = d.stencil && g.fill.family == "Pattern";
+        let pix = if d.stencil && !pattern {
             let Some(rgb) = self.rgb(&g.fill) else { return };
             let mut p = d.pixmap.clone();
             let q = |v: f32, a: u8| ((v * a as f32) + 0.5) as u8;
@@ -635,7 +839,7 @@ impl Device for Raster<'_> {
             pix.as_ref(),
             SpreadMode::Pad,
             quality,
-            g.fill_alpha as f32,
+            if pattern { 1.0 } else { g.fill_alpha as f32 },
             Transform::from_row(1.0 / w, 0.0, 0.0, -1.0 / h, 0.0, 1.0),
         );
         let paint = Paint {
@@ -644,13 +848,95 @@ impl Device for Raster<'_> {
         };
         let r = tiny_skia::Rect::from_ltrb(0.0, 0.0, 1.0, 1.0).expect("unit rect");
         let ts = to_transform(&m);
-        self.draw(g, |p, mask| p.fill_rect(r, &paint, ts, mask));
+        if !pattern {
+            self.draw(g, |p, mask| p.fill_rect(r, &paint, ts, mask));
+            return;
+        }
+        // A stencil mask filled with a pattern: the pattern through the
+        // mask's coverage.
+        let Some(area) = bounds(&UNIT, &m).and_then(|b| self.paintable(g, b)) else {
+            return;
+        };
+        let Some(src) = self.source(
+            &g.fill,
+            g.fill_alpha,
+            g,
+            Some((area.0 as f64, area.1 as f64, area.2 as f64, area.3 as f64)),
+        ) else {
+            return;
+        };
+        let Some(mut cover) = Pixmap::new(self.pix.width(), self.pix.height()) else {
+            return;
+        };
+        cover.fill_rect(r, &paint, ts, None);
+        let mut stencil = Mask::from_pixmap(cover.as_ref(), MaskType::Alpha);
+        let fill = src.paint(1.0);
+        let Some(rect) =
+            tiny_skia::Rect::from_ltrb(area.0 as f32, area.1 as f32, area.2 as f32, area.3 as f32)
+        else {
+            return;
+        };
+        self.draw(g, |p, clip| {
+            if let Some(c) = clip {
+                for (s, c) in stencil.data_mut().iter_mut().zip(c.data()) {
+                    *s = ((*s as u32 * *c as u32 + 127) / 255) as u8;
+                }
+            }
+            p.fill_rect(rect, &fill, Transform::identity(), Some(&stencil))
+        });
     }
 
-    fn shading(&mut self, _shading: &Object, _g: &GState) {
-        if let Mode::Paint = self.mode {
-            self.note("shadings (sh) are not drawn yet");
+    fn shading(&mut self, id: Option<ObjId>, shading: &Object, g: &GState) {
+        if !self.active {
+            return;
         }
+        let (w, h) = (self.pix.width() as f64, self.pix.height() as f64);
+        let Some(area) = self.paintable(g, (0.0, 0.0, w, h)) else {
+            return;
+        };
+        let sh = self.shading_of(id.map(|i| (i, false)), id, shading);
+        let m = mul(&g.ctm, &self.base);
+        let Some(src) = self.shade(&sh, &m, area, false) else {
+            return;
+        };
+        // Highlights and probes: where the shading paints, in one color.
+        let solid = match self.mode {
+            Mode::Probe => Some(tiny_skia::Color::BLACK),
+            Mode::Highlight(_) => Some(highlight()),
+            Mode::Paint => None,
+        };
+        let src = match (solid, src) {
+            (
+                Some(c),
+                Src::Image {
+                    mut pix,
+                    ts,
+                    repeat,
+                    quality,
+                },
+            ) => {
+                let c = c.premultiply().to_color_u8();
+                for p in pix.pixels_mut() {
+                    if p.alpha() > 0 {
+                        *p = c;
+                    }
+                }
+                Src::Image {
+                    pix,
+                    ts,
+                    repeat,
+                    quality,
+                }
+            }
+            (_, src) => src.with_alpha(g.fill_alpha as f32),
+        };
+        let paint = src.paint(1.0);
+        let r =
+            tiny_skia::Rect::from_ltrb(area.0 as f32, area.1 as f32, area.2 as f32, area.3 as f32);
+        let Some(r) = r else { return };
+        self.draw(g, |pix, mask| {
+            pix.fill_rect(r, &paint, Transform::identity(), mask)
+        });
     }
 }
 

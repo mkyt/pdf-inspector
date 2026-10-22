@@ -17,6 +17,7 @@ pub mod color;
 pub mod function;
 pub mod image;
 mod raster;
+pub mod shading;
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
@@ -30,11 +31,14 @@ use tiny_skia::Pixmap;
 
 use crate::image::{Decoded, ImageError};
 use crate::raster::{Mode, Raster, shrink};
+use crate::shading::Shading;
 
 /// Longest side of a rendered bitmap.
 pub const MAX_SIDE: u32 = 16384;
 /// Pixels of one rendered bitmap.
 pub const MAX_PIXELS: u64 = 1 << 24;
+/// Shadings kept parsed per document.
+const SHADINGS: usize = 256;
 /// Decoded image bytes kept per document.
 const IMAGE_CACHE: usize = 192 << 20;
 /// Size of a content without bounds that paints nothing.
@@ -156,6 +160,9 @@ impl std::fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+/// A shading as parsed (or why it cannot be).
+pub(crate) type Parsed = Arc<Result<Shading, String>>;
+
 type ImageCell = Arc<OnceLock<Arc<Result<Decoded, ImageError>>>>;
 
 #[derive(Default)]
@@ -172,6 +179,8 @@ struct Images {
 pub struct DocRender {
     images: Mutex<Images>,
     pub(crate) profiles: color::Profiles,
+    /// By object (`true`: the shading inside a pattern object).
+    shadings: Mutex<HashMap<(ObjId, bool), Parsed>>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -181,6 +190,20 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 impl DocRender {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// A shading, parsed once.
+    pub(crate) fn shading(&self, key: (ObjId, bool), parse: impl FnOnce() -> Parsed) -> Parsed {
+        if let Some(s) = lock(&self.shadings).get(&key) {
+            return s.clone();
+        }
+        let s = parse();
+        let mut g = lock(&self.shadings);
+        if g.len() >= SHADINGS {
+            g.clear();
+        }
+        g.insert(key, s.clone());
+        s
     }
 
     /// An image XObject decoded and reduced by `k` (cached; decoded once

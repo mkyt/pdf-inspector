@@ -242,7 +242,7 @@ fn notes_for_what_is_left_out() {
     let d = Doc::new("content.pdf");
     let o = d.render(Target::Page(0), &opts(0.5));
     let notes: Vec<&str> = o.notes.iter().map(|(n, _)| n.as_str()).collect();
-    assert!(notes.iter().any(|n| n.contains("shadings")), "{notes:?}");
+    assert!(notes.iter().any(|n| n.contains("blend mode")), "{notes:?}");
     assert!(
         notes.iter().any(|n| n.contains("drawn with Foxit Sans")),
         "{notes:?}"
@@ -436,4 +436,31 @@ fn icc_cal_and_tint_colors() {
     assert_eq!(cell(&o, 0, 1), [255, 255, 0, 255]);
     assert_eq!(cell(&o, 1, 1), [255, 0, 0, 255]);
     assert!(o.notes.is_empty(), "{:?}", o.notes);
+}
+
+#[test]
+fn shadings_and_shading_patterns() {
+    let d = Doc::new("paint.pdf");
+    let o = d.render(Target::Page(1), &opts(1.0));
+    // Axial red → blue across the cell.
+    assert!(near(px(&o, 50, 50), [128, 0, 127, 255], 4));
+    // Radial: white center, darker towards the rim.
+    assert!(near(px(&o, 150, 50), [255, 255, 255, 255], 8));
+    assert!(px(&o, 150, 92)[0] < 64);
+    // Function-based: (x, y, 0) over the cell.
+    assert!(near(px(&o, 250, 50), [128, 128, 0, 255], 4));
+    // Pattern fill green → yellow, and its stroke.
+    assert!(near(px(&o, 150, 150), [128, 255, 0, 255], 4));
+    assert!(near(px(&o, 350, 50), [255, 255, 0, 255], 2));
+    // Mesh corners: red at the free-form triangle's first vertex.
+    assert!(near(px(&o, 202, 198), [250, 2, 2, 255], 8));
+    // Lattice: yellow at its top right.
+    assert!(near(px(&o, 398, 102), [252, 252, 2, 255], 8));
+    // A stencil mask through the pattern (sample 0 paints).
+    assert_eq!(px(&o, 25, 125), WHITE);
+    assert!(near(px(&o, 75, 125), [0, 255, 0, 255], 2));
+    assert!(near(px(&o, 25, 175), [0, 255, 0, 255], 2));
+    assert!(o.notes.is_empty(), "{:?}", o.notes);
+    // Hit testing finds sh.
+    assert_eq!(d.hits(Target::Page(1), 50.0, 50.0), vec![4]);
 }
