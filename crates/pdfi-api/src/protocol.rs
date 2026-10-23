@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 9;
+pub const PROTOCOL_VERSION: u32 = 10;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct ClientMessage {
@@ -179,6 +179,13 @@ pub enum Request {
         id: ObjRef,
         range: Range,
     },
+    /// The glyphs of a font's embedded program by index
+    /// (`FontProgramInfo.glyphs` of them), with the codes that select each.
+    ProgramGlyphs {
+        doc: DocId,
+        id: ObjRef,
+        range: Range,
+    },
     /// Render a content, or a tile of it, at `scale` pixels per point.
     /// The bitmap is a binary part (`BitmapInfo`). Can be cancelled while
     /// it runs (server).
@@ -281,6 +288,7 @@ pub enum ResponseBody {
     OpState(Box<OpState>),
     Font(Box<FontDetail>),
     Glyphs(Page<GlyphView>),
+    ProgramGlyphs(Page<ProgramGlyph>),
     Bitmap(BitmapInfo),
     Hits { ops: Vec<u32> },
     Bytes(BytesInfo),

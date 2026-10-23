@@ -2,12 +2,9 @@
   {
     "blobs": [],
     "response": {
-      "ok": {
-        "backend": null,
-        "filesystem": null,
-        "protocol": 9,
-        "type": "hello",
-        "version": "0.1.0"
+      "err": {
+        "code": "versionMismatch",
+        "message": "client speaks protocol 9, backend speaks 10"
       }
     }
   },
@@ -16,7 +13,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 999, backend speaks 9"
+        "message": "client speaks protocol 999, backend speaks 10"
       }
     }
   },

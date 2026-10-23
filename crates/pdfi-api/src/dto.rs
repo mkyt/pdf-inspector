@@ -906,6 +906,24 @@ pub struct GlyphView {
     pub procedure: Option<ObjRef>,
 }
 
+/// One glyph of an embedded font program, by index, and the codes that
+/// select it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct ProgramGlyph {
+    pub gid: u32,
+    pub name: Option<String>,
+    /// Bytes in hex of the codes `Glyphs` lists that select it (none: the
+    /// font cannot show it).
+    pub codes: Vec<String>,
+    /// The text of the first of them.
+    pub text: Option<String>,
+    /// Advance width in the program, thousandths of an em.
+    pub width: f64,
+    /// SVG path data of the outline, 1000 units per em, y up.
+    pub outline: Option<String>,
+    pub bbox: Option<Rect>,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct ImageInfo {
     pub id: ObjRef,

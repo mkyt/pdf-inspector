@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use pdfi_content::font::{self as pf, CidToGid, Code, Font, GlyphSource};
+use pdfi_content::font::{self as pf, CidToGid, Code, Font, GlyphSource, Outline};
 use pdfi_syntax::{self as syn, DictExt, ObjId};
 
 use crate::dto::*;
@@ -149,6 +149,19 @@ pub fn detail(d: &Doc, id: ObjRef) -> Result<FontDetail, ApiError> {
     })
 }
 
+fn bbox(o: &Outline) -> Option<Rect> {
+    o.bbox().map(|b| {
+        // Tenths of a unit, as the path data.
+        let u = |v: f32| (f64::from(v * UNITS) * 10.0).round() / 10.0;
+        Rect {
+            x0: u(b[0]),
+            y0: u(b[1]),
+            x1: u(b[2]),
+            y1: u(b[3]),
+        }
+    })
+}
+
 fn glyph(d: &Doc, f: &Font, c: Code) -> GlyphView {
     let file = &d.file;
     let r = f.glyph(file, c);
@@ -165,16 +178,7 @@ fn glyph(d: &Doc, f: &Font, c: Code) -> GlyphView {
             .as_ref()
             .filter(|o| !o.segs.is_empty())
             .map(|o| o.svg(UNITS)),
-        bbox: outline.as_ref().and_then(|o| o.bbox()).map(|b| {
-            // Tenths of a unit, as the path data.
-            let u = |v: f32| (f64::from(v * UNITS) * 10.0).round() / 10.0;
-            Rect {
-                x0: u(b[0]),
-                y0: u(b[1]),
-                x1: u(b[2]),
-                y1: u(b[3]),
-            }
-        }),
+        bbox: outline.as_deref().and_then(bbox),
         procedure: f.char_proc(file, c).and_then(|(id, _)| id).map(Into::into),
     }
 }
@@ -184,5 +188,49 @@ pub fn glyphs(d: &Doc, id: ObjRef, range: Range) -> Result<Page<GlyphView>, ApiE
     let codes = f.listed_codes(&d.file);
     Ok(page(codes.len() as u64, range, |o, n| {
         codes[o..o + n].iter().map(|&c| glyph(d, &f, c)).collect()
+    }))
+}
+
+pub fn program_glyphs(d: &Doc, id: ObjRef, range: Range) -> Result<Page<ProgramGlyph>, ApiError> {
+    let f = load(d, id)?;
+    let file = &d.file;
+    let p = match &f.glyphs(file).source {
+        GlyphSource::Embedded(p) => p.clone(),
+        _ => return Ok(page(0, range, |_, _| Vec::new())),
+    };
+    let total = p.glyphs.unwrap_or(0);
+    Ok(page(total.into(), range, |o, n| {
+        // The codes that select each glyph of the page.
+        let mut codes: Vec<Vec<Code>> = vec![Vec::new(); n];
+        for c in f.listed_codes(file) {
+            if let Some(i) = f
+                .glyph(file, c)
+                .gid
+                .and_then(|g| usize::from(g).checked_sub(o))
+                .filter(|&i| i < n)
+            {
+                codes[i].push(c);
+            }
+        }
+        codes
+            .into_iter()
+            .enumerate()
+            .map(|(i, cs)| {
+                let gid = (o + i) as u16;
+                let outline = p.outline(gid);
+                ProgramGlyph {
+                    gid: gid.into(),
+                    name: p.glyph_name(gid),
+                    text: cs.iter().find_map(|&c| f.text(c)),
+                    codes: cs.iter().map(|c| c.hex()).collect(),
+                    width: p.advance(gid).map_or(0.0, |w| w * f64::from(UNITS)),
+                    outline: outline
+                        .as_ref()
+                        .filter(|o| !o.segs.is_empty())
+                        .map(|o| o.svg(UNITS)),
+                    bbox: outline.as_ref().and_then(bbox),
+                }
+            })
+            .collect()
     }))
 }

@@ -68,6 +68,7 @@ pub fn typescript() -> String {
         FontProgramInfo::decl(&cfg),
         FontDetail::decl(&cfg),
         GlyphView::decl(&cfg),
+        ProgramGlyph::decl(&cfg),
         ImageInfo::decl(&cfg),
         Referrer::decl(&cfg),
         ObjectClass::decl(&cfg),

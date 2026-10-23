@@ -434,6 +434,9 @@ impl Session {
                 id,
                 range,
             )?)),
+            Request::ProgramGlyphs { doc, id, range } => Ok(ResponseBody::ProgramGlyphs(
+                font::program_glyphs(&*self.doc(doc)?, id, range)?,
+            )),
             Request::Render {
                 doc,
                 content,

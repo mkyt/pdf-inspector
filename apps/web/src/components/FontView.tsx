@@ -1,11 +1,11 @@
-import { Alert, Anchor, Badge, Button, Group, Loader, Stack, Table, Text, Title, Tooltip, UnstyledButton } from "@mantine/core";
+import { Alert, Anchor, Badge, Button, Group, Loader, SegmentedControl, Stack, Table, Text, Title, Tooltip, UnstyledButton } from "@mantine/core";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, useBackend } from "../api";
 import { bytesText, objText } from "../format";
 import { useNav } from "../nav";
-import type { FontDetail, GlyphSourceKind, GlyphView, ObjRef } from "../protocol/generated";
+import type { FontDetail, GlyphSourceKind, GlyphView, ObjRef, ProgramGlyph } from "../protocol/generated";
 import { ObjLink } from "./DocumentPanel";
 import { IssueList } from "./Issues";
 import classes from "./FontView.module.css";
@@ -135,7 +135,7 @@ function Properties({ f }: { f: FontDetail }) {
 const round = (v: number) => Math.round(v * 100) / 100;
 
 /** The glyph in a box from the font's descent to its ascent, with the baseline and advance marked. */
-function GlyphShape({ f, g, size }: { f: FontDetail; g: GlyphView; size: number }) {
+function GlyphShape({ f, g, size }: { f: FontDetail; g: Shape; size: number }) {
   const top = Math.max(f.ascent || 800, g.bbox?.y1 ?? 0);
   const bottom = Math.min(f.descent || -200, g.bbox?.y0 ?? 0);
   const x0 = Math.min(0, g.bbox?.x0 ?? 0);
@@ -154,13 +154,26 @@ function GlyphShape({ f, g, size }: { f: FontDetail; g: GlyphView; size: number 
   );
 }
 
-/** Code → glyph table: virtualized rows of cells, fetched by pages as they scroll into view. */
+/** What `GlyphShape` draws: an outline and its metrics. */
+type Shape = Pick<GlyphView, "outline" | "bbox" | "width">;
+
+/** One entry of the glyph table: a code, or a glyph of the program. */
+type Entry = { by: "code"; g: GlyphView } | { by: "program"; g: ProgramGlyph };
+
+const entryKey = (e: Entry) => (e.by === "code" ? `c${e.g.bytes}` : `g${e.g.gid}`);
+
+/**
+ * The glyph table: by code (what the font can show) or, for an embedded
+ * program, by glyph index (everything it holds). Virtualized rows of cells,
+ * fetched by pages as they scroll into view.
+ */
 function Glyphs({ f }: { f: FontDetail }) {
   const backend = useBackend();
   const nav = useNav();
   const parent = useRef<HTMLDivElement>(null);
   const [cols, setCols] = useState(8);
-  const [picked, setPicked] = useState<GlyphView | null>(null);
+  const [by, setBy] = useState<Entry["by"]>("code");
+  const [picked, setPicked] = useState<Entry | null>(null);
   useEffect(() => {
     const el = parent.current;
     if (!el) return;
@@ -168,7 +181,9 @@ function Glyphs({ f }: { f: FontDetail }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const total = f.codes;
+  const programGlyphs = f.glyph_source === "embedded" ? (f.program?.glyphs ?? 0) : 0;
+  const listing = programGlyphs > 0 ? by : "code";
+  const total = listing === "code" ? f.codes : programGlyphs;
   const rows = Math.ceil(total / cols);
   const v = useVirtualizer({ count: rows, getScrollElement: () => parent.current, estimateSize: () => CELL_H, overscan: 4 });
   const items = v.getVirtualItems();
@@ -177,12 +192,20 @@ function Glyphs({ f }: { f: FontDetail }) {
   ];
   const results = useQueries({
     queries: pages.map((p) => ({
-      queryKey: ["doc", nav.doc, "glyphs", f.id.num, f.id.generation, PAGE, p],
-      queryFn: ({ signal }: { signal: AbortSignal }) => api.glyphs(backend, nav.doc, f.id, { offset: p * PAGE, limit: PAGE }, signal),
+      queryKey: ["doc", nav.doc, listing === "code" ? "glyphs" : "programGlyphs", f.id.num, f.id.generation, PAGE, p],
+      queryFn: async ({ signal }: { signal: AbortSignal }): Promise<{ offset: number; items: Entry[] }> => {
+        const range = { offset: p * PAGE, limit: PAGE };
+        if (listing === "code") {
+          const r = await api.glyphs(backend, nav.doc, f.id, range, signal);
+          return { offset: r.offset, items: r.items.map((g) => ({ by: "code", g })) };
+        }
+        const r = await api.programGlyphs(backend, nav.doc, f.id, range, signal);
+        return { offset: r.offset, items: r.items.map((g) => ({ by: "program", g })) };
+      },
     })),
   });
   const byPage = new Map(pages.map((p, k) => [p, results[k]?.data]));
-  const glyphAt = (i: number) => {
+  const entryAt = (i: number) => {
     const page = byPage.get(Math.floor(i / PAGE));
     return page?.items[i - page.offset];
   };
@@ -198,21 +221,38 @@ function Glyphs({ f }: { f: FontDetail }) {
     <Stack gap={6}>
       <Group gap="sm">
         <Title order={6}>Glyphs</Title>
+        {programGlyphs > 0 && (
+          <SegmentedControl
+            size="xs"
+            value={listing}
+            onChange={(b) => {
+              setBy(b as Entry["by"]);
+              setPicked(null);
+              parent.current?.scrollTo({ top: 0 });
+            }}
+            data={[
+              { value: "code", label: `${f.codes.toLocaleString()} codes` },
+              { value: "program", label: `${programGlyphs.toLocaleString()} in the program` },
+            ]}
+          />
+        )}
         <Text size="xs" c="dimmed">
-          {total.toLocaleString()} codes · code → glyph → text
+          {listing === "code"
+            ? `${programGlyphs > 0 ? "" : `${total.toLocaleString()} codes · `}code → glyph → text`
+            : "glyph index → codes that select it · dimmed: no code selects it"}
         </Text>
       </Group>
-      {picked && <Picked f={f} g={picked} />}
+      {picked && <Picked f={f} e={picked} />}
       <div ref={parent} className={classes.grid} style={{ height: Math.min(rows * CELL_H + 2, 560) }}>
         <div style={{ height: v.getTotalSize(), position: "relative" }}>
           {items.map((r) => (
             <div key={r.key} style={{ position: "absolute", top: 0, left: 0, height: CELL_H, transform: `translateY(${r.start}px)`, display: "flex" }}>
               {Array.from({ length: Math.min(cols, total - r.index * cols) }, (_, c) => {
                 const i = r.index * cols + c;
-                const g = glyphAt(i);
+                const e = entryAt(i);
                 return (
                   <div key={c} style={{ width: CELL_W, height: CELL_H }}>
-                    {g ? <Cell f={f} g={g} active={picked?.code === g.code && picked.bytes === g.bytes} onPick={() => setPicked(g)} /> : <Loader size={10} m={8} />}
+                    {e ? <Cell f={f} e={e} active={picked !== null && entryKey(picked) === entryKey(e)} onPick={() => setPicked(e)} /> : <Loader size={10} m={8} />}
                   </div>
                 );
               })}
@@ -224,15 +264,19 @@ function Glyphs({ f }: { f: FontDetail }) {
   );
 }
 
-function Cell({ f, g, active, onPick }: { f: FontDetail; g: GlyphView; active: boolean; onPick: () => void }) {
-  const empty = !g.outline && !g.procedure;
+function Cell({ f, e, active, onPick }: { f: FontDetail; e: Entry; active: boolean; onPick: () => void }) {
+  const g = e.g;
+  const procedure = e.by === "code" ? e.g.procedure : null;
+  // A program glyph no code selects cannot be shown by this font.
+  const empty = (!g.outline && !procedure) || (e.by === "program" && e.g.codes.length === 0);
+  const head = e.by === "code" ? e.g.bytes : `#${e.g.gid}${e.g.codes.length ? ` · ${e.g.codes[0]}${e.g.codes.length > 1 ? "+" : ""}` : ""}`;
   return (
     <UnstyledButton className={classes.cell} data-active={active || undefined} data-empty={empty || undefined} onClick={onPick}>
-      <Text size="10px" ff="monospace" c="dimmed" lh={1.2}>
-        {g.bytes}
+      <Text size="10px" ff="monospace" c="dimmed" lh={1.2} truncate="end" w="100%" ta="center">
+        {head}
       </Text>
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0 }}>
-        {g.outline ? <GlyphShape f={f} g={g} size={44} /> : g.procedure ? <Text size="10px" c="grape">proc</Text> : null}
+        {g.outline ? <GlyphShape f={f} g={g} size={44} /> : procedure ? <Text size="10px" c="grape">proc</Text> : null}
       </div>
       <Text size="10px" lh={1.2} truncate="end" w="100%" ta="center" title={g.name ?? undefined}>
         {g.text ? JSON.stringify(g.text).slice(1, -1) : (g.name ?? "")}
@@ -242,8 +286,9 @@ function Cell({ f, g, active, onPick }: { f: FontDetail; g: GlyphView; active: b
 }
 
 /** The picked glyph, large, with everything known about it. */
-function Picked({ f, g }: { f: FontDetail; g: GlyphView }) {
+function Picked({ f, e }: { f: FontDetail; e: Entry }) {
   const nav = useNav();
+  const g = e.g;
   const field = (k: string, v: ReactNode) => (
     <Group gap={4} wrap="nowrap">
       <Text size="xs" c="dimmed">
@@ -259,17 +304,26 @@ function Picked({ f, g }: { f: FontDetail; g: GlyphView }) {
     <Group gap="md" align="flex-start" className={classes.picked}>
       <div className={classes.big}>{g.outline ? <GlyphShape f={f} g={g} size={120} /> : <Text size="xs" c="dimmed">no outline</Text>}</div>
       <Stack gap={2}>
-        {field("code", `<${g.bytes}>`)}
-        {g.cid !== null && field("CID", g.cid)}
-        {g.gid !== null && field("glyph", g.gid)}
+        {e.by === "code" ? (
+          <>
+            {field("code", `<${e.g.bytes}>`)}
+            {e.g.cid !== null && field("CID", e.g.cid)}
+            {e.g.gid !== null && field("glyph", e.g.gid)}
+          </>
+        ) : (
+          <>
+            {field("glyph", e.g.gid)}
+            {field("codes", e.g.codes.length ? e.g.codes.map((c) => `<${c}>`).join(" ") : "none: the font cannot show it")}
+          </>
+        )}
         {g.name !== null && field("name", `/${g.name}`)}
         {field("text", g.text ? `${JSON.stringify(g.text)} ${codepoints}` : "unknown")}
-        {field("width", round(g.width))}
+        {field("width", `${round(g.width)}${e.by === "program" ? " (program)" : ""}`)}
         {g.bbox && field("bbox", `[${round(g.bbox.x0)} ${round(g.bbox.y0)} ${round(g.bbox.x1)} ${round(g.bbox.y1)}]`)}
-        {g.procedure && (
+        {e.by === "code" && e.g.procedure && (
           <Tooltip label="The glyph procedure's operations">
-            <Anchor size="xs" onClick={() => nav.open({ kind: "content", content: { kind: "stream", id: g.procedure! }, op: null })}>
-              procedure {objText(g.procedure)} →
+            <Anchor size="xs" onClick={() => nav.open({ kind: "content", content: { kind: "stream", id: e.g.procedure! }, op: null })}>
+              procedure {objText(e.g.procedure)} →
             </Anchor>
           </Tooltip>
         )}

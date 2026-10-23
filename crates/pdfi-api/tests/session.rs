@@ -623,3 +623,40 @@ fn annotation_layer_picks_appearances() {
         [0, 255, 0, 255]
     );
 }
+
+#[test]
+fn program_glyphs_list_every_glyph_with_its_codes() {
+    let (s, _) = session();
+    let doc = open(&s, "fonts.pdf", None).info.doc;
+    // PdfiCFF: /Differences sends 42 to A too, so glyph 2 has no code.
+    let (b, _) = ok(s.dispatch(Request::ProgramGlyphs {
+        doc,
+        id: ObjRef {
+            num: 23,
+            generation: 0,
+        },
+        range: all(),
+    }));
+    let ResponseBody::ProgramGlyphs(p) = b else {
+        panic!("{b:?}")
+    };
+    assert_eq!(p.total, 3);
+    let codes: Vec<_> = p.items.iter().map(|g| g.codes.clone()).collect();
+    assert_eq!(codes, [vec![], vec!["41".to_string(), "42".into()], vec![]]);
+    assert_eq!(p.items[1].text.as_deref(), Some("A"));
+    assert!(p.items[2].outline.is_some());
+    assert!(p.items[2].width > 0.0);
+    // Not embedded: nothing to list.
+    let (b, _) = ok(s.dispatch(Request::ProgramGlyphs {
+        doc,
+        id: ObjRef {
+            num: 28,
+            generation: 0,
+        },
+        range: all(),
+    }));
+    let ResponseBody::ProgramGlyphs(p) = b else {
+        panic!("{b:?}")
+    };
+    assert_eq!(p.total, 0);
+}
