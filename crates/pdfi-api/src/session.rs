@@ -825,6 +825,20 @@ fn object_schema(d: &Doc, root: &NodeRoot) -> Result<ObjectSchema, ApiError> {
         },
         issues: Vec::new(),
         truncated: false,
+        keys: typed
+            .and_then(|(t, _)| t.def())
+            .map(|def| {
+                def.keys
+                    .iter()
+                    .map(|k| TypeKey {
+                        key: k.key.into(),
+                        present: (!k.key.contains('*'))
+                            .then(|| c.is_some_and(|c| c.get(k.key).is_some())),
+                        doc: convert::key_doc(k),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default(),
     };
     if let (Some(c), Some((t, _))) = (c, typed) {
         let v = ck.validate(t, c, SCHEMA_ENTRIES);

@@ -198,7 +198,7 @@ function Source({ o }: { o: ObjectView }) {
   );
 }
 
-function useSchema(root: NodeRoot) {
+export function useSchema(root: NodeRoot) {
   const backend = useBackend();
   const nav = useNav();
   const key = root.kind === "trailer" ? ["trailer"] : [root.id.num, root.id.generation];

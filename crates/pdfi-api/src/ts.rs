@@ -40,6 +40,7 @@ pub fn typescript() -> String {
         Requirement::decl(&cfg),
         SlotDoc::decl(&cfg),
         KeyDoc::decl(&cfg),
+        TypeKey::decl(&cfg),
         NodeSchema::decl(&cfg),
         Rect::decl(&cfg),
         AttrOrigin::decl(&cfg),

@@ -230,7 +230,7 @@ impl<'o> Container<'o> {
     }
 
     /// A dictionary key or an array index.
-    fn get(self, key: &str) -> Option<&'o Node> {
+    pub fn get(self, key: &str) -> Option<&'o Node> {
         match self {
             Container::Dict(d) => d.get(key.as_bytes()),
             Container::Array(a) => a.get(key.parse::<usize>().ok()?),

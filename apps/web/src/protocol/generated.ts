@@ -153,7 +153,11 @@ issues: Array<DiagnosticInfo>,
 /**
  * Some large container was checked only in part.
  */
-truncated: boolean, };
+truncated: boolean, 
+/**
+ * Keys (or array elements) the type defines, in the model's order.
+ */
+keys: Array<TypeKey>, };
 
 export type Requirement = { "kind": "required" } | { "kind": "optional" } | { "kind": "conditional", condition: string, };
 
@@ -172,6 +176,17 @@ export type KeyDoc = { types: Array<SlotDoc>, requirement: Requirement, since: s
  * Allowed values, when the schema lists them (truncated).
  */
 allowed: Array<string>, note: string | null, };
+
+export type TypeKey = { 
+/**
+ * Dictionary key, array index (`0`), wildcard (`*`) or repeating array
+ * element (`1*`).
+ */
+key: string, 
+/**
+ * `None` for wildcards and repeating elements.
+ */
+present: boolean | null, doc: KeyDoc, };
 
 export type NodeSchema = { 
 /**

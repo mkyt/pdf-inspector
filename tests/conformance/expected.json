@@ -2485,6 +2485,243 @@
     "response": {
       "ok": {
         "issues": [],
+        "keys": [
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": "Table 15 and Table 19",
+              "requirement": {
+                "kind": "required"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "integer",
+                  "links": []
+                }
+              ]
+            },
+            "key": "Size",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "integer",
+                  "links": []
+                }
+              ]
+            },
+            "key": "Prev",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "required"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "Catalog"
+                  ]
+                }
+              ]
+            },
+            "key": "Root",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.1",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "EncryptionStandard",
+                    "EncryptionPublicKey"
+                  ]
+                }
+              ]
+            },
+            "key": "Encrypt",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": "https://github.com/pdf-association/pdf-issues/issues/106",
+              "requirement": {
+                "condition": "fn:SinceVersion(1.4,fn:IsPresent(trailer::Catalog::PieceInfo))",
+                "kind": "conditional"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "DocInfo"
+                  ]
+                }
+              ]
+            },
+            "key": "Info",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "condition": "fn:SinceVersion(2.0) || fn:IsPresent(Encrypt)",
+                "kind": "conditional"
+              },
+              "since": "1.1",
+              "types": [
+                {
+                  "base": "array",
+                  "links": [
+                    "TrailerIDArray"
+                  ]
+                }
+              ]
+            },
+            "key": "ID",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.5",
+              "types": [
+                {
+                  "base": "integer",
+                  "links": []
+                }
+              ]
+            },
+            "key": "XRefStm",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": "ISO_TS_32004",
+              "inheritable": false,
+              "note": "ISO/TS 32004 integrity protection",
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "2.0",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "AuthCode"
+                  ]
+                }
+              ]
+            },
+            "key": "AuthCode",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": "OpenOffice",
+              "inheritable": false,
+              "note": "OpenOffice/LibreOffice extension - array of MIME types and streams",
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": null,
+              "types": [
+                {
+                  "base": "array",
+                  "links": [
+                    "OOAdditionalStmsArray"
+                  ]
+                }
+              ]
+            },
+            "key": "AdditionalStreams",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": "OpenOffice",
+              "inheritable": false,
+              "note": "OpenOffice/LibreOffice extension - hex MD5 as a name object",
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": null,
+              "types": [
+                {
+                  "base": "name",
+                  "links": []
+                }
+              ]
+            },
+            "key": "DocChecksum",
+            "present": false
+          }
+        ],
         "note": "Table 15 and Table 19",
         "origin": "context",
         "pdf_version": "1.7",
@@ -2499,6 +2736,168 @@
     "response": {
       "ok": {
         "issues": [],
+        "keys": [
+          {
+            "doc": {
+              "allowed": [
+                "/Pages"
+              ],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": "Table 30 and Table 31 for inheritable keys",
+              "requirement": {
+                "kind": "required"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "name",
+                  "links": []
+                }
+              ]
+            },
+            "key": "Type",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "required"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "array",
+                  "links": [
+                    "ArrayOfPageTreeNodeKids"
+                  ]
+                }
+              ]
+            },
+            "key": "Kids",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "required"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "integer",
+                  "links": []
+                }
+              ]
+            },
+            "key": "Count",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": "Inheritable",
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "Resource"
+                  ]
+                }
+              ]
+            },
+            "key": "Resources",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": "Inheritable",
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "rectangle",
+                  "links": []
+                }
+              ]
+            },
+            "key": "MediaBox",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": "@MediaBox",
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": "Inheritable",
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "rectangle",
+                  "links": []
+                }
+              ]
+            },
+            "key": "CropBox",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": "0",
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": "Inheritable",
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "integer",
+                  "links": []
+                }
+              ]
+            },
+            "key": "Rotate",
+            "present": false
+          }
+        ],
         "note": "Table 30 and Table 31 for inheritable keys",
         "origin": "context",
         "pdf_version": "1.7",
@@ -3038,6 +3437,820 @@
               "end": 162,
               "start": 156
             }
+          }
+        ],
+        "keys": [
+          {
+            "doc": {
+              "allowed": [
+                "/Catalog"
+              ],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": "Table 29",
+              "requirement": {
+                "kind": "required"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "name",
+                  "links": []
+                }
+              ]
+            },
+            "key": "Type",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [
+                "/1.0",
+                "/1.1",
+                "/1.2",
+                "/1.3",
+                "/1.4",
+                "/1.5",
+                "/1.6",
+                "/1.7",
+                "/2.0"
+              ],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.4",
+              "types": [
+                {
+                  "base": "name",
+                  "links": []
+                }
+              ]
+            },
+            "key": "Version",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.7",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "Extensions"
+                  ]
+                }
+              ]
+            },
+            "key": "Extensions",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "required"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "PageTreeNodeRoot"
+                  ]
+                }
+              ]
+            },
+            "key": "Pages",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.3",
+              "types": [
+                {
+                  "base": "number-tree",
+                  "links": [
+                    "PageLabel"
+                  ]
+                }
+              ]
+            },
+            "key": "PageLabels",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.2",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "Name"
+                  ]
+                }
+              ]
+            },
+            "key": "Names",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": "https://github.com/pdf-association/pdf-issues/issues/106",
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.1",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "DestsMap"
+                  ]
+                }
+              ]
+            },
+            "key": "Dests",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.2",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "ViewerPreferences"
+                  ]
+                }
+              ]
+            },
+            "key": "ViewerPreferences",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [
+                "/SinglePage",
+                "/OneColumn",
+                "/TwoColumnLeft",
+                "/TwoColumnRight",
+                "/TwoPageLeft",
+                "/TwoPageRight"
+              ],
+              "default": "SinglePage",
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "name",
+                  "links": []
+                }
+              ]
+            },
+            "key": "PageLayout",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [
+                "/UseNone",
+                "/UseOutlines",
+                "/UseThumbs",
+                "/FullScreen",
+                "/UseOC",
+                "/UseAttachments"
+              ],
+              "default": "UseNone",
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "name",
+                  "links": []
+                }
+              ]
+            },
+            "key": "PageMode",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": "https://github.com/pdf-association/pdf-issues/issues/106",
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "Outline"
+                  ]
+                }
+              ]
+            },
+            "key": "Outlines",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": "https://github.com/pdf-association/pdf-issues/issues/106",
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.1",
+              "types": [
+                {
+                  "base": "array",
+                  "links": [
+                    "ArrayOfThreads"
+                  ]
+                }
+              ]
+            },
+            "key": "Threads",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.1",
+              "types": [
+                {
+                  "base": "array",
+                  "links": [
+                    "DestXYZArray",
+                    "Dest0Array",
+                    "Dest1Array",
+                    "Dest4Array"
+                  ]
+                },
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "ActionGoTo",
+                    "ActionGoToR",
+                    "ActionGoToE",
+                    "ActionGoToDp",
+                    "ActionLaunch",
+                    "ActionNOP",
+                    "ActionSetState",
+                    "ActionThread",
+                    "ActionURI",
+                    "ActionSound",
+                    "ActionMovie",
+                    "ActionHide",
+                    "ActionNamed",
+                    "ActionSubmitForm",
+                    "ActionResetForm",
+                    "ActionImportData",
+                    "ActionSetOCGState",
+                    "ActionRendition",
+                    "ActionTransition",
+                    "ActionGoTo3DView",
+                    "ActionECMAScript",
+                    "ActionRichMediaExecute"
+                  ]
+                }
+              ]
+            },
+            "key": "OpenAction",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.4",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "AddActionCatalog"
+                  ]
+                }
+              ]
+            },
+            "key": "AA",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.1",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "URI"
+                  ]
+                }
+              ]
+            },
+            "key": "URI",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.2",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "InteractiveForm"
+                  ]
+                }
+              ]
+            },
+            "key": "AcroForm",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.4",
+              "types": [
+                {
+                  "base": "stream",
+                  "links": [
+                    "Metadata"
+                  ]
+                }
+              ]
+            },
+            "key": "Metadata",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": "https://github.com/pdf-association/pdf-issues/issues/348",
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.3",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "StructTreeRoot"
+                  ]
+                }
+              ]
+            },
+            "key": "StructTreeRoot",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.4",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "MarkInfo"
+                  ]
+                }
+              ]
+            },
+            "key": "MarkInfo",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.4",
+              "types": [
+                {
+                  "base": "string-text",
+                  "links": []
+                }
+              ]
+            },
+            "key": "Lang",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": "2.0",
+              "extension": null,
+              "inheritable": false,
+              "note": "https://github.com/pdf-association/pdf-issues/issues/672",
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.3",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "WebCaptureInfo"
+                  ]
+                }
+              ]
+            },
+            "key": "SpiderInfo",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.4",
+              "types": [
+                {
+                  "base": "array",
+                  "links": [
+                    "ArrayOfOutputIntents"
+                  ]
+                }
+              ]
+            },
+            "key": "OutputIntents",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.4",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "PagePiece"
+                  ]
+                }
+              ]
+            },
+            "key": "PieceInfo",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.5",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "OptContentProperties"
+                  ]
+                }
+              ]
+            },
+            "key": "OCProperties",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.5",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "Permissions"
+                  ]
+                }
+              ]
+            },
+            "key": "Perms",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.5",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "LegalAttestation"
+                  ]
+                }
+              ]
+            },
+            "key": "Legal",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.7",
+              "types": [
+                {
+                  "base": "array",
+                  "links": [
+                    "ArrayOfRequirements"
+                  ]
+                }
+              ]
+            },
+            "key": "Requirements",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.7",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "Collection"
+                  ]
+                }
+              ]
+            },
+            "key": "Collection",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": "false",
+              "deprecated": "2.0",
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "boolean",
+                  "links": []
+                }
+              ]
+            },
+            "key": "NeedsRendering",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": "ETSI_PAdES",
+              "inheritable": false,
+              "note": "see ETSI EN 319 142-1 (PAdES) https://github.com/pdf-association/arlington-pdf-model/issues/121",
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "2.0",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "DSS"
+                  ]
+                }
+              ]
+            },
+            "key": "DSS",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": "ISO_19005_3",
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "2.0",
+              "types": [
+                {
+                  "base": "array",
+                  "links": [
+                    "ArrayOfAFFileSpecifications"
+                  ]
+                }
+              ]
+            },
+            "key": "AF",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "default": null,
+              "deprecated": null,
+              "extension": "PDF_VT2",
+              "inheritable": false,
+              "note": "https://github.com/pdf-association/pdf-issues/issues/614",
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "2.0",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "DPartRoot"
+                  ]
+                }
+              ]
+            },
+            "key": "DPartRoot",
+            "present": false
           }
         ],
         "note": "Table 29",

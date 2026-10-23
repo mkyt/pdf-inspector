@@ -1,18 +1,22 @@
-import { Badge, Code, Divider, Group, Stack, Table, Text, Title } from "@mantine/core";
-import type { ReactNode } from "react";
-import { valueText } from "../format";
+import { Alert, Anchor, Badge, Code, Divider, Group, Loader, Stack, Table, Text, Title, Tooltip, UnstyledButton } from "@mantine/core";
+import { Fragment, useState, type ReactNode } from "react";
+import { objText, valueText } from "../format";
 import { useNav } from "../nav";
-import type { KeyDoc } from "../protocol/generated";
+import type { KeyDoc, NodeRoot, TypeKey } from "../protocol/generated";
+import { useSchema } from "./Inspector";
 import { IssueList } from "./Issues";
 import { OperatorDoc } from "./OperatorDoc";
 
 /**
- * Right-hand panel: what the schema says about the selected entry, or what
- * the selected operation of a content does.
+ * Right-hand panel: what the schema says about the selected entry (or, with
+ * none selected, about the open object), or what the selected operation of
+ * a content does.
  */
 export function SchemaPanel() {
   const { selection, target } = useNav();
   if (target.kind === "content") return <OperatorDoc content={target.content} op={target.op} />;
+  if (!selection && target.kind === "object") return <TypeView root={{ kind: "object", id: target.id }} title={objText(target.id)} />;
+  if (!selection && target.kind === "trailer") return <TypeView root={{ kind: "trailer" }} title="Trailer" />;
   if (!selection) {
     return (
       <Text size="xs" c="dimmed" p="sm">
@@ -61,6 +65,142 @@ export function SchemaPanel() {
         <KeyDocView doc={s.key} />
       )}
     </Stack>
+  );
+}
+
+/** The schema type of an object (or the trailer) and the keys it defines. */
+function TypeView({ root, title }: { root: NodeRoot; title: string }) {
+  const q = useSchema(root);
+  const [open, setOpen] = useState<string | null>(null);
+  const [extensions, setExtensions] = useState(false);
+  if (q.error) {
+    return (
+      <Alert m="sm" color="red" p={6}>
+        <Text size="xs">{String(q.error)}</Text>
+      </Alert>
+    );
+  }
+  if (!q.data) return <Loader m="sm" size="xs" />;
+  const s = q.data;
+  const guess = s.origin === "guess";
+  const standard = s.keys.filter((k) => !k.doc.extension);
+  const extra = s.keys.length - standard.length;
+  const shown = extensions ? s.keys : standard;
+  return (
+    <Stack gap="xs" p="sm">
+      <div>
+        <Title order={6} ff="monospace">
+          {title}
+        </Title>
+        {s.type_name && (
+          <Group gap={6}>
+            <Badge size="sm" variant={guess ? "outline" : "light"} color="teal" tt="none">
+              {s.type_name}
+              {guess && "?"}
+            </Badge>
+            <Text size="xs" c="dimmed">
+              {guess ? "guessed from /Type" : "typed by the references reaching it"}
+            </Text>
+          </Group>
+        )}
+      </div>
+      {!s.type_name ? (
+        <Text size="xs" c="dimmed">
+          The schema type of this object is not known. Open it through a reference, or validate the document, to type it from
+          where it is used.
+        </Text>
+      ) : (
+        <>
+          {(s.note || s.pdf_version) && (
+            <Text size="xs" c="dimmed">
+              {s.note && <>Defined in {s.note}. </>}
+              {s.pdf_version && <>Checked against PDF {s.pdf_version}.</>}
+            </Text>
+          )}
+          {shown.length > 0 && (
+            <>
+              <Divider
+                label={`Keys: ${standard.filter((k) => k.present).length} of ${standard.length} present`}
+                labelPosition="left"
+              />
+              <Table withRowBorders={false} verticalSpacing={1} horizontalSpacing={4} fz="xs">
+                <Table.Tbody>
+                  {shown.map((k) => (
+                    <Fragment key={k.key}>
+                      <TypeKeyRow k={k} open={open === k.key} onToggle={() => setOpen(open === k.key ? null : k.key)} />
+                      {open === k.key && (
+                        <Table.Tr>
+                          <Table.Td colSpan={3} pl={12} pb={6}>
+                            <KeyDocView doc={k.doc} />
+                          </Table.Td>
+                        </Table.Tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </Table.Tbody>
+              </Table>
+              {extra > 0 && (
+                <Anchor size="xs" onClick={() => setExtensions(!extensions)}>
+                  {extensions ? "Hide" : "Show"} {extra} key{extra === 1 ? "" : "s"} from extensions
+                </Anchor>
+              )}
+            </>
+          )}
+        </>
+      )}
+      <Text size="xs" c="dimmed">
+        Select an entry in the structure for the definition of its value.
+      </Text>
+    </Stack>
+  );
+}
+
+function TypeKeyRow({ k, open, onToggle }: { k: TypeKey; open: boolean; onToggle: () => void }) {
+  const r = k.doc.requirement;
+  const old = k.doc.deprecated !== null;
+  return (
+    <Table.Tr style={{ whiteSpace: "nowrap" }}>
+      <Table.Td>
+        <UnstyledButton onClick={onToggle} fz="xs" ff="monospace" aria-expanded={open}>
+          <Text span size="xs" c="dimmed">
+            {open ? "▾ " : "▸ "}
+          </Text>
+          <Text
+            span
+            size="xs"
+            ff="monospace"
+            c={k.doc.extension || old ? "dimmed" : "indigo"}
+            td={old ? "line-through" : undefined}
+          >
+            {k.key === "*" ? "* (any)" : /^\d/.test(k.key) ? `[${k.key}]` : `/${k.key}`}
+          </Text>
+        </UnstyledButton>
+      </Table.Td>
+      <Table.Td>
+        {r.kind === "required" ? (
+          <Text span size="xs" c="red">
+            required
+          </Text>
+        ) : r.kind === "conditional" ? (
+          <Tooltip label={r.condition} multiline maw={360}>
+            <Text span size="xs" c="orange">
+              conditional
+            </Text>
+          </Tooltip>
+        ) : null}
+      </Table.Td>
+      <Table.Td ta="right">
+        {k.present === true ? (
+          <Text span size="xs" c="teal">
+            present
+          </Text>
+        ) : k.present === false ? (
+          <Text span size="xs" c={r.kind === "required" ? "red" : "dimmed"}>
+            {r.kind === "required" ? "missing" : "—"}
+          </Text>
+        ) : null}
+      </Table.Td>
+    </Table.Tr>
   );
 }
 

@@ -84,6 +84,8 @@ function NodeRow({ parent, node, depth, label }: { parent: NodePath; node: NodeV
         <UnstyledButton
           className={classes.label}
           onClick={() => {
+            // Clicking the selected entry again deselects it.
+            if (selected) return nav.select(null);
             nav.select({ node, path: here });
             if (node.span) nav.showBytes(node.span);
           }}

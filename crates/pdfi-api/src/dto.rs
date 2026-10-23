@@ -290,6 +290,20 @@ pub struct ObjectSchema {
     pub issues: Vec<DiagnosticInfo>,
     /// Some large container was checked only in part.
     pub truncated: bool,
+    /// Keys (or array elements) the type defines, in the model's order.
+    pub keys: Vec<TypeKey>,
+}
+
+/// A key (or array element) that a type defines, and whether the object
+/// has it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct TypeKey {
+    /// Dictionary key, array index (`0`), wildcard (`*`) or repeating array
+    /// element (`1*`).
+    pub key: String,
+    /// `None` for wildcards and repeating elements.
+    pub present: Option<bool>,
+    pub doc: KeyDoc,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
