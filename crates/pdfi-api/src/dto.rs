@@ -924,12 +924,16 @@ pub struct ImageInfo {
 }
 
 /// Live objects of one kind (`dictionary`, `stream`, ...; `unloadable` for
-/// those that failed to load) with the same `/Type` and `/Subtype`.
+/// those that failed to load) with the same `/Type`, `/Subtype` and schema
+/// type.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 pub struct ObjectClass {
     pub kind: String,
     pub type_name: Option<String>,
     pub subtype: Option<String>,
+    /// Typed from the trailer when the inventory was built; for objects it
+    /// does not reach, guessed from `/Type`.
+    pub schema_type: Option<String>,
     pub count: u64,
 }
 

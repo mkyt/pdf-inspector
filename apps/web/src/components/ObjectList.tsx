@@ -14,13 +14,15 @@ import classes from "./Row.module.css";
 const NONE = "\u0000";
 
 interface Picks {
+  /** Schema type (Arlington). */
+  schema: string | null;
   type: string | null;
   subtype: string | null;
   kind: string | null;
   unreferenced: boolean;
 }
 
-const NO_PICKS: Picks = { type: null, subtype: null, kind: null, unreferenced: false };
+const NO_PICKS: Picks = { schema: null, type: null, subtype: null, kind: null, unreferenced: false };
 /** Kept per document while it is open, so switching tabs does not lose them. */
 const remembered = new Map<DocId, Picks>();
 
@@ -28,6 +30,7 @@ const nameKey = (n: string | null) => n ?? NONE;
 
 function matches(c: ObjectClass, p: Picks, skip?: keyof Picks): boolean {
   return (
+    (skip === "schema" || p.schema === null || nameKey(c.schema_type) === p.schema) &&
     (skip === "type" || p.type === null || nameKey(c.type_name) === p.type) &&
     (skip === "subtype" || p.subtype === null || nameKey(c.subtype) === p.subtype) &&
     (skip === "kind" || p.kind === null || c.kind === p.kind)
@@ -35,18 +38,21 @@ function matches(c: ObjectClass, p: Picks, skip?: keyof Picks): boolean {
 }
 
 /** Options of one select: the values of the classes the other picks leave, with counts. */
-function options(all: ObjectClass[], p: Picks, field: "type" | "subtype" | "kind") {
+function options(all: ObjectClass[], p: Picks, field: "schema" | "type" | "subtype" | "kind") {
   const counts = new Map<string, number>();
   for (const c of all) {
     if (!matches(c, p, field)) continue;
-    const v = field === "kind" ? c.kind : nameKey(field === "type" ? c.type_name : c.subtype);
+    const v =
+      field === "kind"
+        ? c.kind
+        : nameKey(field === "schema" ? c.schema_type : field === "type" ? c.type_name : c.subtype);
     counts.set(v, (counts.get(v) ?? 0) + c.count);
   }
   return [...counts]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .map(([v, n]) => ({
       value: v,
-      label: `${v === NONE ? "(none)" : field === "kind" ? v : `/${v}`}  ·  ${n.toLocaleString()}`,
+      label: `${v === NONE ? "(none)" : field === "kind" || field === "schema" ? v : `/${v}`}  ·  ${n.toLocaleString()}`,
     }));
 }
 
@@ -67,7 +73,7 @@ export function ObjectList({ total }: { total: number }) {
     queryFn: () => api.objectClasses(backend, nav.doc),
     enabled: !!inventory.stats,
   }).data;
-  const byClass = picks.type !== null || picks.subtype !== null || picks.kind !== null;
+  const byClass = picks.schema !== null || picks.type !== null || picks.subtype !== null || picks.kind !== null;
   const filter: ObjectFilter | null =
     inventory.stats && classList && (byClass || picks.unreferenced)
       ? { classes: byClass ? classList.filter((c) => matches(c, picks)) : null, unreferenced: picks.unreferenced }
@@ -105,6 +111,18 @@ export function ObjectList({ total }: { total: number }) {
       </Group>
       {inventory.stats && classList ? (
         <Group px={6} pb={6} gap={6}>
+          <Select
+            size="xs"
+            placeholder="Schema type"
+            aria-label="Schema type"
+            searchable
+            clearable
+            data={options(classList, picks, "schema")}
+            value={picks.schema}
+            onChange={(v) => setPicks({ ...picks, schema: v })}
+            style={{ flex: "1 1 100%" }}
+            comboboxProps={{ width: 300, position: "bottom-start" }}
+          />
           <Select
             size="xs"
             placeholder="/Type"
@@ -156,7 +174,7 @@ export function ObjectList({ total }: { total: number }) {
         !inventory.stats && (
           <Group px={6} pb={6} gap={6}>
             <Text size="xs" c="dimmed">
-              Filter by /Type, /Subtype, kind or references:
+              Filter by schema type, /Type, /Subtype, kind or references:
             </Text>
             <Button
               size="compact-xs"

@@ -6,7 +6,7 @@ use std::io::Read;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use pdfi_model::inventory::Builder;
+use pdfi_model::inventory::{self, Builder, Inventory, ObjClass};
 use pdfi_schema::{Severity, Walk};
 use pdfi_syntax::{ObjId, ObjLocation, Object};
 
@@ -82,8 +82,20 @@ pub(crate) struct Job {
 enum Work {
     Check(CheckWork),
     Validate(ValidateWork),
-    /// `None` once finished.
-    Inventory(Option<Builder>),
+    Inventory(InventoryWork),
+}
+
+/// Scanning every object and page, then typing what the trailer reaches to
+/// class the objects by schema type.
+enum InventoryWork {
+    Scan(Builder),
+    Type {
+        inv: Inventory,
+        walk: Walk,
+        /// Steps of the scan, before typing.
+        scanned: u64,
+    },
+    Done,
 }
 
 struct ValidateWork {
@@ -133,12 +145,18 @@ impl Job {
                     counts: [0; 3],
                 })
             }
-            JobKind::Inventory => Work::Inventory(Some(Builder::new(&doc.model.on(&doc.file)))),
+            JobKind::Inventory => {
+                Work::Inventory(InventoryWork::Scan(Builder::new(&doc.model.on(&doc.file))))
+            }
         };
         let total = match &work {
             Work::Check(w) => w.ids.len() as u64,
             Work::Validate(w) => w.walk.pending() as u64,
-            Work::Inventory(b) => b.as_ref().map_or(0, Builder::total),
+            // Typing visits about as many objects as the scan.
+            Work::Inventory(InventoryWork::Scan(b)) => {
+                b.total() + doc.file.xref().live_ids().count() as u64
+            }
+            Work::Inventory(_) => 0,
         };
         Self {
             info: Mutex::new(JobInfo {
@@ -193,10 +211,7 @@ impl Job {
                 let (done, total, r) = self.validate_step(w);
                 (done, Some(total), r)
             }
-            Work::Inventory(b) => {
-                let (done, r) = self.inventory_step(b);
-                (done, None, r)
-            }
+            Work::Inventory(w) => self.inventory_step(w),
         };
         drop(work);
         let total = {
@@ -274,19 +289,50 @@ impl Job {
         (done, total, Some(result))
     }
 
-    fn inventory_step(&self, b: &mut Option<Builder>) -> (u64, Option<JobResult>) {
+    fn inventory_step(&self, w: &mut InventoryWork) -> (u64, Option<u64>, Option<JobResult>) {
         let d = &self.doc;
-        let Some(w) = b else {
-            return (0, None);
-        };
-        if w.step(&d.model.on(&d.file), STEP, PAGE_STEP) {
-            return (w.done(), None);
+        let ck = d.schema.checker(&d.file);
+        match w {
+            InventoryWork::Scan(b) => {
+                if b.step(&d.model.on(&d.file), STEP, PAGE_STEP) {
+                    return (b.done(), None, None);
+                }
+                let scanned = b.done();
+                let InventoryWork::Scan(b) = std::mem::replace(w, InventoryWork::Done) else {
+                    unreachable!()
+                };
+                let inv = b.finish();
+                let total = scanned + inv.objects;
+                *w = InventoryWork::Type {
+                    inv,
+                    walk: Walk::types(&ck),
+                    scanned,
+                };
+                (scanned, Some(total), None)
+            }
+            InventoryWork::Type { inv, walk, scanned } => {
+                let mut none = Vec::new();
+                let more = walk.step(&ck, VALIDATE_STEP, &mut none);
+                // The trailer and unreachable objects make the count differ
+                // from `inv.objects`: keep the bar moving forward.
+                let typed = walk.done.min(inv.objects);
+                if more {
+                    return (*scanned + typed, None, None);
+                }
+                let done = *scanned + inv.objects;
+                let InventoryWork::Type { mut inv, .. } = std::mem::replace(w, InventoryWork::Done)
+                else {
+                    unreachable!()
+                };
+                inv.classes = by_schema_type(std::mem::take(&mut inv.classes), |id| {
+                    ck.type_of(id).map(|(t, _)| t.name())
+                });
+                let result = JobResult::Inventory(crate::dto::InventoryStats::of(&inv));
+                *lock(&d.inventory) = Some(Arc::new(inv));
+                (done, Some(done), Some(result))
+            }
+            InventoryWork::Done => (0, None, None),
         }
-        let done = w.done();
-        let inv = b.take().expect("builder").finish();
-        let result = JobResult::Inventory(crate::dto::InventoryStats::of(&inv));
-        *lock(&d.inventory) = Some(Arc::new(inv));
-        (done, Some(result))
     }
 
     fn check_step(&self, w: &mut CheckWork) -> (u64, Option<JobResult>) {
@@ -335,4 +381,29 @@ impl Job {
         };
         (done, Some(result))
     }
+}
+
+/// Split classes by the schema type of their objects.
+fn by_schema_type(
+    classes: Vec<ObjClass>,
+    type_of: impl Fn(ObjId) -> Option<String>,
+) -> Vec<ObjClass> {
+    let mut out = Vec::new();
+    for c in classes {
+        let mut split: std::collections::BTreeMap<Option<String>, Vec<ObjId>> = Default::default();
+        for id in c.ids {
+            split.entry(type_of(id)).or_default().push(id);
+        }
+        for (schema_type, ids) in split {
+            out.push(ObjClass {
+                kind: c.kind,
+                type_name: c.type_name.clone(),
+                subtype: c.subtype.clone(),
+                schema_type,
+                ids,
+            });
+        }
+    }
+    inventory::sort_classes(&mut out);
+    out
 }

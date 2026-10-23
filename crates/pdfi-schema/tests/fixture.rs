@@ -24,6 +24,21 @@ fn clean_file_has_no_issues_and_is_typed() {
 }
 
 #[test]
+fn typing_walk_types_without_issues() {
+    // schema.pdf is full of problems: none is collected.
+    let f = open("schema.pdf");
+    let s = DocSchema::new();
+    let ck = s.checker(&f);
+    let mut issues = Vec::new();
+    let mut w = Walk::types(&ck);
+    while w.step(&ck, 4, &mut issues) {}
+    assert!(issues.is_empty(), "{issues:?}");
+    // The page is reached through /Kids: typed from context, not guessed.
+    let (t, o) = ck.type_of(ObjId::new(3, 0)).unwrap();
+    assert_eq!((t.name().as_str(), o), ("PageObject", Origin::Context));
+}
+
+#[test]
 fn a_type_named_by_type_alone_is_not_a_guess() {
     let with_type = |f: &PdfFile, name: &str| {
         f.xref()

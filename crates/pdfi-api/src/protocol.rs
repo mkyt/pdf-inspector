@@ -48,8 +48,8 @@ pub enum Request {
         #[serde(default)]
         filter: Option<ObjectFilter>,
     },
-    /// Live objects grouped by kind, `/Type` and `/Subtype` (needs the
-    /// inventory).
+    /// Live objects grouped by kind, `/Type`, `/Subtype` and schema type
+    /// (needs the inventory).
     ObjectClasses {
         doc: DocId,
     },

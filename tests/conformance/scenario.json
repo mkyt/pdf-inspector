@@ -100,6 +100,21 @@
     { "request": { "op": "referrers", "doc": 9, "id": { "num": 12, "generation": 0 }, "range": { "offset": 0, "limit": 10 } } },
     { "request": { "op": "referrers", "doc": 9, "id": { "num": 1, "generation": 0 }, "range": { "offset": 0, "limit": 10 } } },
     { "request": { "op": "unreferenced", "doc": 9, "range": { "offset": 0, "limit": 10 } } },
+    { "request": { "op": "objectClasses", "doc": 9 } },
+    {
+      "request": {
+        "op": "objects",
+        "doc": 9,
+        "range": { "offset": 0, "limit": 10 },
+        "filter": {
+          "classes": [
+            { "kind": "dictionary", "type_name": null, "subtype": "Type1", "schema_type": "FontType1", "count": 0 },
+            { "kind": "dictionary", "type_name": "Font", "subtype": "Type1", "schema_type": "FontType1", "count": 0 }
+          ],
+          "unreferenced": false
+        }
+      }
+    },
     { "request": { "op": "summary", "doc": 9 } },
     { "open": { "file": "content.pdf" } },
     { "request": { "op": "content", "doc": 10, "content": { "kind": "page", "index": 0 } } },

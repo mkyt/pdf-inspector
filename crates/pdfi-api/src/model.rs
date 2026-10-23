@@ -471,6 +471,7 @@ pub fn object_classes(d: &Doc) -> Result<Vec<ObjectClass>, ApiError> {
             kind: c.kind.into(),
             type_name: c.type_name.clone(),
             subtype: c.subtype.clone(),
+            schema_type: c.schema_type.clone(),
             count: c.ids.len() as u64,
         })
         .collect())
@@ -485,7 +486,10 @@ pub fn filter_objects(d: &Doc, f: &ObjectFilter) -> Result<Vec<u32>, ApiError> {
             .iter()
             .filter(|c| {
                 want.iter().any(|w| {
-                    w.kind == c.kind && w.type_name == c.type_name && w.subtype == c.subtype
+                    w.kind == c.kind
+                        && w.type_name == c.type_name
+                        && w.subtype == c.subtype
+                        && w.schema_type == c.schema_type
                 })
             })
             .flat_map(|c| c.ids.iter().map(|i| i.num))

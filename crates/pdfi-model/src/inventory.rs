@@ -133,18 +133,21 @@ pub struct Inventory {
     /// Live objects nothing refers to (object and cross-reference streams
     /// and linearization dictionaries aside).
     pub unreferenced: Vec<ObjId>,
-    /// Live objects grouped by kind, `/Type` and `/Subtype`, most common
-    /// first.
+    /// Live objects grouped by kind, `/Type` and `/Subtype` (and schema
+    /// type, see [`ObjClass::schema_type`]), most common first.
     pub classes: Vec<ObjClass>,
 }
 
 /// Objects of one kind (`dictionary`, `stream`, ...; [`UNLOADABLE`] for
-/// those that failed to load) with the same `/Type` and `/Subtype`.
+/// those that failed to load) with the same `/Type` and `/Subtype` (and
+/// schema type, once a caller that knows the schema split them by it).
 #[derive(Clone, Debug, Default)]
 pub struct ObjClass {
     pub kind: &'static str,
     pub type_name: Option<String>,
     pub subtype: Option<String>,
+    /// Not set by [`Builder`], which knows nothing of the schema.
+    pub schema_type: Option<String>,
     /// Ascending.
     pub ids: Vec<ObjId>,
 }
@@ -534,14 +537,11 @@ impl Builder {
                 kind,
                 type_name,
                 subtype,
+                schema_type: None,
                 ids,
             })
             .collect();
-        classes.sort_by(|a, b| {
-            b.ids.len().cmp(&a.ids.len()).then_with(|| {
-                (a.kind, &a.type_name, &a.subtype).cmp(&(b.kind, &b.type_name, &b.subtype))
-            })
-        });
+        sort_classes(&mut classes);
         Inventory {
             fonts: self.fonts.into_values().collect(),
             images: self.images.into_values().collect(),
@@ -554,6 +554,20 @@ impl Builder {
             classes,
         }
     }
+}
+
+/// Most common first.
+pub fn sort_classes(classes: &mut [ObjClass]) {
+    classes.sort_by(|a, b| {
+        b.ids.len().cmp(&a.ids.len()).then_with(|| {
+            (a.kind, &a.type_name, &a.subtype, &a.schema_type).cmp(&(
+                b.kind,
+                &b.type_name,
+                &b.subtype,
+                &b.schema_type,
+            ))
+        })
+    });
 }
 
 /// Where inside `o` it refers to `target`: paths like `/Resources/Font/F1`

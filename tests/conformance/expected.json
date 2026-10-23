@@ -6155,13 +6155,27 @@
         "doc": 9,
         "done": 40,
         "job": 7,
-        "total": 45,
+        "total": 85,
+        "type": "jobProgress"
+      },
+      {
+        "doc": 9,
+        "done": 45,
+        "job": 7,
+        "total": 85,
+        "type": "jobProgress"
+      },
+      {
+        "doc": 9,
+        "done": 77,
+        "job": 7,
+        "total": 85,
         "type": "jobProgress"
       },
       {
         "info": {
           "doc": 9,
-          "done": 45,
+          "done": 85,
           "job": 7,
           "kind": {
             "kind": "inventory"
@@ -6178,7 +6192,7 @@
             "unreferenced": 1
           },
           "state": "completed",
-          "total": 45
+          "total": 85
         },
         "type": "jobDone"
       }
@@ -6193,7 +6207,7 @@
         },
         "result": null,
         "state": "running",
-        "total": 45,
+        "total": 85,
         "type": "job"
       }
     }
@@ -6437,7 +6451,7 @@
             "paths": [
               "/Names[3]/D[0]"
             ],
-            "type_name": null
+            "type_name": "NameTree<ActionGoTo>"
           }
         ],
         "offset": 0,
@@ -6480,6 +6494,243 @@
         "offset": 0,
         "total": 1,
         "type": "objRefs"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "classes": [
+          {
+            "count": 5,
+            "kind": "dictionary",
+            "schema_type": "PageObject",
+            "subtype": null,
+            "type_name": "Page"
+          },
+          {
+            "count": 5,
+            "kind": "stream",
+            "schema_type": "Stream",
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "count": 3,
+            "kind": "dictionary",
+            "schema_type": "OutlineItem",
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "count": 2,
+            "kind": "dictionary",
+            "schema_type": "NameTree<ActionGoTo>",
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "count": 2,
+            "kind": "dictionary",
+            "schema_type": "PageTreeNode",
+            "subtype": null,
+            "type_name": "Pages"
+          },
+          {
+            "count": 2,
+            "kind": "stream",
+            "schema_type": "XObjectImage",
+            "subtype": "Image",
+            "type_name": "XObject"
+          },
+          {
+            "count": 1,
+            "kind": "dictionary",
+            "schema_type": "DocInfo",
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "count": 1,
+            "kind": "dictionary",
+            "schema_type": "FontType1",
+            "subtype": "Type1",
+            "type_name": null
+          },
+          {
+            "count": 1,
+            "kind": "dictionary",
+            "schema_type": "AnnotLink",
+            "subtype": "Link",
+            "type_name": "Annot"
+          },
+          {
+            "count": 1,
+            "kind": "dictionary",
+            "schema_type": "AnnotPopup",
+            "subtype": "Popup",
+            "type_name": "Annot"
+          },
+          {
+            "count": 1,
+            "kind": "dictionary",
+            "schema_type": "AnnotText",
+            "subtype": "Text",
+            "type_name": "Annot"
+          },
+          {
+            "count": 1,
+            "kind": "dictionary",
+            "schema_type": "Catalog",
+            "subtype": null,
+            "type_name": "Catalog"
+          },
+          {
+            "count": 1,
+            "kind": "dictionary",
+            "schema_type": "FontCIDType2",
+            "subtype": "CIDFontType2",
+            "type_name": "Font"
+          },
+          {
+            "count": 1,
+            "kind": "dictionary",
+            "schema_type": "FontTrueType",
+            "subtype": "TrueType",
+            "type_name": "Font"
+          },
+          {
+            "count": 1,
+            "kind": "dictionary",
+            "schema_type": "FontType0",
+            "subtype": "Type0",
+            "type_name": "Font"
+          },
+          {
+            "count": 1,
+            "kind": "dictionary",
+            "schema_type": "FontType1",
+            "subtype": "Type1",
+            "type_name": "Font"
+          },
+          {
+            "count": 1,
+            "kind": "dictionary",
+            "schema_type": "FontDescriptorCIDType2",
+            "subtype": null,
+            "type_name": "FontDescriptor"
+          },
+          {
+            "count": 1,
+            "kind": "dictionary",
+            "schema_type": "FontDescriptorTrueType",
+            "subtype": null,
+            "type_name": "FontDescriptor"
+          },
+          {
+            "count": 1,
+            "kind": "dictionary",
+            "schema_type": "Outline",
+            "subtype": null,
+            "type_name": "Outlines"
+          },
+          {
+            "count": 1,
+            "kind": "dictionary",
+            "schema_type": "PageTreeNodeRoot",
+            "subtype": null,
+            "type_name": "Pages"
+          },
+          {
+            "count": 1,
+            "kind": "stream",
+            "schema_type": "FontFile2",
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "count": 1,
+            "kind": "stream",
+            "schema_type": "ICCProfileStream",
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "count": 1,
+            "kind": "stream",
+            "schema_type": "ToUnicodeCMapStream",
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "count": 1,
+            "kind": "stream",
+            "schema_type": "Metadata",
+            "subtype": "XML",
+            "type_name": "Metadata"
+          },
+          {
+            "count": 1,
+            "kind": "stream",
+            "schema_type": "XObjectFormType1",
+            "subtype": "Form",
+            "type_name": "XObject"
+          },
+          {
+            "count": 1,
+            "kind": "stream",
+            "schema_type": "XObjectImageSoftMask",
+            "subtype": "Image",
+            "type_name": "XObject"
+          },
+          {
+            "count": 1,
+            "kind": "string",
+            "schema_type": null,
+            "subtype": null,
+            "type_name": null
+          }
+        ],
+        "type": "objectClasses"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 1576
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 20,
+            "schema_type": "FontType1",
+            "subtype": "Type1",
+            "type_name": "Font"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 2791
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 28,
+            "schema_type": "FontType1",
+            "subtype": "Type1",
+            "type_name": null
+          }
+        ],
+        "offset": 0,
+        "total": 2,
+        "type": "objects"
       }
     }
   },

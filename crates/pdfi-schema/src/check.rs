@@ -973,28 +973,42 @@ impl<'a> Checker<'a> {
     pub fn validate(&self, ty: Ty, c: Container, limit: usize) -> Validation {
         let mut v = Validation::default();
         let mut path = Vec::new();
-        self.walk(ty, c, limit, &mut path, &mut v, 0);
+        self.walk(ty, c, limit, true, &mut path, &mut v, 0);
         v
     }
 
+    /// Like [`Checker::validate`] without looking for problems: types the
+    /// objects a container (and the direct containers inside it) refers to,
+    /// and returns those references.
+    pub fn type_refs(&self, ty: Ty, c: Container) -> Validation {
+        let mut v = Validation::default();
+        let mut path = Vec::new();
+        self.walk(ty, c, usize::MAX, false, &mut path, &mut v, 0);
+        v
+    }
+
+    #[allow(clippy::too_many_arguments)]
     fn walk(
         &self,
         ty: Ty,
         c: Container,
         limit: usize,
+        issues: bool,
         path: &mut Vec<Seg>,
         v: &mut Validation,
         depth: u32,
     ) {
-        for mut i in self.container_issues(ty, c) {
-            i.path = path.clone();
-            v.issues.push(i);
+        if issues {
+            for mut i in self.container_issues(ty, c) {
+                i.path = path.clone();
+                v.issues.push(i);
+            }
         }
         if c.len() > limit {
             v.truncated = true;
         }
         for i in 0..c.len().min(limit) {
-            let e = self.entry(ty, c, i, true);
+            let e = self.entry(ty, c, i, issues);
             let seg = c.seg(i);
             for mut is in e.issues {
                 is.path = path.clone();
@@ -1019,7 +1033,7 @@ impl<'a> Checker<'a> {
                 o if depth < 32 => {
                     if let Some(cc) = Container::of(o) {
                         path.push(seg);
-                        self.walk(t, cc, limit, path, v, depth + 1);
+                        self.walk(t, cc, limit, issues, path, v, depth + 1);
                         path.pop();
                     }
                 }
@@ -1035,6 +1049,8 @@ pub struct Walk {
     queue: VecDeque<(Option<ObjId>, Ty)>,
     seen: HashSet<ObjId>,
     root: Option<ObjId>,
+    /// Collect problems; otherwise only type the objects reached.
+    issues: bool,
     /// Objects validated so far.
     pub done: u64,
 }
@@ -1046,7 +1062,17 @@ impl Walk {
             queue: VecDeque::from([(None, ck.trailer_type())]),
             seen: HashSet::new(),
             root: None,
+            issues: true,
             done: 0,
+        }
+    }
+
+    /// The whole document, from the trailer, only typing what it reaches
+    /// (see [`Checker::type_of`]); no problems are collected.
+    pub fn types(ck: &Checker) -> Self {
+        Self {
+            issues: false,
+            ..Self::document(ck)
         }
     }
 
@@ -1058,6 +1084,7 @@ impl Walk {
             queue: VecDeque::from([(Some(id), ty)]),
             seen: HashSet::from([id]),
             root: Some(id),
+            issues: true,
             done: 0,
         }
     }
@@ -1068,6 +1095,7 @@ impl Walk {
             queue: VecDeque::new(),
             seen: HashSet::new(),
             root: None,
+            issues: true,
             done: 0,
         }
     }
@@ -1099,7 +1127,11 @@ impl Walk {
                     (c, matches!(held.location, syn::ObjLocation::File(_)))
                 }
             };
-            let v = ck.validate(ty, c, usize::MAX);
+            let v = if self.issues {
+                ck.validate(ty, c, usize::MAX)
+            } else {
+                ck.type_refs(ty, c)
+            };
             for mut i in v.issues {
                 i.obj = id;
                 if !in_file {

@@ -550,7 +550,12 @@ type_name: string | null,
  */
 paths: Array<string>, };
 
-export type ObjectClass = { kind: string, type_name: string | null, subtype: string | null, count: number, };
+export type ObjectClass = { kind: string, type_name: string | null, subtype: string | null, 
+/**
+ * Typed from the trailer when the inventory was built; for objects it
+ * does not reach, guessed from `/Type`.
+ */
+schema_type: string | null, count: number, };
 
 export type ObjectFilter = { 
 /**
