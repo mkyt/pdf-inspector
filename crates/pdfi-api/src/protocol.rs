@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 13;
+pub const PROTOCOL_VERSION: u32 = 14;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct ClientMessage {
@@ -154,6 +154,25 @@ pub enum Request {
         doc: DocId,
         content: ContentRef,
         range: Range,
+    },
+    /// Operations `range` of a content as written, for editing (about
+    /// 4 MB at most: `OpText.to` tells where it stopped).
+    ContentText {
+        doc: DocId,
+        content: ContentRef,
+        range: Range,
+    },
+    /// Blocks of a content (see `OpView.end`) whose opener is at `depth`,
+    /// as `[opener, last]`, for folding them all.
+    ContentBlocks {
+        doc: DocId,
+        content: ContentRef,
+        depth: u32,
+    },
+    /// The resources a content can name, by category.
+    ContentResources {
+        doc: DocId,
+        content: ContentRef,
     },
     /// What the operations of a content paint, in operation order.
     ContentElements {
@@ -327,6 +346,16 @@ pub enum ResponseBody {
     Content(ContentSummary),
     Ops(Page<OpView>),
     ContentIssues(Page<ContentIssue>),
+    OpText(OpText),
+    Blocks {
+        blocks: Vec<[u32; 2]>,
+        /// More blocks than returned.
+        truncated: bool,
+    },
+    Resources {
+        items: Vec<ResourceItem>,
+        truncated: bool,
+    },
     Elements(Page<ElementView>),
     OpState(Box<OpState>),
     Font(Box<FontDetail>),

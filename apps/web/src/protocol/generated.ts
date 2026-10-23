@@ -1,6 +1,6 @@
 // Generated from crates/pdfi-api by `UPDATE_TS=1 cargo test -p pdfi-api`. Do not edit.
 
-export const PROTOCOL_VERSION = 13;
+export const PROTOCOL_VERSION = 14;
 
 export type DocId = number;
 export type JobId = number;
@@ -794,6 +794,11 @@ operands: Array<string>,
  */
 depth: number, 
 /**
+ * For `q`, `BT`, `BMC`, `BDC` and `BX`: the last operation of the
+ * block it opens (its closer when there is one).
+ */
+end: number | null, 
+/**
  * The stream it was read from and its bytes in that stream's decoded
  * data.
  */
@@ -902,7 +907,19 @@ failed: number, pages: number, fonts: number, images: number, forms: number,
  */
 references: number, unreferenced: number, };
 
-export type EditCommand = { "op": "setValue", node: NodePath, value: string, } | { "op": "setEntry", node: NodePath, key: string, value: string, } | { "op": "removeEntry", node: NodePath, key: string, } | { "op": "insert", node: NodePath, index: number, value: string, } | { "op": "removeChild", node: NodePath, index: number, } | { "op": "addObject", value: string, data: StreamPayload | null, } | { "op": "deleteObject", id: ObjRef, } | { "op": "setStreamData", id: ObjRef, data: StreamPayload, filter: StreamFilter, } | { "op": "setStreamFilter", id: ObjRef, filter: StreamFilter, } | { "op": "deletePages", pages: Array<number>, } | { "op": "movePages", pages: Array<number>, to: number, } | { "op": "rotatePages", pages: Array<number>, by: number, } | { "op": "insertBlankPage", at: number, width: number, height: number, } | { "op": "insertPages", at: number, from: number, pages: Array<number>, } | { "op": "setInfo", key: string, value: string | null, sync_xmp: boolean, } | { "op": "setXmp", xml: string, };
+export type EditCommand = { "op": "setValue", node: NodePath, value: string, } | { "op": "setEntry", node: NodePath, key: string, value: string, } | { "op": "removeEntry", node: NodePath, key: string, } | { "op": "insert", node: NodePath, index: number, value: string, } | { "op": "removeChild", node: NodePath, index: number, } | { "op": "addObject", value: string, data: StreamPayload | null, } | { "op": "deleteObject", id: ObjRef, } | { "op": "setStreamData", id: ObjRef, data: StreamPayload, filter: StreamFilter, } | { "op": "setStreamFilter", id: ObjRef, filter: StreamFilter, } | { "op": "deletePages", pages: Array<number>, } | { "op": "movePages", pages: Array<number>, to: number, } | { "op": "rotatePages", pages: Array<number>, by: number, } | { "op": "insertBlankPage", at: number, width: number, height: number, } | { "op": "insertPages", at: number, from: number, pages: Array<number>, } | { "op": "setInfo", key: string, value: string | null, sync_xmp: boolean, } | { "op": "setXmp", xml: string, } | { "op": "editOps", content: ContentRef, edits: Array<OpEdit>, };
+
+export type OpEdit = { "kind": "replace", from: number, to: number, text: string, } | { "kind": "move", from: number, to: number, before: number, };
+
+export type OpText = { from: number, 
+/**
+ * Less than asked when the text grew too long.
+ */
+to: number, 
+/**
+ * One character per byte (Latin-1).
+ */
+text: string, };
 
 export type StreamPayload = { "kind": "text", text: string, } | { "kind": "base64", data: string, };
 
@@ -977,7 +994,7 @@ export type Request = { "op": "hello", protocol: number, } | { "op": "listDir", 
 /**
  * Ignore the cross-reference data and rebuild it by scanning.
  */
-recover: boolean, } | { "op": "docs" } | { "op": "close", doc: number, } | { "op": "summary", doc: number, } | { "op": "objects", doc: number, range: Range, filter: ObjectFilter | null, } | { "op": "objectClasses", doc: number, } | { "op": "object", doc: number, id: ObjRef, } | { "op": "children", doc: number, path: NodePath, range: Range, } | { "op": "xref", doc: number, revision: number | null, range: Range, } | { "op": "diagnostics", doc: number, range: Range, } | { "op": "schema", doc: number, root: NodeRoot, } | { "op": "document", doc: number, } | { "op": "xmp", doc: number, range: Range, } | { "op": "pages", doc: number, range: Range, } | { "op": "page", doc: number, index: number, } | { "op": "pageIndex", doc: number, id: ObjRef, } | { "op": "annotations", doc: number, page: number, range: Range, } | { "op": "outline", doc: number, parent: ObjRef | null, range: Range, } | { "op": "fonts", doc: number, range: Range, } | { "op": "images", doc: number, range: Range, } | { "op": "referrers", doc: number, id: ObjRef, range: Range, } | { "op": "refPath", doc: number, id: ObjRef, } | { "op": "unreferenced", doc: number, range: Range, } | { "op": "content", doc: number, content: ContentRef, } | { "op": "contentOps", doc: number, content: ContentRef, range: Range, } | { "op": "contentIssues", doc: number, content: ContentRef, range: Range, } | { "op": "contentElements", doc: number, content: ContentRef, range: Range, } | { "op": "opState", doc: number, content: ContentRef, index: number, } | { "op": "font", doc: number, id: ObjRef, } | { "op": "glyphs", doc: number, id: ObjRef, range: Range, } | { "op": "programGlyphs", doc: number, id: ObjRef, range: Range, } | { "op": "fontUses", doc: number, id: ObjRef, range: Range, } | { "op": "render", doc: number, content: ContentRef, scale: number, 
+recover: boolean, } | { "op": "docs" } | { "op": "close", doc: number, } | { "op": "summary", doc: number, } | { "op": "objects", doc: number, range: Range, filter: ObjectFilter | null, } | { "op": "objectClasses", doc: number, } | { "op": "object", doc: number, id: ObjRef, } | { "op": "children", doc: number, path: NodePath, range: Range, } | { "op": "xref", doc: number, revision: number | null, range: Range, } | { "op": "diagnostics", doc: number, range: Range, } | { "op": "schema", doc: number, root: NodeRoot, } | { "op": "document", doc: number, } | { "op": "xmp", doc: number, range: Range, } | { "op": "pages", doc: number, range: Range, } | { "op": "page", doc: number, index: number, } | { "op": "pageIndex", doc: number, id: ObjRef, } | { "op": "annotations", doc: number, page: number, range: Range, } | { "op": "outline", doc: number, parent: ObjRef | null, range: Range, } | { "op": "fonts", doc: number, range: Range, } | { "op": "images", doc: number, range: Range, } | { "op": "referrers", doc: number, id: ObjRef, range: Range, } | { "op": "refPath", doc: number, id: ObjRef, } | { "op": "unreferenced", doc: number, range: Range, } | { "op": "content", doc: number, content: ContentRef, } | { "op": "contentOps", doc: number, content: ContentRef, range: Range, } | { "op": "contentIssues", doc: number, content: ContentRef, range: Range, } | { "op": "contentText", doc: number, content: ContentRef, range: Range, } | { "op": "contentBlocks", doc: number, content: ContentRef, depth: number, } | { "op": "contentResources", doc: number, content: ContentRef, } | { "op": "contentElements", doc: number, content: ContentRef, range: Range, } | { "op": "opState", doc: number, content: ContentRef, index: number, } | { "op": "font", doc: number, id: ObjRef, } | { "op": "glyphs", doc: number, id: ObjRef, range: Range, } | { "op": "programGlyphs", doc: number, id: ObjRef, range: Range, } | { "op": "fontUses", doc: number, id: ObjRef, range: Range, } | { "op": "render", doc: number, content: ContentRef, scale: number, 
 /**
  * `None`: the whole view.
  */
@@ -1001,7 +1018,11 @@ label: string, commands: Array<EditCommand>, } | { "op": "undo", doc: number, } 
 
 export type Response = { "ok": ResponseBody } | { "err": ApiError };
 
-export type ResponseBody = { "type": "hello" } & HelloInfo | { "type": "dir" } & DirListing | { "type": "doc" } & DocSummary | { "type": "docs", docs: Array<DocInfo>, } | { "type": "objects" } & Page<ObjectSummary> | { "type": "objectClasses", classes: Array<ObjectClass>, } | { "type": "object" } & ObjectView | { "type": "children" } & Page<NodeView> | { "type": "xref" } & Page<XrefRow> | { "type": "diagnostics" } & Page<DiagnosticInfo> | { "type": "schema" } & ObjectSchema | { "type": "document" } & DocumentView | { "type": "xmp" } & XmpView | { "type": "pages" } & Page<PageSummary> | { "type": "pageDetail" } & PageDetail | { "type": "pageIndex", index: number | null, } | { "type": "annotations" } & Page<AnnotInfo> | { "type": "outline" } & Page<OutlineItem> | { "type": "fonts" } & Page<FontInfo> | { "type": "images" } & Page<ImageInfo> | { "type": "referrers" } & Page<Referrer> | { "type": "refPath" } & RefPath | { "type": "objRefs" } & Page<ObjRef> | { "type": "content" } & ContentSummary | { "type": "ops" } & Page<OpView> | { "type": "contentIssues" } & Page<ContentIssue> | { "type": "elements" } & Page<ElementView> | { "type": "opState" } & OpState | { "type": "font" } & FontDetail | { "type": "glyphs" } & Page<GlyphView> | { "type": "programGlyphs" } & Page<ProgramGlyph> | { "type": "fontUses" } & FontUsesView | { "type": "bitmap" } & BitmapInfo | { "type": "hits", ops: Array<number>, } | { "type": "extract" } & ExtractInfo | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "syntax", text: string, 
+export type ResponseBody = { "type": "hello" } & HelloInfo | { "type": "dir" } & DirListing | { "type": "doc" } & DocSummary | { "type": "docs", docs: Array<DocInfo>, } | { "type": "objects" } & Page<ObjectSummary> | { "type": "objectClasses", classes: Array<ObjectClass>, } | { "type": "object" } & ObjectView | { "type": "children" } & Page<NodeView> | { "type": "xref" } & Page<XrefRow> | { "type": "diagnostics" } & Page<DiagnosticInfo> | { "type": "schema" } & ObjectSchema | { "type": "document" } & DocumentView | { "type": "xmp" } & XmpView | { "type": "pages" } & Page<PageSummary> | { "type": "pageDetail" } & PageDetail | { "type": "pageIndex", index: number | null, } | { "type": "annotations" } & Page<AnnotInfo> | { "type": "outline" } & Page<OutlineItem> | { "type": "fonts" } & Page<FontInfo> | { "type": "images" } & Page<ImageInfo> | { "type": "referrers" } & Page<Referrer> | { "type": "refPath" } & RefPath | { "type": "objRefs" } & Page<ObjRef> | { "type": "content" } & ContentSummary | { "type": "ops" } & Page<OpView> | { "type": "contentIssues" } & Page<ContentIssue> | { "type": "opText" } & OpText | { "type": "blocks", blocks: Array<[number, number]>, 
+/**
+ * More blocks than returned.
+ */
+truncated: boolean, } | { "type": "resources", items: Array<ResourceItem>, truncated: boolean, } | { "type": "elements" } & Page<ElementView> | { "type": "opState" } & OpState | { "type": "font" } & FontDetail | { "type": "glyphs" } & Page<GlyphView> | { "type": "programGlyphs" } & Page<ProgramGlyph> | { "type": "fontUses" } & FontUsesView | { "type": "bitmap" } & BitmapInfo | { "type": "hits", ops: Array<number>, } | { "type": "extract" } & ExtractInfo | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "syntax", text: string, 
 /**
  * Longer than what is returned: not editable as text.
  */

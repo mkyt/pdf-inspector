@@ -15,6 +15,8 @@ import type {
   ElementView,
   ExtractInfo,
   OpState,
+  OpText,
+  ResourceItem,
   OpView,
   DirListing,
   DocId,
@@ -164,6 +166,12 @@ export const api = {
     (await call(b, "ops", { op: "contentOps", doc, content, range }, signal)).body,
   contentIssues: async (b: Backend, doc: DocId, content: ContentRef, range: Range): Promise<Page<ContentIssue>> =>
     (await call(b, "contentIssues", { op: "contentIssues", doc, content, range })).body,
+  contentText: async (b: Backend, doc: DocId, content: ContentRef, range: Range): Promise<OpText> =>
+    (await call(b, "opText", { op: "contentText", doc, content, range })).body,
+  contentBlocks: async (b: Backend, doc: DocId, content: ContentRef, depth: number): Promise<{ blocks: [number, number][]; truncated: boolean }> =>
+    (await call(b, "blocks", { op: "contentBlocks", doc, content, depth })).body,
+  contentResources: async (b: Backend, doc: DocId, content: ContentRef): Promise<{ items: ResourceItem[]; truncated: boolean }> =>
+    (await call(b, "resources", { op: "contentResources", doc, content })).body,
   contentElements: async (b: Backend, doc: DocId, content: ContentRef, range: Range): Promise<Page<ElementView>> =>
     (await call(b, "elements", { op: "contentElements", doc, content, range })).body,
   font: async (b: Backend, doc: DocId, id: ObjRef): Promise<FontDetail> =>

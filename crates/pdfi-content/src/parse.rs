@@ -54,6 +54,8 @@ pub struct OpReader<'a> {
     /// Stopped at [`MAX_OPS`].
     pub truncated: bool,
     finished: bool,
+    /// The last operation's operands began in an earlier stream.
+    pub(crate) carried: bool,
 }
 
 impl<'a> OpReader<'a> {
@@ -77,6 +79,7 @@ impl<'a> OpReader<'a> {
             entered: rp.offset > 0,
             truncated: false,
             finished: false,
+            carried: false,
         }
     }
 
@@ -135,9 +138,12 @@ impl<'a> OpReader<'a> {
             }
             // Problems found from here on belong to the next operation.
             issues.cursor = Some(self.count as u32);
+            let before = self.p.lex.pos();
             let t = match self.p.next_tok() {
                 Ok(t) => t,
                 Err(_) => {
+                    // Report the unfinished token from its start.
+                    self.p.lex.set_pos(before);
                     self.end_of_source(issues);
                     continue;
                 }
@@ -167,6 +173,7 @@ impl<'a> OpReader<'a> {
                 Tok::Keyword(b"false") => Some(Node::new(Object::Bool(false), span)),
                 Tok::Keyword(b"null") => Some(Node::new(Object::Null, span)),
                 Tok::Keyword(b"BI") => {
+                    self.carried = !self.stack.is_empty() && self.stack_source != si;
                     let start = self
                         .stack
                         .first()
@@ -194,6 +201,7 @@ impl<'a> OpReader<'a> {
                 }
                 Tok::Keyword(k) if is_operator_like(k) => {
                     let operator = Operator::from_bytes(k);
+                    self.carried = !self.stack.is_empty() && self.stack_source != si;
                     let start = self
                         .stack
                         .first()

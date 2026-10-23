@@ -642,6 +642,37 @@ pub enum EditCommand {
     SetXmp {
         xml: String,
     },
+    /// Edit a content as operations (in order, each on the result of the
+    /// ones before). Operations left as they were keep their bytes; the
+    /// streams that change are written again (compressed if they were).
+    EditOps {
+        content: ContentRef,
+        edits: Vec<OpEdit>,
+    },
+}
+
+/// An edit of a content's operations. Text is content stream syntax, one
+/// character per byte (Latin-1, as `ContentText` gives it).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum OpEdit {
+    /// Replace operations `from..to` with those in `text`: insert when
+    /// `from == to`, remove with an empty text. Those equal to the ones
+    /// replaced stay as they were.
+    Replace { from: u32, to: u32, text: String },
+    /// Move operations `from..to` before operation `before` (or to the end
+    /// with the count).
+    Move { from: u32, to: u32, before: u32 },
+}
+
+/// Operations of a content as written.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct OpText {
+    pub from: u32,
+    /// Less than asked when the text grew too long.
+    pub to: u32,
+    /// One character per byte (Latin-1).
+    pub text: String,
 }
 
 /// Stream data in a JSON message.
@@ -1459,6 +1490,9 @@ pub struct OpView {
     pub operands: Vec<String>,
     /// Nesting of `q`, `BT` and marked content; closers at their opener's.
     pub depth: u32,
+    /// For `q`, `BT`, `BMC`, `BDC` and `BX`: the last operation of the
+    /// block it opens (its closer when there is one).
+    pub end: Option<u32>,
     /// The stream it was read from and its bytes in that stream's decoded
     /// data.
     pub source: Option<u32>,

@@ -182,26 +182,7 @@ pub fn page_detail(d: &Doc, index: u32) -> Result<PageDetail, ApiError> {
     let f = &d.file;
     let m = d.model.on(f);
     let p = m.page_info(index as u64).map_err(not_found)?;
-    let mut items = Vec::new();
-    let mut truncated = false;
-    if let Some(res) = p.resources.as_ref().and_then(Object::as_dict) {
-        'outer: for (cat, v) in res {
-            let (_, r) = pdfi_model::resolve(f, &v.obj);
-            let Some(entries) = r.as_dict() else { continue };
-            for (name, v) in entries {
-                if items.len() >= MAX_RESOURCES {
-                    truncated = true;
-                    break 'outer;
-                }
-                items.push(ResourceItem {
-                    category: name_text(cat),
-                    name: name_text(name),
-                    id: v.obj.as_ref_id().map(Into::into),
-                    detail: inventory::describe(f, &v.obj),
-                });
-            }
-        }
-    }
+    let (items, truncated) = resource_items(f, p.resources.as_ref());
     Ok(PageDetail {
         index,
         id: p.page.id.into(),
@@ -236,6 +217,33 @@ pub fn page_detail(d: &Doc, index: u32) -> Result<PageDetail, ApiError> {
         annots: p.annots as u32,
         issues: p.issues.iter().map(issue).collect(),
     })
+}
+
+/// The named resources of a resource dictionary (the first
+/// [`MAX_RESOURCES`]), and whether there are more.
+pub(crate) fn resource_items(
+    f: &pdfi_syntax::PdfFile,
+    res: Option<&Object>,
+) -> (Vec<ResourceItem>, bool) {
+    let mut items = Vec::new();
+    if let Some(res) = res.and_then(Object::as_dict) {
+        for (cat, v) in res {
+            let (_, r) = pdfi_model::resolve(f, &v.obj);
+            let Some(entries) = r.as_dict() else { continue };
+            for (name, v) in entries {
+                if items.len() >= MAX_RESOURCES {
+                    return (items, true);
+                }
+                items.push(ResourceItem {
+                    category: name_text(cat),
+                    name: name_text(name),
+                    id: v.obj.as_ref_id().map(Into::into),
+                    detail: inventory::describe(f, &v.obj),
+                });
+            }
+        }
+    }
+    (items, false)
 }
 
 pub fn page_index(d: &Doc, id: ObjRef) -> Option<u32> {

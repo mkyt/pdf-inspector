@@ -3,16 +3,16 @@ import { useQuery } from "@tanstack/react-query";
 import { api, useBackend } from "../api";
 import { contentKey, useNav } from "../nav";
 import type { ContentRef } from "../protocol/generated";
-import { categoryColor, categoryLabel } from "./ContentView";
+import { categoryColor, categoryLabel } from "../content/syntax";
 
-interface Operand {
+export interface Operand {
   name: string;
   meaning: string;
   /** Names of the values it can take, by value. */
   values?: Record<string, string>;
 }
 
-interface OpDoc {
+export interface OpDoc {
   /** Section of ISO 32000-2 defining it. */
   section: string;
   operands: Operand[];
@@ -52,7 +52,7 @@ const tag: Operand = { name: "tag", meaning: "role or significance of the conten
 const props: Operand = { name: "properties", meaning: "property list: an inline dictionary, or the name of one in /Properties of the resources" };
 
 /** What the specification says about each operator. */
-const ops: Record<string, OpDoc> = {
+export const operatorDocs: Record<string, OpDoc> = {
   w: { section: "8.4.4", operands: [{ name: "lineWidth", meaning: "thickness of stroked lines, in user space units (0: the thinnest line the device can draw)" }], text: "Sets the line width used by stroking." },
   J: { section: "8.4.4", operands: [{ name: "lineCap", meaning: "shape at the ends of open subpaths", values: capStyles }], text: "Sets the line cap style used by stroking." },
   j: { section: "8.4.4", operands: [{ name: "lineJoin", meaning: "shape at the corners of paths", values: joinStyles }], text: "Sets the line join style used by stroking." },
@@ -241,7 +241,7 @@ const ops: Record<string, OpDoc> = {
 };
 
 /** Operand names and meanings for the operands written, variadic color operators included. */
-function operandsOf(d: OpDoc, count: number): Operand[] {
+export function operandsOf(d: OpDoc, count: number): Operand[] {
   if (!d.variadic) return d.operands;
   const out: Operand[] = [];
   for (let i = 0; i < count; i++) {
@@ -261,7 +261,7 @@ export function OperatorDoc({ content, op }: { content: ContentRef; op: number }
   });
   const o = ov.data;
   if (!o) return ov.isPending ? <Loader m="sm" size="xs" /> : null;
-  const d = ops[o.operator];
+  const d = operatorDocs[o.operator];
   const color = categoryColor[o.category] ?? "gray";
   const operands = d ? operandsOf(d, o.operands.length) : [];
   const rows = Math.max(operands.length, o.operands.length);

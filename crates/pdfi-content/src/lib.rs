@@ -9,6 +9,7 @@
 //! again to paint it on a [`device::Device`].
 
 pub mod device;
+pub mod edit;
 pub mod extract;
 pub mod geom;
 pub mod interp;
@@ -169,6 +170,11 @@ pub struct Analysis {
     /// Nesting depth of each operation (saved states, text object, marked
     /// content); closing operators are at their opener's depth.
     pub depth: Vec<u16>,
+    /// Blocks an editor can fold, sorted by opener: `q`…`Q`, `BT`…`ET`,
+    /// `BMC` / `BDC`…`EMC`, `BX`…`EX` as (opener, closer). An unclosed
+    /// block ends at the last operation, or before the closer of a block
+    /// around it.
+    pub blocks: Vec<(u32, u32)>,
     /// Decoded text of the text-showing operations, by operation.
     pub texts: Vec<(u32, String)>,
     /// What each text-showing operation shows, by operation (text inside
@@ -220,6 +226,12 @@ impl Analysis {
             }
         }
         out
+    }
+
+    /// The last operation of the block `op` opens.
+    pub fn block_end(&self, op: u32) -> Option<u32> {
+        let k = self.blocks.partition_point(|b| b.0 < op);
+        self.blocks.get(k).filter(|b| b.0 == op).map(|b| b.1)
     }
 
     pub fn text_of(&self, op: u32) -> Option<&str> {
@@ -346,26 +358,7 @@ impl<'a> Content<'a> {
         let (kind, id, sources, resources, resources_id, bounds, rotate) = match t {
             Target::Page(i) => {
                 let info = self.m.page_info(i)?;
-                let held = file.get(info.page.id).map_err(|e| e.to_string())?;
-                let mut sources = Vec::new();
-                if let Some(c) = held.node.obj.as_dict().and_then(|d| d.get_key("Contents")) {
-                    let (_, r) = resolve(file, c);
-                    let items: Vec<Object> = match &*r {
-                        Object::Array(a) => a.iter().map(|n| n.obj.clone()).collect(),
-                        _ => vec![c.clone()],
-                    };
-                    for o in items {
-                        let (id, r) = resolve(file, &o);
-                        sources.push(match r.as_stream() {
-                            Some(s) => decode(file, id, s),
-                            None => SourceData {
-                                id,
-                                data: Vec::new(),
-                                error: Some(format!("not a stream ({})", r.type_name())),
-                            },
-                        });
-                    }
-                }
+                let sources = self.page_sources(info.page.id)?;
                 (
                     Kind::Page,
                     info.page.id,
@@ -420,6 +413,7 @@ impl<'a> Content<'a> {
         let mut depth = Vec::new();
         let mut checkpoints = Vec::new();
         let mut counts: HashMap<op::Category, u64> = HashMap::new();
+        let mut blocks = Blocks::default();
         let mut rec = Rec::full();
         loop {
             let i = reader.count();
@@ -430,6 +424,7 @@ impl<'a> Content<'a> {
                 break;
             };
             *counts.entry(op.operator.category()).or_default() += 1;
+            blocks.step(i as u32, &op.operator);
             let before = interp.s.nesting();
             interp.step(&mut env, i as u32, &op, &mut rec);
             let after = interp.s.nesting();
@@ -473,6 +468,7 @@ impl<'a> Content<'a> {
             issues_dropped: dropped,
             elements,
             depth,
+            blocks: blocks.finish(n as u32),
             texts,
             shows,
             bounds,
@@ -496,6 +492,49 @@ impl<'a> Content<'a> {
         }
         g.push((key, a.clone()));
         Ok(a)
+    }
+
+    /// The decoded streams of a content, and the page or stream it is.
+    pub fn sources(&self, t: Target) -> Result<(ObjId, Vec<SourceData>), String> {
+        match t {
+            Target::Page(i) => {
+                let id = self.m.page(i)?.id;
+                Ok((id, self.page_sources(id)?))
+            }
+            Target::Stream(id) => {
+                let held = self.m.file.get(id).map_err(|e| e.to_string())?;
+                let s = held.node.obj.as_stream().ok_or_else(|| {
+                    format!("{id} obj is not a stream ({})", held.node.obj.type_name())
+                })?;
+                Ok((id, vec![decode(self.m.file, Some(id), s)]))
+            }
+        }
+    }
+
+    /// The streams of a page's `/Contents`.
+    fn page_sources(&self, page: ObjId) -> Result<Vec<SourceData>, String> {
+        let file = self.m.file;
+        let held = file.get(page).map_err(|e| e.to_string())?;
+        let mut sources = Vec::new();
+        if let Some(c) = held.node.obj.as_dict().and_then(|d| d.get_key("Contents")) {
+            let (_, r) = resolve(file, c);
+            let items: Vec<Object> = match &*r {
+                Object::Array(a) => a.iter().map(|n| n.obj.clone()).collect(),
+                _ => vec![c.clone()],
+            };
+            for o in items {
+                let (id, r) = resolve(file, &o);
+                sources.push(match r.as_stream() {
+                    Some(s) => decode(file, id, s),
+                    None => SourceData {
+                        id,
+                        data: Vec::new(),
+                        error: Some(format!("not a stream ({})", r.type_name())),
+                    },
+                });
+            }
+        }
+        Ok(sources)
     }
 
     /// The state an operation runs in, and the state after it.
@@ -598,6 +637,48 @@ impl<'a> Content<'a> {
             ops: r.count(),
             cancelled,
         }
+    }
+}
+
+/// Pairs openers and closers for [`Analysis::blocks`].
+#[derive(Default)]
+struct Blocks {
+    open: Vec<(u32, u8)>,
+    done: Vec<(u32, u32)>,
+}
+
+impl Blocks {
+    fn step(&mut self, i: u32, o: &op::Operator) {
+        use op::Operator as O;
+        let (kind, opens) = match o {
+            O::Save => (0, true),
+            O::Restore => (0, false),
+            O::BeginText => (1, true),
+            O::EndText => (1, false),
+            O::BeginMarked | O::BeginMarkedProps => (2, true),
+            O::EndMarked => (2, false),
+            O::BeginCompat => (3, true),
+            O::EndCompat => (3, false),
+            _ => return,
+        };
+        if opens {
+            self.open.push((i, kind));
+        } else if let Some(k) = self.open.iter().rposition(|b| b.1 == kind) {
+            // Blocks left open inside end before this closer.
+            for (s, _) in self.open.drain(k + 1..) {
+                self.done.push((s, i.saturating_sub(1).max(s)));
+            }
+            let (s, _) = self.open.pop().expect("found above");
+            self.done.push((s, i));
+        }
+    }
+
+    fn finish(mut self, n: u32) -> Vec<(u32, u32)> {
+        for (s, _) in self.open.drain(..) {
+            self.done.push((s, n.saturating_sub(1).max(s)));
+        }
+        self.done.sort_unstable();
+        self.done
     }
 }
 

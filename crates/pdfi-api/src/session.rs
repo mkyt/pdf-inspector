@@ -283,11 +283,7 @@ impl Session {
         let mut h = lock(&history);
         // The newest snapshot, now that no other edit can run.
         let d = self.doc(doc)?;
-        let cmds = cmds
-            .iter()
-            .map(|c| edit::command(c, doc, &others))
-            .collect::<Result<Vec<_>, ApiError>>()?;
-        let (edits, applied) = pdfi_edit::Tx::apply_all(&d.file, cmds)?;
+        let (edits, applied) = edit::transact(&d.file, cmds, doc, &others)?;
         h.push(label, edits.clone());
         drop(h);
         let new = Arc::new(d.with_edits(edits));
@@ -554,6 +550,23 @@ impl Session {
                 content,
                 range,
             )?)),
+            Request::ContentText {
+                doc,
+                content,
+                range,
+            } => Ok(ResponseBody::OpText(content::op_text(
+                &*self.doc(doc)?,
+                content,
+                range,
+            )?)),
+            Request::ContentBlocks {
+                doc,
+                content,
+                depth,
+            } => content::blocks(&*self.doc(doc)?, content, depth),
+            Request::ContentResources { doc, content } => {
+                content::resources(&*self.doc(doc)?, content)
+            }
             Request::ContentElements {
                 doc,
                 content,

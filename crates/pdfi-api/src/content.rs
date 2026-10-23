@@ -21,8 +21,12 @@ const MAX_OPERAND: usize = 200;
 const MAX_OPERANDS: usize = 32;
 /// Annotations of a page painted.
 const MAX_ANNOTS: usize = 10_000;
+/// Bytes of operations `ContentText` returns (at least one operation).
+const MAX_TEXT: usize = 4 << 20;
+/// Blocks `ContentBlocks` returns.
+const MAX_BLOCKS: usize = 100_000;
 
-fn target(c: ContentRef) -> Target {
+pub(crate) fn target(c: ContentRef) -> Target {
     match c {
         ContentRef::Page { index } => Target::Page(index.into()),
         ContentRef::Stream { id } => Target::Stream(id.into()),
@@ -429,6 +433,7 @@ fn op_view(file: &syn::PdfFile, a: &Analysis, i: usize, op: &Op) -> OpView {
         category: op.operator.category().name().into(),
         operands,
         depth: a.depth.get(i).copied().unwrap_or(0).into(),
+        end: a.block_end(idx),
         source: op.origin.map(|o| o.source),
         span: op.origin.map(|o| o.span.into()),
         text: a.text_of(idx).map(str::to_owned),
@@ -447,6 +452,47 @@ pub fn ops(d: &Doc, c: ContentRef, range: Range) -> Result<Page<OpView>, ApiErro
             .map(|(k, op)| op_view(&d.file, &a, o + k, op))
             .collect()
     }))
+}
+
+pub fn op_text(d: &Doc, c: ContentRef, range: Range) -> Result<OpText, ApiError> {
+    let (_, sources) = d
+        .content
+        .on(d.model.on(&d.file))
+        .sources(target(c))
+        .map_err(|e| ApiError::new(ErrorCode::NotFound, e))?;
+    let from = range.offset.min(u32::MAX as u64) as usize;
+    let to = from.saturating_add(range.limit as usize);
+    let t = pdfi_content::edit::op_text(&sources, from, to, MAX_TEXT)
+        .map_err(|e| ApiError::new(ErrorCode::BadRequest, e))?;
+    Ok(OpText {
+        from: from as u32,
+        to: t.to.max(from) as u32,
+        text: t.text.iter().map(|&b| b as char).collect(),
+    })
+}
+
+pub fn blocks(d: &Doc, c: ContentRef, depth: u32) -> Result<ResponseBody, ApiError> {
+    let a = analysis(d, c)?;
+    let mut blocks = a
+        .blocks
+        .iter()
+        .filter(|b| {
+            a.depth
+                .get(b.0 as usize)
+                .is_some_and(|&x| u32::from(x) == depth)
+        })
+        .map(|b| [b.0, b.1]);
+    let items: Vec<[u32; 2]> = blocks.by_ref().take(MAX_BLOCKS).collect();
+    Ok(ResponseBody::Blocks {
+        blocks: items,
+        truncated: blocks.next().is_some(),
+    })
+}
+
+pub fn resources(d: &Doc, c: ContentRef) -> Result<ResponseBody, ApiError> {
+    let a = analysis(d, c)?;
+    let (items, truncated) = crate::model::resource_items(&d.file, a.resources.as_ref());
+    Ok(ResponseBody::Resources { items, truncated })
 }
 
 pub fn issues(d: &Doc, c: ContentRef, range: Range) -> Result<Page<ContentIssue>, ApiError> {

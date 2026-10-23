@@ -16,74 +16,27 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, useBackend } from "../api";
 import { useDoc } from "../doc";
 import { bytesText, objText, pageText } from "../format";
 import { usePane } from "../layout";
 import { contentKey, useNav } from "../nav";
-import type { ContentIssue, ContentRef, ContentSummary, OpView } from "../protocol/generated";
+import { categoryColor, categoryLabel } from "../content/syntax";
+import type { ContentRef, ContentSummary } from "../protocol/generated";
 import { ContentDiagram } from "./ContentDiagram";
+import { ContentText } from "./ContentText";
 import { severityColor } from "./DiagnosticsPanel";
 import { ObjLink } from "./DocumentPanel";
+import { OpEditor } from "./OpEditor";
 import { OpStatePanel } from "./OpStatePanel";
-import { PagedList } from "./PagedList";
 import { RenderView } from "./RenderView";
 import { Row } from "./Row";
-import rowClasses from "./Row.module.css";
 import { ResizeHandle } from "./Split";
 
-const ROW = 22;
 const ISSUE_PAGE = 500;
 
-/** Color of each operator group, as a Mantine color name. */
-export const categoryColor: Record<string, string> = {
-  generalState: "grape",
-  specialState: "red",
-  pathConstruction: "blue",
-  pathPainting: "indigo",
-  clipping: "cyan",
-  textObject: "orange",
-  textState: "yellow",
-  textPositioning: "lime",
-  textShowing: "orange",
-  type3: "pink",
-  color: "teal",
-  shading: "pink",
-  inlineImage: "violet",
-  xObject: "violet",
-  markedContent: "gray",
-  compatibility: "gray",
-  unknown: "red",
-};
-
-export const categoryLabel: Record<string, string> = {
-  generalState: "general graphics state",
-  specialState: "q / Q / cm",
-  pathConstruction: "path construction",
-  pathPainting: "path painting",
-  clipping: "clipping",
-  textObject: "BT / ET",
-  textState: "text state",
-  textPositioning: "text positioning",
-  textShowing: "text showing",
-  type3: "Type 3",
-  color: "color",
-  shading: "shading",
-  inlineImage: "inline image",
-  xObject: "XObject",
-  markedContent: "marked content",
-  compatibility: "BX / EX",
-  unknown: "unknown",
-};
-
-const rank = { info: 0, warning: 1, error: 2 } as const;
-
-function worstOf(issues: ContentIssue[]) {
-  let w: ContentIssue["severity"] | null = null;
-  for (const i of issues) if (w === null || rank[i.severity] > rank[w]) w = i.severity;
-  return w;
-}
+export { categoryColor, categoryLabel } from "../content/syntax";
 
 export function contentTitle(c: ContentRef, s?: ContentSummary, label?: string | null): string {
   if (c.kind === "page") return `Page ${pageText(c.index, label)} — content`;
@@ -111,14 +64,9 @@ export function ContentView({ content, op }: { content: ContentRef; op: number |
     setScrollTo(i);
   };
   const s = q.data;
-
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (!s || s.ops === 0) return;
-    const d = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : e.key === "PageDown" ? 20 : e.key === "PageUp" ? -20 : 0;
-    if (!d) return;
-    e.preventDefault();
-    jump(Math.max(0, Math.min(s.ops - 1, (op ?? -1) + d)));
-  };
+  // The text editor's range of operations, when it is open.
+  const [text, setText] = useState<{ from: number; to: number } | null>(null);
+  useEffect(() => setText(null), [nav.doc, content]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -173,16 +121,30 @@ export function ContentView({ content, op }: { content: ContentRef; op: number |
       {s && (
         <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
           <div style={{ flex: 1, minWidth: 200, display: "flex", flexDirection: "column" }}>
-            <PagedList<OpView>
-              total={s.ops}
-              rowHeight={ROW}
-              empty="No operations: the content is empty."
-              queryKey={[...key, "ops"]}
-              fetchPage={(r, signal) => api.contentOps(backend, nav.doc, content, r, signal)}
-              scrollTo={scrollTo}
-              onKeyDown={onKeyDown}
-              renderRow={(o) => <OpRow o={o} active={o.index === op} onClick={() => select(o.index)} />}
-            />
+            {text ? (
+              <ContentText
+                key={`${text.from}-${text.to}`}
+                content={content}
+                s={s}
+                from={text.from}
+                to={text.to}
+                op={op}
+                onSelect={select}
+                onClose={(i) => {
+                  setText(null);
+                  if (i !== null) setScrollTo(i);
+                }}
+              />
+            ) : (
+              <OpEditor
+                content={content}
+                s={s}
+                op={op}
+                onSelect={select}
+                scrollTo={scrollTo}
+                onText={(from, to) => setText({ from, to })}
+              />
+            )}
           </div>
           <ResizeHandle pane={preview} grow="left" label="rendering" />
           <div style={{ width: preview.size, minWidth: 160, overflow: "auto" }}>
@@ -376,51 +338,5 @@ function Issues({ content, s, onPick }: { content: ContentRef; s: ContentSummary
         </div>
       </Collapse>
     </Stack>
-  );
-}
-
-function OpRow({ o, active, onClick }: { o: OpView; active: boolean; onClick: () => void }) {
-  const w = worstOf(o.issues);
-  const color = categoryColor[o.category] ?? "gray";
-  return (
-    <Row active={active} onClick={onClick}>
-      <Text span size="xs" c="dimmed" className={rowClasses.mono} w={56} ta="right" style={{ flexShrink: 0 }}>
-        {o.index}
-      </Text>
-      <span style={{ width: Math.min(o.depth, 24) * 12, flexShrink: 0 }} />
-      <Text
-        span
-        size="xs"
-        fw={600}
-        className={rowClasses.mono}
-        style={{ color: `var(--mantine-color-${color}-text)`, minWidth: 28, flexShrink: 0 }}
-      >
-        {o.operator}
-      </Text>
-      <Text span size="xs" className={rowClasses.mono} truncate style={{ flex: "0 1 auto", minWidth: 0 }}>
-        {o.operands.join(" ")}
-      </Text>
-      {o.text !== null && (
-        <Text span size="xs" c="orange.8" truncate style={{ flex: "0 1 auto", minWidth: 40 }}>
-          “{o.text}”
-        </Text>
-      )}
-      <span style={{ marginLeft: "auto", display: "flex", gap: 4, flexShrink: 0 }}>
-        {o.element && (
-          <Badge size="xs" variant={o.element.hidden ? "outline" : "light"} color="gray" tt="none">
-            {o.element.kind}
-            {o.element.hidden && " (hidden)"}
-          </Badge>
-        )}
-        {w && (
-          <Tooltip label={o.issues.map((i) => `${i.code}: ${i.message}`).join("\n")} multiline maw={360} style={{ whiteSpace: "pre-line" }}>
-            <Badge size="xs" color={severityColor[w]} variant="filled">
-              {o.issues.length > 1 ? `${o.issues.length} ` : ""}
-              {w}
-            </Badge>
-          </Tooltip>
-        )}
-      </span>
-    </Row>
   );
 }

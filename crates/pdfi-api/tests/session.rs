@@ -1055,3 +1055,155 @@ fn node_syntax_round_trips() {
     );
     assert_eq!(summary(&s, doc).pages, 5);
 }
+
+fn content_summary(s: &Session, doc: DocId, content: ContentRef) -> ContentSummary {
+    match ok(s.dispatch(Request::Content { doc, content })).0 {
+        ResponseBody::Content(c) => c,
+        b => panic!("{b:?}"),
+    }
+}
+
+fn op_views(s: &Session, doc: DocId, content: ContentRef) -> Vec<OpView> {
+    match ok(s.dispatch(Request::ContentOps {
+        doc,
+        content,
+        range: all(),
+    }))
+    .0
+    {
+        ResponseBody::Ops(p) => p.items,
+        b => panic!("{b:?}"),
+    }
+}
+
+#[test]
+fn edit_operations_of_a_content() {
+    let (s, _) = session();
+    let doc = open(&s, "content.pdf", None).info.doc;
+    let page = ContentRef::Page { index: 0 };
+    let n = content_summary(&s, doc, page).ops as u32;
+    let text = match ok(s.dispatch(Request::ContentText {
+        doc,
+        content: page,
+        range: all(),
+    }))
+    .0
+    {
+        ResponseBody::OpText(t) => {
+            assert_eq!((t.from, t.to), (0, n));
+            t.text
+        }
+        b => panic!("{b:?}"),
+    };
+    // The same text changes nothing.
+    let same = s.dispatch(Request::Apply {
+        doc,
+        label: "same".into(),
+        commands: vec![EditCommand::EditOps {
+            content: page,
+            edits: vec![OpEdit::Replace {
+                from: 0,
+                to: n,
+                text: text.clone(),
+            }],
+        }],
+    });
+    match same.response {
+        Response::Err(e) => assert!(e.message.contains("as it was"), "{e}"),
+        r => panic!("{r:?}"),
+    }
+
+    // Wrap everything in q … Q.
+    let r = apply(
+        &s,
+        doc,
+        vec![EditCommand::EditOps {
+            content: page,
+            edits: vec![
+                OpEdit::Replace {
+                    from: 0,
+                    to: 0,
+                    text: "q".into(),
+                },
+                OpEdit::Replace {
+                    from: n + 1,
+                    to: n + 1,
+                    text: "Q".into(),
+                },
+            ],
+        }],
+    );
+    assert!(!r.changed.is_empty());
+    let ops = op_views(&s, doc, page);
+    assert_eq!(ops.len() as u32, n + 2);
+    assert_eq!((ops[0].operator.as_str(), ops[0].end), ("q", Some(n + 1)));
+    assert_eq!(ops[n as usize + 1].operator, "Q");
+    let blocks = match ok(s.dispatch(Request::ContentBlocks {
+        doc,
+        content: page,
+        depth: 0,
+    }))
+    .0
+    {
+        ResponseBody::Blocks { blocks, .. } => blocks,
+        b => panic!("{b:?}"),
+    };
+    assert_eq!(blocks, [[0, n + 1]]);
+
+    // Move the closing Q to the front, then undo.
+    apply(
+        &s,
+        doc,
+        vec![EditCommand::EditOps {
+            content: page,
+            edits: vec![OpEdit::Move {
+                from: n + 1,
+                to: n + 2,
+                before: 0,
+            }],
+        }],
+    );
+    assert_eq!(op_views(&s, doc, page)[0].operator, "Q");
+    ok(s.dispatch(Request::Undo { doc }));
+    assert_eq!(op_views(&s, doc, page)[0].operator, "q");
+
+    // Text that is not a byte, or not content syntax, is refused.
+    for bad in ["(日本)Tj", "0 0 m (x"] {
+        let r = s.dispatch(Request::Apply {
+            doc,
+            label: "bad".into(),
+            commands: vec![EditCommand::EditOps {
+                content: page,
+                edits: vec![OpEdit::Replace {
+                    from: 0,
+                    to: 0,
+                    text: bad.into(),
+                }],
+            }],
+        });
+        assert!(matches!(r.response, Response::Err(_)), "{bad}");
+    }
+
+    // A blank page gets a content stream.
+    apply(
+        &s,
+        doc,
+        vec![
+            EditCommand::InsertBlankPage {
+                at: 0,
+                width: 100.0,
+                height: 100.0,
+            },
+            EditCommand::EditOps {
+                content: ContentRef::Page { index: 0 },
+                edits: vec![OpEdit::Replace {
+                    from: 0,
+                    to: 0,
+                    text: "1 0 0 rg 0 0 50 50 re f".into(),
+                }],
+            },
+        ],
+    );
+    let blank = content_summary(&s, doc, ContentRef::Page { index: 0 });
+    assert_eq!((blank.ops, blank.errors), (3, 0));
+}

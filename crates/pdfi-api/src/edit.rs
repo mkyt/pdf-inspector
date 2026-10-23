@@ -3,9 +3,13 @@
 
 use std::sync::Arc;
 
-use pdfi_edit::{self as ed, Command, NodeAt, Root, Saver};
+use pdfi_content::DocContent;
+use pdfi_content::edit as ce;
+use pdfi_edit::{self as ed, Command, NodeAt, Root, Saver, Tx};
+use pdfi_model::DocModel;
 use pdfi_schema::Container;
-use pdfi_syntax::{Name, ObjLocation, PdfFile};
+use pdfi_syntax::file::Edits;
+use pdfi_syntax::{DictExt, Name, ObjLocation, Object, PdfFile, Stream, StreamData};
 
 use crate::convert;
 use crate::dto::*;
@@ -181,7 +185,113 @@ pub(crate) fn command<'a>(
         EditCommand::SetXmp { xml } => Command::SetXmp {
             xml: xml.as_bytes().to_vec(),
         },
+        EditCommand::EditOps { .. } => {
+            return Err(bad("operations are edited by the transaction itself"));
+        }
     })
+}
+
+/// Apply the commands as one transaction over `file`.
+pub(crate) fn transact(
+    file: &PdfFile,
+    cmds: &[EditCommand],
+    doc: DocId,
+    others: &[(DocId, Arc<Doc>)],
+) -> Result<(Edits, ed::Applied), ApiError> {
+    let mut tx = Tx::new(file);
+    for (i, c) in cmds.iter().enumerate() {
+        let r = match c {
+            EditCommand::EditOps { content, edits } => edit_ops(&mut tx, *content, edits),
+            c => command(c, doc, others).and_then(|c| Ok(tx.apply(c)?)),
+        };
+        r.map_err(|e| ApiError::new(e.code, format!("command {}: {}", i + 1, e.message)))?;
+    }
+    Ok(tx.finish())
+}
+
+/// Content stream text (one character per byte) as bytes.
+fn latin1(s: &str) -> Result<Vec<u8>, ApiError> {
+    s.chars()
+        .map(|c| {
+            u8::try_from(u32::from(c)).map_err(|_| {
+                bad(format!(
+                    "{c:?} (U+{:04X}) is not a byte: content streams hold bytes, write it as a <hex> string",
+                    u32::from(c)
+                ))
+            })
+        })
+        .collect()
+}
+
+/// Rewrite the streams of a content for edits of its operations.
+fn edit_ops(tx: &mut Tx<'_>, c: ContentRef, edits: &[OpEdit]) -> Result<(), ApiError> {
+    let edits = edits
+        .iter()
+        .map(|e| {
+            Ok(match e {
+                OpEdit::Replace { from, to, text } => ce::OpEdit::Replace {
+                    from: *from as usize,
+                    to: *to as usize,
+                    text: latin1(text)?,
+                },
+                OpEdit::Move { from, to, before } => ce::OpEdit::Move {
+                    from: *from as usize,
+                    to: *to as usize,
+                    before: *before as usize,
+                },
+            })
+        })
+        .collect::<Result<Vec<_>, ApiError>>()?;
+    let view = tx.view();
+    let (model, content) = (DocModel::new(), DocContent::new());
+    let (owner, sources) = content
+        .on(model.on(&view))
+        .sources(crate::content::target(c))
+        .map_err(|e| ApiError::new(ErrorCode::NotFound, e))?;
+    let out = ce::splice(&sources, &edits).map_err(bad)?;
+    if out.data.iter().all(Option::is_none) {
+        return Err(bad("the edit leaves the content as it was"));
+    }
+    if sources.is_empty() {
+        // A page without contents gets a stream.
+        let Some(Some(data)) = out.data.into_iter().next() else {
+            return Ok(());
+        };
+        let id = tx.add(Object::Stream(Stream {
+            dict: Default::default(),
+            data: StreamData::Owned(Vec::new().into()),
+        }));
+        tx.apply(Command::SetStreamData {
+            id,
+            data,
+            filter: ed::StreamFilter::Flate,
+        })?;
+        tx.apply(Command::SetEntry {
+            at: NodeAt {
+                root: Root::Object(owner),
+                path: Vec::new(),
+            },
+            key: Name::from("Contents"),
+            value: Object::Ref(id),
+        })?;
+        return Ok(());
+    }
+    for (s, data) in sources.iter().zip(out.data) {
+        let Some(data) = data else { continue };
+        let id =
+            s.id.ok_or_else(|| bad("a content stream that is not an object cannot be edited"))?;
+        let compressed = matches!(&tx.get(id)?.node.obj, Object::Stream(st) if st.dict.get_key("Filter").is_some());
+        tx.apply(Command::SetStreamData {
+            id,
+            data,
+            filter: if compressed {
+                ed::StreamFilter::Flate
+            } else {
+                ed::StreamFilter::None
+            },
+        })?;
+    }
+    Ok(())
 }
 
 /// Documents an apply copies pages from.

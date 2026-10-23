@@ -104,6 +104,8 @@ pub fn typescript() -> String {
         JobResult::decl(&cfg),
         InventoryStats::decl(&cfg),
         EditCommand::decl(&cfg),
+        OpEdit::decl(&cfg),
+        OpText::decl(&cfg),
         StreamPayload::decl(&cfg),
         StreamFilter::decl(&cfg),
         EditStatus::decl(&cfg),
