@@ -78,7 +78,8 @@ export function ImagePreview({ id, info }: { id: ObjRef; info: StreamInfo }) {
         <Text size="xs" c="dimmed">
           {d.width} × {d.height} · {d.mask ? "ImageMask" : (d.space ?? "other color space")} · {d.bits} bpc
         </Text>
-        <Download id={id} info={info} d={d} />
+        <Download id={id} d={d} kind={downloadKind(d, info)} />
+        {drawable(d, info) && <Download id={id} d={d} kind={samplesKind(info)} />}
       </Group>
       {!supported ? (
         <Text size="xs" c="dimmed">
@@ -109,17 +110,28 @@ function drawable(d: ImageDict, info: StreamInfo): boolean {
   );
 }
 
+interface DownloadKind {
+  label: string;
+  ext: string;
+}
+
 /**
  * What a download saves: JPEG and JPEG 2000 data as stored (they are image
  * files already), samples we can draw as PNG, anything else as the stream
  * data decoded as far as we can.
  */
-function downloadKind(d: ImageDict, info: StreamInfo): { label: string; ext: string } {
+function downloadKind(d: ImageDict, info: StreamInfo): DownloadKind {
   const last = info.filters[info.filters.length - 1];
   if (last === "DCTDecode") return { label: "JPEG", ext: "jpg" };
   if (last === "JPXDecode") return { label: "JPEG 2000", ext: "jp2" };
   if (drawable(d, info)) return { label: "PNG", ext: "png" };
-  return { label: last ? `data (/${last})` : "samples", ext: "bin" };
+  return samplesKind(info);
+}
+
+/** The stream data decoded as far as we can, without conversion. */
+function samplesKind(info: StreamInfo): DownloadKind {
+  const last = info.filters[info.filters.length - 1];
+  return { label: last && !PLAIN_FILTERS.includes(last) ? `data (/${last})` : "samples", ext: "bin" };
 }
 
 /** All of a stream's decoded data, in protocol-sized chunks. */
@@ -163,13 +175,13 @@ function save(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-function Download({ id, info, d }: { id: ObjRef; info: StreamInfo; d: ImageDict }) {
+function Download({ id, d, kind }: { id: ObjRef; d: ImageDict; kind: DownloadKind }) {
   const backend = useBackend();
   const nav = useNav();
   const { summary } = useDoc();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { label, ext } = downloadKind(d, info);
+  const { label, ext } = kind;
   const stem = summary.info.name.replace(/\.pdf$/i, "");
   const run = async () => {
     setBusy(true);
