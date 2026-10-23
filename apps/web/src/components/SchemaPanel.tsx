@@ -4,10 +4,15 @@ import { valueText } from "../format";
 import { useNav } from "../nav";
 import type { KeyDoc } from "../protocol/generated";
 import { IssueList } from "./Issues";
+import { OperatorDoc } from "./OperatorDoc";
 
-/** Right-hand panel: what the schema says about the selected entry. */
+/**
+ * Right-hand panel: what the schema says about the selected entry, or what
+ * the selected operation of a content does.
+ */
 export function SchemaPanel() {
-  const { selection } = useNav();
+  const { selection, target } = useNav();
+  if (target.kind === "content") return <OperatorDoc content={target.content} op={target.op} />;
   if (!selection) {
     return (
       <Text size="xs" c="dimmed" p="sm">
