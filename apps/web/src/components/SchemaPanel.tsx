@@ -1,5 +1,8 @@
 import { Alert, Anchor, Badge, Code, Divider, Group, Loader, Stack, Table, Text, Title, Tooltip, UnstyledButton } from "@mantine/core";
+import { useQuery } from "@tanstack/react-query";
 import { Fragment, useState, type ReactNode } from "react";
+import { api, useBackend } from "../api";
+import { useDoc } from "../doc";
 import { objText, valueText } from "../format";
 import { useNav } from "../nav";
 import type { KeyDoc, NodeRoot, TypeKey } from "../protocol/generated";
@@ -9,20 +12,29 @@ import { OperatorDoc } from "./OperatorDoc";
 
 /**
  * Right-hand panel: what the schema says about the selected entry (or, with
- * none selected, about the open object), or what the selected operation of
- * a content does.
+ * none selected, about the object shown: the catalog, a page, a font …), or
+ * what the selected operation of a content does.
  */
 export function SchemaPanel() {
   const { selection, target } = useNav();
-  if (target.kind === "content") return <OperatorDoc content={target.content} op={target.op} />;
-  if (!selection && target.kind === "object") return <TypeView root={{ kind: "object", id: target.id }} title={objText(target.id)} />;
-  if (!selection && target.kind === "trailer") return <TypeView root={{ kind: "trailer" }} title="Trailer" />;
+  if (target.kind === "content") {
+    const c = target.content;
+    if (target.op !== null) return <OperatorDoc content={c} op={target.op} />;
+    return c.kind === "page" ? <PageType index={c.index} /> : <TypeView root={{ kind: "object", id: c.id }} title={objText(c.id)} />;
+  }
   if (!selection) {
-    return (
-      <Text size="xs" c="dimmed" p="sm">
-        Select an entry in the structure to see its definition in the PDF specification (Arlington PDF Model).
-      </Text>
-    );
+    switch (target.kind) {
+      case "object":
+        return <TypeView root={{ kind: "object", id: target.id }} title={objText(target.id)} structure />;
+      case "trailer":
+        return <TypeView root={{ kind: "trailer" }} title="Trailer" structure />;
+      case "document":
+        return <CatalogType />;
+      case "page":
+        return <PageType index={target.index} />;
+      case "font":
+        return <TypeView root={{ kind: "object", id: target.id }} title={objText(target.id)} />;
+    }
   }
   const { node, path } = selection;
   const s = node.schema;
@@ -68,8 +80,41 @@ export function SchemaPanel() {
   );
 }
 
-/** The schema type of an object (or the trailer) and the keys it defines. */
-function TypeView({ root, title }: { root: NodeRoot; title: string }) {
+function CatalogType() {
+  const { summary } = useDoc();
+  if (!summary.root) {
+    return (
+      <Text size="xs" c="red" p="sm">
+        The trailer has no /Root: the document has no catalog to describe.
+      </Text>
+    );
+  }
+  return <TypeView root={{ kind: "object", id: summary.root }} title={objText(summary.root)} />;
+}
+
+function PageType({ index }: { index: number }) {
+  const backend = useBackend();
+  const nav = useNav();
+  // Same query as the page view: already loaded.
+  const q = useQuery({ queryKey: ["doc", nav.doc, "page", index], queryFn: () => api.page(backend, nav.doc, index) });
+  if (q.error) {
+    return (
+      <Alert m="sm" color="red" p={6}>
+        <Text size="xs">{String(q.error)}</Text>
+      </Alert>
+    );
+  }
+  if (!q.data) return <Loader m="sm" size="xs" />;
+  return <TypeView root={{ kind: "object", id: q.data.id }} title={objText(q.data.id)} />;
+}
+
+/**
+ * The schema type of an object (or the trailer) and the keys it defines.
+ * `structure`: its structure is shown beside, to select entries from;
+ * otherwise the title opens the object.
+ */
+function TypeView({ root, title, structure = false }: { root: NodeRoot; title: string; structure?: boolean }) {
+  const nav = useNav();
   const q = useSchema(root);
   const [open, setOpen] = useState<string | null>(null);
   const [extensions, setExtensions] = useState(false);
@@ -90,7 +135,13 @@ function TypeView({ root, title }: { root: NodeRoot; title: string }) {
     <Stack gap="xs" p="sm">
       <div>
         <Title order={6} ff="monospace">
-          {title}
+          {structure || root.kind !== "object" ? (
+            title
+          ) : (
+            <Anchor inherit onClick={() => nav.open({ kind: "object", id: root.id })}>
+              {title}
+            </Anchor>
+          )}
         </Title>
         {s.type_name && (
           <Group gap={6}>
@@ -120,7 +171,7 @@ function TypeView({ root, title }: { root: NodeRoot; title: string }) {
           {shown.length > 0 && (
             <>
               <Divider
-                label={`Keys: ${standard.filter((k) => k.present).length} of ${standard.length} present`}
+                label={`Keys: ${standard.filter((k) => k.present || k.inherited).length} of ${standard.length} present`}
                 labelPosition="left"
               />
               <Table withRowBorders={false} verticalSpacing={1} horizontalSpacing={4} fz="xs">
@@ -148,9 +199,11 @@ function TypeView({ root, title }: { root: NodeRoot; title: string }) {
           )}
         </>
       )}
-      <Text size="xs" c="dimmed">
-        Select an entry in the structure for the definition of its value.
-      </Text>
+      {structure && (
+        <Text size="xs" c="dimmed">
+          Select an entry in the structure for the definition of its value.
+        </Text>
+      )}
     </Stack>
   );
 }
@@ -194,6 +247,12 @@ function TypeKeyRow({ k, open, onToggle }: { k: TypeKey; open: boolean; onToggle
           <Text span size="xs" c="teal">
             present
           </Text>
+        ) : k.inherited ? (
+          <Tooltip label="Not in this dictionary: given by an ancestor through /Parent">
+            <Text span size="xs" c="teal">
+              inherited
+            </Text>
+          </Tooltip>
         ) : k.present === false ? (
           <Text span size="xs" c={r.kind === "required" ? "red" : "dimmed"}>
             {r.kind === "required" ? "missing" : "—"}

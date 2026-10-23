@@ -252,20 +252,13 @@ function operandsOf(d: OpDoc, count: number): Operand[] {
 }
 
 /** The selected operation of a content explained: what its operator does and what each operand means. */
-export function OperatorDoc({ content, op }: { content: ContentRef; op: number | null }) {
+export function OperatorDoc({ content, op }: { content: ContentRef; op: number }) {
   const backend = useBackend();
   const nav = useNav();
   const ov = useQuery({
     queryKey: ["doc", nav.doc, "content", ...contentKey(content), "op", op],
-    queryFn: async () => (await api.contentOps(backend, nav.doc, content, { offset: op!, limit: 1 })).items[0] ?? null,
-    enabled: op !== null,
+    queryFn: async () => (await api.contentOps(backend, nav.doc, content, { offset: op, limit: 1 })).items[0] ?? null,
   });
-  if (op === null)
-    return (
-      <Text size="xs" c="dimmed" p="sm">
-        Select an operation to see what its operator does (ISO 32000-2).
-      </Text>
-    );
   const o = ov.data;
   if (!o) return ov.isPending ? <Loader m="sm" size="xs" /> : null;
   const d = ops[o.operator];

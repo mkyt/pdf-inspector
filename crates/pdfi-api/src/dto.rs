@@ -303,6 +303,8 @@ pub struct TypeKey {
     pub key: String,
     /// `None` for wildcards and repeating elements.
     pub present: Option<bool>,
+    /// Absent here but inheritable and given by an ancestor (`/Parent`).
+    pub inherited: bool,
     pub doc: KeyDoc,
 }
 

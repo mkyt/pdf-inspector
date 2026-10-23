@@ -937,7 +937,7 @@ impl<'a> Checker<'a> {
     }
 
     /// Whether `/Parent`'s chain provides `key`.
-    fn inherited(&self, d: &syn::Dict, key: &str) -> bool {
+    pub fn inherited(&self, d: &syn::Dict, key: &str) -> bool {
         let mut cur = d.get_key("Parent").cloned();
         for _ in 0..64 {
             let Some(p) = cur.and_then(|p| self.file.resolve(&p).ok()) else {

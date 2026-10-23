@@ -830,11 +830,17 @@ fn object_schema(d: &Doc, root: &NodeRoot) -> Result<ObjectSchema, ApiError> {
             .map(|def| {
                 def.keys
                     .iter()
-                    .map(|k| TypeKey {
-                        key: k.key.into(),
-                        present: (!k.key.contains('*'))
-                            .then(|| c.is_some_and(|c| c.get(k.key).is_some())),
-                        doc: convert::key_doc(k),
+                    .map(|k| {
+                        let present = (!k.key.contains('*'))
+                            .then(|| c.is_some_and(|c| c.get(k.key).is_some()));
+                        TypeKey {
+                            key: k.key.into(),
+                            present,
+                            inherited: k.inheritable
+                                && present == Some(false)
+                                && matches!(c, Some(Container::Dict(d)) if ck.inherited(d, k.key)),
+                            doc: convert::key_doc(k),
+                        }
                     })
                     .collect()
             })

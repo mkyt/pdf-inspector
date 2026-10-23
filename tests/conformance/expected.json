@@ -2505,6 +2505,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Size",
             "present": true
           },
@@ -2527,6 +2528,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Prev",
             "present": false
           },
@@ -2551,6 +2553,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Root",
             "present": true
           },
@@ -2576,6 +2579,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Encrypt",
             "present": false
           },
@@ -2601,6 +2605,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Info",
             "present": true
           },
@@ -2626,6 +2631,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "ID",
             "present": true
           },
@@ -2648,6 +2654,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "XRefStm",
             "present": false
           },
@@ -2672,6 +2679,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "AuthCode",
             "present": false
           },
@@ -2696,6 +2704,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "AdditionalStreams",
             "present": false
           },
@@ -2718,6 +2727,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "DocChecksum",
             "present": false
           }
@@ -2758,6 +2768,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Type",
             "present": true
           },
@@ -2782,6 +2793,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Kids",
             "present": true
           },
@@ -2804,6 +2816,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Count",
             "present": true
           },
@@ -2828,6 +2841,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Resources",
             "present": true
           },
@@ -2850,6 +2864,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "MediaBox",
             "present": true
           },
@@ -2872,6 +2887,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "CropBox",
             "present": false
           },
@@ -2894,6 +2910,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Rotate",
             "present": false
           }
@@ -3461,6 +3478,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Type",
             "present": true
           },
@@ -3493,6 +3511,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Version",
             "present": false
           },
@@ -3517,6 +3536,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Extensions",
             "present": false
           },
@@ -3541,6 +3561,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Pages",
             "present": true
           },
@@ -3565,6 +3586,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "PageLabels",
             "present": false
           },
@@ -3589,6 +3611,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Names",
             "present": false
           },
@@ -3613,6 +3636,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Dests",
             "present": false
           },
@@ -3637,6 +3661,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "ViewerPreferences",
             "present": false
           },
@@ -3666,6 +3691,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "PageLayout",
             "present": true
           },
@@ -3695,6 +3721,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "PageMode",
             "present": false
           },
@@ -3719,6 +3746,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Outlines",
             "present": true
           },
@@ -3743,6 +3771,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Threads",
             "present": false
           },
@@ -3797,6 +3826,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "OpenAction",
             "present": false
           },
@@ -3821,6 +3851,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "AA",
             "present": false
           },
@@ -3845,6 +3876,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "URI",
             "present": false
           },
@@ -3869,6 +3901,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "AcroForm",
             "present": false
           },
@@ -3893,6 +3926,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Metadata",
             "present": true
           },
@@ -3917,6 +3951,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "StructTreeRoot",
             "present": false
           },
@@ -3941,6 +3976,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "MarkInfo",
             "present": true
           },
@@ -3963,6 +3999,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Lang",
             "present": false
           },
@@ -3987,6 +4024,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "SpiderInfo",
             "present": false
           },
@@ -4011,6 +4049,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "OutputIntents",
             "present": false
           },
@@ -4035,6 +4074,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "PieceInfo",
             "present": false
           },
@@ -4059,6 +4099,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "OCProperties",
             "present": false
           },
@@ -4083,6 +4124,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Perms",
             "present": false
           },
@@ -4107,6 +4149,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Legal",
             "present": false
           },
@@ -4131,6 +4174,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Requirements",
             "present": false
           },
@@ -4155,6 +4199,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "Collection",
             "present": false
           },
@@ -4177,6 +4222,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "NeedsRendering",
             "present": false
           },
@@ -4201,6 +4247,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "DSS",
             "present": false
           },
@@ -4225,6 +4272,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "AF",
             "present": false
           },
@@ -4249,6 +4297,7 @@
                 }
               ]
             },
+            "inherited": false,
             "key": "DPartRoot",
             "present": false
           }

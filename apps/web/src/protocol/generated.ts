@@ -186,7 +186,11 @@ key: string,
 /**
  * `None` for wildcards and repeating elements.
  */
-present: boolean | null, doc: KeyDoc, };
+present: boolean | null, 
+/**
+ * Absent here but inheritable and given by an ancestor (`/Parent`).
+ */
+inherited: boolean, doc: KeyDoc, };
 
 export type NodeSchema = { 
 /**
