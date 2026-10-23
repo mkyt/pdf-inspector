@@ -30,7 +30,7 @@ export function useStored<T>(key: string, fallback: T): [T, (v: T | ((prev: T) =
   return [value, set];
 }
 
-/** A pane's size in px (width of a sidebar, height of the hex view) and whether it is shown. */
+/** A pane's size in px (width of a sidebar or a column, height of the hex view) and whether it is shown. */
 export interface Pane {
   size: number;
   shown: boolean;
@@ -40,7 +40,7 @@ export interface Pane {
   reset(): void;
 }
 
-function usePane(key: string, def: number, min: number, max: number): Pane {
+export function usePane(key: string, def: number, min: number, max: number): Pane {
   const [size, setSize] = useStored(`${key}.size`, def);
   const [shown, setShown] = useStored(`${key}.shown`, true);
   return {

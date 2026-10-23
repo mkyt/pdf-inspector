@@ -20,6 +20,7 @@ import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
 import { api, useBackend } from "../api";
 import { useDoc } from "../doc";
 import { bytesText, objText, pageText } from "../format";
+import { usePane } from "../layout";
 import { contentKey, useNav } from "../nav";
 import type { ContentIssue, ContentRef, ContentSummary, OpView } from "../protocol/generated";
 import { ContentDiagram } from "./ContentDiagram";
@@ -30,6 +31,7 @@ import { PagedList } from "./PagedList";
 import { RenderView } from "./RenderView";
 import { Row } from "./Row";
 import rowClasses from "./Row.module.css";
+import { ResizeHandle } from "./Split";
 
 const ROW = 22;
 const ISSUE_PAGE = 500;
@@ -101,7 +103,8 @@ export function ContentView({ content, op }: { content: ContentRef; op: number |
   const q = useQuery({ queryKey: key, queryFn: () => api.content(backend, nav.doc, content) });
   const select = useCallback((i: number | null) => nav.update({ kind: "content", content, op: i }), [nav, content]);
   const [scrollTo, setScrollTo] = useState<number | null>(op);
-  const [wide, setWide] = useState(false);
+  const preview = usePane("content.preview", 400, 200, 2000);
+  const state = usePane("content.state", 300, 200, 1200);
   // Selecting from elsewhere (diagram, issues) also scrolls the list.
   const jump = (i: number) => {
     select(i);
@@ -169,7 +172,7 @@ export function ContentView({ content, op }: { content: ContentRef; op: number |
       </Stack>
       {s && (
         <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
-          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, minWidth: 200, display: "flex", flexDirection: "column" }}>
             <PagedList<OpView>
               total={s.ops}
               rowHeight={ROW}
@@ -181,15 +184,12 @@ export function ContentView({ content, op }: { content: ContentRef; op: number |
               renderRow={(o) => <OpRow o={o} active={o.index === op} onClick={() => select(o.index)} />}
             />
           </div>
-          <div
-            style={{
-              width: wide ? "55%" : 440,
-              flexShrink: 0,
-              borderLeft: "1px solid var(--mantine-color-default-border)",
-              overflow: "auto",
-            }}
-          >
-            <Preview content={content} s={s} op={op} onPick={jump} wide={wide} setWide={setWide} />
+          <ResizeHandle pane={preview} grow="left" label="rendering" />
+          <div style={{ width: preview.size, minWidth: 160, overflow: "auto" }}>
+            <Preview content={content} s={s} op={op} onPick={jump} />
+          </div>
+          <ResizeHandle pane={state} grow="left" label="graphics state" />
+          <div style={{ width: state.size, minWidth: 160, overflow: "auto" }}>
             {op !== null && op < s.ops ? (
               <OpStatePanel key={op} content={content} summary={s} index={op} />
             ) : (
@@ -210,15 +210,11 @@ function Preview({
   s,
   op,
   onPick,
-  wide,
-  setWide,
 }: {
   content: ContentRef;
   s: ContentSummary;
   op: number | null;
   onPick: (op: number) => void;
-  wide: boolean;
-  setWide: (w: boolean) => void;
 }) {
   const [mode, setMode] = useState("render");
   const [step, setStep] = useState(false);
@@ -241,11 +237,6 @@ function Preview({
           <Switch size="xs" label="Step" checked={step} onChange={(e) => setStep(e.currentTarget.checked)} />
         </Tooltip>
       )}
-      <Tooltip label={wide ? "Narrower panel" : "Wider panel"}>
-        <ActionIcon size="sm" variant="subtle" style={{ marginLeft: "auto" }} onClick={() => setWide(!wide)} aria-label="Panel width">
-          {wide ? "⇥" : "⇤"}
-        </ActionIcon>
-      </Tooltip>
     </Group>
   );
   if (mode === "boxes")
@@ -258,8 +249,8 @@ function Preview({
   return (
     <>
       {header}
-      <div style={{ padding: 8, borderBottom: "1px solid var(--mantine-color-default-border)" }}>
-        <RenderView content={content} summary={s} op={op} step={step} onPick={onPick} height="min(62vh, 760px)" />
+      <div style={{ padding: 8 }}>
+        <RenderView content={content} summary={s} op={op} step={step} onPick={onPick} height="min(78vh, 1000px)" />
         {step && s.ops > 1 && (
           <Slider
             mt={8}
