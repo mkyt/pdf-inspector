@@ -813,6 +813,7 @@ fn object_schema(d: &Doc, root: &NodeRoot) -> Result<ObjectSchema, ApiError> {
         type_name: typed.map(|(t, _)| t.name()),
         origin: typed.map(|(_, o)| match o {
             Origin::Context => TypeOrigin::Context,
+            Origin::TypeKey => TypeOrigin::TypeKey,
             Origin::Guess => TypeOrigin::Guess,
         }),
         note: typed

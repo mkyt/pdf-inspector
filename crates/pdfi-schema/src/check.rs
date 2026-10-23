@@ -142,7 +142,9 @@ impl Ty {
 pub enum Origin {
     /// Reached by following typed references.
     Context,
-    /// Guessed from the object's own `/Type`.
+    /// Named by the object's own `/Type`, which only this type takes.
+    TypeKey,
+    /// Guessed from the object's own `/Type` among several types taking it.
     Guess,
 }
 
@@ -356,7 +358,15 @@ impl<'a> Checker<'a> {
             return Some((*t, Origin::Context));
         }
         let o = self.file.get(id).ok()?;
-        self.guess(&o.node.obj).map(|t| (t, Origin::Guess))
+        let (t, unique) = self.guess(&o.node.obj)?;
+        Some((
+            t,
+            if unique {
+                Origin::TypeKey
+            } else {
+                Origin::Guess
+            },
+        ))
     }
 
     /// Type of an object learned from context only.
@@ -396,8 +406,9 @@ impl<'a> Checker<'a> {
         });
     }
 
-    /// Guess a type from `/Type` alone.
-    pub fn guess(&self, o: &Object) -> Option<Ty> {
+    /// Guess a type from `/Type` alone, and whether it is the only type
+    /// taking that `/Type`.
+    pub fn guess(&self, o: &Object) -> Option<(Ty, bool)> {
         let d = o.as_dict()?;
         let cands = by_type_key(d.get_name("Type")?.as_bytes());
         let links: Vec<Link> = cands
@@ -408,7 +419,8 @@ impl<'a> Checker<'a> {
                 only: 0,
             })
             .collect();
-        self.choose(&links, o).map(Ty::Def)
+        self.choose(&links, o)
+            .map(|t| (Ty::Def(t), cands.len() == 1))
     }
 
     /// Pick the candidate that fits `o` best.

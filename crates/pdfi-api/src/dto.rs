@@ -272,7 +272,10 @@ pub struct NodeView {
 pub enum TypeOrigin {
     /// Reached by following typed references from the trailer.
     Context,
-    /// Guessed from the object's `/Type` and other entries.
+    /// Named by the object's `/Type`, which only this type takes.
+    TypeKey,
+    /// Guessed from the object's `/Type` and other entries, among several
+    /// types taking that `/Type`.
     Guess,
 }
 

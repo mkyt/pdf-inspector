@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use pdfi_schema::{DocSchema, IssueCode, Origin, Walk, path_text};
-use pdfi_syntax::{MemSource, ObjId, OpenOptions, PdfFile};
+use pdfi_syntax::{DictExt, MemSource, ObjId, OpenOptions, PdfFile};
 
 fn open(name: &str) -> PdfFile {
     let p = format!("{}/../../tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
@@ -21,6 +21,37 @@ fn clean_file_has_no_issues_and_is_typed() {
     let (t, o) = ck.type_of(ObjId::new(3, 0)).unwrap();
     assert_eq!((t.name().as_str(), o), ("PageObject", Origin::Context));
     assert_eq!(ck.type_of(ObjId::new(6, 0)).unwrap().0.name(), "FontType1");
+}
+
+#[test]
+fn a_type_named_by_type_alone_is_not_a_guess() {
+    let with_type = |f: &PdfFile, name: &str| {
+        f.xref()
+            .live_ids()
+            .find(|&id| {
+                f.get(id).is_ok_and(|o| {
+                    o.node
+                        .obj
+                        .as_dict()
+                        .and_then(|d| d.get_name("Type"))
+                        .is_some_and(|n| n.as_bytes() == name.as_bytes())
+                })
+            })
+            .unwrap()
+    };
+    // Nothing refers to an object stream, and only one type takes /ObjStm.
+    let f = open("objstm.pdf");
+    let s = DocSchema::new();
+    let ck = s.checker(&f);
+    let (t, o) = ck.type_of(with_type(&f, "ObjStm")).unwrap();
+    assert_eq!(o, Origin::TypeKey, "{}", t.name());
+    // /Type /Page is also taken by StructureAttributesDict: still a guess
+    // until reached through /Kids.
+    let f = open("base.pdf");
+    let s = DocSchema::new();
+    let ck = s.checker(&f);
+    let (t, o) = ck.type_of(ObjId::new(3, 0)).unwrap();
+    assert_eq!((t.name().as_str(), o), ("PageObject", Origin::Guess));
 }
 
 #[test]

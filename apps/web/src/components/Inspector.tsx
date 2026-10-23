@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, useBackend } from "../api";
 import { bytesAsText, objText, spanText, valueText } from "../format";
 import { useNav } from "../nav";
-import type { NodeRoot, ObjRef, ObjectView, Span } from "../protocol/generated";
+import type { NodeRoot, ObjRef, ObjectView, Span, TypeOrigin } from "../protocol/generated";
 import { severityColor } from "./DiagnosticsPanel";
 import { ImagePreview } from "./ImagePreview";
 import { IssueList } from "./Issues";
@@ -208,15 +208,20 @@ export function useSchema(root: NodeRoot) {
   });
 }
 
+/** How the schema type of an object was found, for its tooltip. */
+const originTip: Record<TypeOrigin, string> = {
+  context: "Typed by following references from the trailer.",
+  typeKey: "Named by its /Type, which only this type takes; not checked against where it is used.",
+  guess: "Guessed from /Type among several types taking it; open it through a reference or validate the document to type it from context.",
+};
+
 /** Schema type of the object; a guess (from `/Type`) is marked as such. */
 function SchemaBadge({ root }: { root: NodeRoot }) {
   const s = useSchema(root).data;
   if (!s?.type_name) return null;
   const guess = s.origin === "guess";
   const tip = [
-    guess
-      ? "Guessed from /Type; open it through a reference or validate the document to type it from context."
-      : "Typed by following references from the trailer.",
+    s.origin && originTip[s.origin],
     s.note,
     s.pdf_version && `Checked against PDF ${s.pdf_version}.`,
   ]

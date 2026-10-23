@@ -131,7 +131,7 @@ export type DiagnosticInfo = { severity: Severity, code: string, message: string
  */
 path: string | null, span: Span | null, };
 
-export type TypeOrigin = "context" | "guess";
+export type TypeOrigin = "context" | "typeKey" | "guess";
 
 export type ObjectSchema = { 
 /**

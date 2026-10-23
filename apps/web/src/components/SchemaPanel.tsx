@@ -150,7 +150,11 @@ function TypeView({ root, title, structure = false }: { root: NodeRoot; title: s
               {guess && "?"}
             </Badge>
             <Text size="xs" c="dimmed">
-              {guess ? "guessed from /Type" : "typed by the references reaching it"}
+              {s.origin === "guess"
+                ? "guessed from /Type"
+                : s.origin === "typeKey"
+                  ? "named by its /Type"
+                  : "typed by the references reaching it"}
             </Text>
           </Group>
         )}
