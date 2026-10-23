@@ -5,6 +5,7 @@ import { api, useBackend } from "../api";
 import { contentKey, useNav } from "../nav";
 import type { AppearancePick, ContentRef, ContentSummary, PixelRect, RenderLayer, RenderNote } from "../protocol/generated";
 import { AnnotCard, AnnotOverlay, annotsAt, toView } from "./AnnotOverlay";
+import { RegionCut, normalized, type ViewRegion } from "./RegionCut";
 import classes from "./RenderView.module.css";
 
 /** Side of a rendered tile, in device pixels. */
@@ -38,7 +39,8 @@ function paint(canvas: HTMLCanvasElement | null, data: Uint8Array, w: number, h:
  * selected operation is highlighted; with `step`, only the operations up
  * to the selected one are drawn. A page's annotations can be shown over
  * it: their appearance streams (painted after the content, in `/Annots`
- * order) and outlines of where they are; a label selects one.
+ * order) and outlines of where they are; a label selects one. In region
+ * mode, dragging marks a rectangle to cut out as a PDF instead.
  */
 export function RenderView({
   content,
@@ -80,8 +82,12 @@ export function RenderView({
   const [picks, setPicks] = useState<Record<number, AppearancePick>>({});
   const annotsLayer = useMemo<RenderLayer>(() => ({ kind: "annots", only: null, pick: Object.values(picks) }), [picks]);
   const [showOutlines, setShowOutlines] = useState(true);
+  const [cutting, setCutting] = useState(false);
+  const [region, setRegion] = useState<ViewRegion | null>(null);
   const page = content.kind === "page" ? content.index : null;
   useEffect(() => setPicks({}), [page]);
+  const contentId = contentKey(content).join();
+  useEffect(() => setRegion(null), [contentId]);
   const annotsQ = useQuery({
     queryKey: ["doc", nav.doc, "annots", page, "overlay"],
     queryFn: () => api.annotations(backend, nav.doc, page!, { offset: 0, limit: MAX_ANNOTS }),
@@ -156,7 +162,34 @@ export function RenderView({
     return { box: r, tile: { x: x0, y: y0, width: x1 - x0, height: y1 - y0 } };
   }, [el, v, scale, fw, fh, port, dpr]);
 
+  // Drag a region (view points); clicks do not pick meanwhile.
+  const onMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+    if (!cutting || e.button !== 0) return;
+    e.preventDefault();
+    const r = e.currentTarget.getBoundingClientRect();
+    const at = (ev: { clientX: number; clientY: number }) => ({
+      x: Math.max(0, Math.min(v.width, (ev.clientX - r.left) / z)),
+      y: Math.max(0, Math.min(v.height, (ev.clientY - r.top) / z)),
+    });
+    const p = at(e);
+    setRegion({ x0: p.x, y0: p.y, x1: p.x, y1: p.y });
+    const move = (ev: globalThis.MouseEvent) => {
+      const q = at(ev);
+      setRegion({ x0: p.x, y0: p.y, x1: q.x, y1: q.y });
+    };
+    const up = (ev: globalThis.MouseEvent) => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      const q = at(ev);
+      // A click, not a drag: no region.
+      if (Math.abs(q.x - p.x) * z < 3 && Math.abs(q.y - p.y) * z < 3) setRegion(null);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  };
+
   const onClick = async (e: MouseEvent<HTMLDivElement>) => {
+    if (cutting) return;
     const r = e.currentTarget.getBoundingClientRect();
     const cx = e.clientX - r.left;
     const cy = e.clientY - r.top;
@@ -220,6 +253,19 @@ export function RenderView({
             1:1
           </ActionIcon>
         </Tooltip>
+        <Tooltip label="Drag a rectangle to cut out the operations painting inside it, as a PDF">
+          <Button
+            size="compact-xs"
+            variant={cutting ? "light" : "subtle"}
+            ml="xs"
+            onClick={() => {
+              setCutting(!cutting);
+              if (cutting) setRegion(null);
+            }}
+          >
+            Region
+          </Button>
+        </Tooltip>
         {annots.length > 0 && (
           <>
             <Tooltip label="Paint the annotations' appearance streams over the content">
@@ -250,6 +296,7 @@ export function RenderView({
       >
         <div
           onClick={onClick}
+          onMouseDown={onMouseDown}
           style={{
             position: "relative",
             width: fw / dpr,
@@ -304,6 +351,7 @@ export function RenderView({
               }}
             />
           )}
+          {region && <RegionBox r={normalized(region)} zoom={z} />}
           {(showOutlines || selAnnot) && (
             <AnnotOverlay
               annots={showOutlines ? annots : selAnnot ? [selAnnot] : []}
@@ -316,6 +364,14 @@ export function RenderView({
           )}
         </div>
       </div>
+      {cutting && !region && (
+        <Text size="xs" c="dimmed" mt={4}>
+          Drag over the content to mark the region to cut out.
+        </Text>
+      )}
+      {cutting && region && (
+        <RegionCut content={content} view={v} region={region} onClear={() => setRegion(null)} />
+      )}
       {selAnnot && (
         <AnnotCard
           a={selAnnot}
@@ -344,6 +400,23 @@ export function RenderView({
         </Text>
       )}
     </div>
+  );
+}
+
+function RegionBox({ r, zoom }: { r: ViewRegion; zoom: number }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: r.x0 * zoom,
+        top: r.y0 * zoom,
+        width: (r.x1 - r.x0) * zoom,
+        height: (r.y1 - r.y0) * zoom,
+        border: "1px dashed var(--mantine-color-blue-filled)",
+        background: "rgba(34, 139, 230, 0.08)",
+        pointerEvents: "none",
+      }}
+    />
   );
 }
 

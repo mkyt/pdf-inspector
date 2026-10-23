@@ -169,6 +169,28 @@ enum Cmd {
         #[arg(long, value_delimiter = ',')]
         hit: Vec<f64>,
     },
+    /// Cut a region of a page (or a stream, --obj) out into a one-page PDF
+    /// with only the operations painting there.
+    Extract {
+        #[command(flatten)]
+        f: FileArgs,
+        page: Option<u64>,
+        #[arg(long)]
+        obj: Option<u32>,
+        /// The region in the content's space (default user space for
+        /// pages): x0,y0,x1,y1.
+        #[arg(long, value_delimiter = ',', required = true)]
+        rect: Vec<f64>,
+        /// Also take what only overlaps the region.
+        #[arg(long)]
+        overlaps: bool,
+        /// Shrink the page to what is kept.
+        #[arg(long)]
+        fit: bool,
+        /// Output PDF file.
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Rewrite as a plain file (object streams expanded, decrypted).
     Rewrite {
         #[command(flatten)]
@@ -253,6 +275,15 @@ fn main() -> Result<()> {
             highlight,
             &hit,
         ),
+        Cmd::Extract {
+            f,
+            page,
+            obj,
+            rect,
+            overlaps,
+            fit,
+            out,
+        } => content::extract(&open(&f)?, page, obj, &rect, overlaps, fit, &out),
         Cmd::Xref { f, rev } => xref(&open(&f)?, rev),
         Cmd::Obj { f, num, generation } => {
             let file = open(&f)?;

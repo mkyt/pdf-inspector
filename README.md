@@ -10,13 +10,13 @@ PDF の内部構造を調べ、編集するためのツール群。設計は [do
 | `crates/pdfi-schema` | Arlington PDF Model（`schema/arlington/` に vendoring）を build 時に静的テーブル化。参照を辿る型推論と validation |
 | `crates/pdfi-model` | 意味層: ページ（`/Count` による index 引き・継承属性とその出所・ボックス・ラベル）、Info / XMP（不一致の検出）、しおり、注釈、リンク先、フォント・画像・被参照グラフのインベントリ（ジョブ） |
 | `crates/pdfi-font` | フォント: 符号の切り分け（定義済み・埋め込み CMap）、幅（`/Widths`・`/W`・標準 14 フォントの AFM）、テキスト（`/ToUnicode`・エンコーディング + Adobe Glyph List）、埋め込みプログラム（TrueType / OpenType は `ttf-parser`、CFF / Type 1 は `hayro-font`）のグリフ選択とアウトライン、埋め込まれていない単純フォントの代替（PDFium の Foxit フォントを内蔵）、Type 3 のグリフ手続き |
-| `crates/pdfi-content` | content stream: 命令列（演算子表・複数ストリームの連結・インライン画像）、validation（オペランド・ネスト・配置・リソース・色）、グラフィックス状態を追うインタプリタと描画要素の bbox（フォーム XObject を辿る）。命令はチェックポイントから読み直して範囲取得 |
+| `crates/pdfi-content` | content stream: 命令列（演算子表・複数ストリームの連結・インライン画像）、validation（オペランド・ネスト・配置・リソース・色）、グラフィックス状態を追うインタプリタと描画要素の bbox（フォーム XObject を辿る）。命令はチェックポイントから読み直して範囲取得。範囲の切り出し（範囲内を描く命令だけを元のバイト列のまま残し、状態・クリップは保持、部分的に掛かるフォームは中身を切る。使うリソースだけを符号化されたまま複製） |
 | `crates/pdfi-render` | 自作ラスタライザ（tiny-skia）: パス・塗り・線（線幅・端・結合・ダッシュ）・クリップ・画像（1–16 bit、Gray / RGB / CMYK / Indexed / Lab / ICCBased / Separation・DeviceN、JPEG、ステンシル、SMask、色キー）、文字（グリフのアウトライン、Type 3 はグリフ手続き、描画モードの塗り・線・クリップ）。タイル描画、ステップ実行、ハイライト層、ヒットテスト |
 | `crates/pdfi-api` | フロントとの境界。`Session` が `Request` → `Response` / `Event` を処理（範囲 API、ジョブ、Batch、バイナリ別フレーム）。TS 型を生成 |
 | `crates/pdfi-server` | `pdfi serve` のローカルサーバー（axum + WebSocket、Web UI 内蔵、トークン / Host / Origin / 許可ルート検査） |
 | `crates/pdfi-wasm` | ブラウザ完結モード用の wasm バインディング（Worker から `Session` を駆動、Blob から直接読む） |
 | `crates/pdfi-cli` | `pdfi` コマンド |
-| `apps/web` | Web UI（Vite + React + Mantine）。Document / Pages / Outline / Fonts / Images 画面、フォント画面（プログラム・エンコーディング・問題、符号 → グリフ → テキストの表とアウトライン、埋め込みプログラムの全グリフとそれを選ぶ符号、そのフォントで描かれたテキストの一覧（フォーム内も含む）と使われた符号）、命令列ビュー（ネスト・問題・デコード済みテキスト、命令ごとの前後のグラフィックス状態、描画範囲の図とステップ表示）、ページ描画（タイル・ズーム、クリックで命令を選択、選択した命令のハイライト、ステップ実行）、オブジェクト一覧・ツリー・hex・ストリーム表示、被参照一覧、スキーマ型・キー定義・問題の表示と検証ジョブ。サーバー / ブラウザ完結の両モード |
+| `apps/web` | Web UI（Vite + React + Mantine）。Document / Pages / Outline / Fonts / Images 画面、フォント画面（プログラム・エンコーディング・問題、符号 → グリフ → テキストの表とアウトライン、埋め込みプログラムの全グリフとそれを選ぶ符号、そのフォントで描かれたテキストの一覧（フォーム内も含む）と使われた符号）、命令列ビュー（ネスト・問題・デコード済みテキスト、命令ごとの前後のグラフィックス状態、描画範囲の図とステップ表示）、ページ描画（タイル・ズーム、クリックで命令を選択、選択した命令のハイライト、ステップ実行、矩形で囲んだ範囲を描く命令だけを無劣化で 1 ページの PDF に切り出し）、オブジェクト一覧・ツリー・hex・ストリーム表示、被参照一覧、スキーマ型・キー定義・問題の表示と検証ジョブ。サーバー / ブラウザ完結の両モード |
 
 ## 使い方
 
@@ -36,6 +36,7 @@ target/release/pdfi inventory file.pdf [--refs N]      # フォント・画像�
 target/release/pdfi ops file.pdf N [--from I --count C] # ページ N の命令列（--obj M: ストリーム、--state I: 状態、--issues: 問題のみ）
 target/release/pdfi font file.pdf N [--glyphs]        # フォント N: プログラム・エンコーディング・問題（--glyphs: 符号 → グリフ → テキスト）
 target/release/pdfi render file.pdf N -o out.png [--dpi D] # ページ N を描画（--until I: 命令 I まで、--tile x,y,w,h、--highlight I,J、--hit x,y: その点を描く命令）
+target/release/pdfi extract file.pdf N --rect x0,y0,x1,y1 -o out.pdf [--overlaps] [--fit] # 範囲内を描く命令だけの 1 ページ PDF
 target/release/pdfi rewrite in.pdf out.pdf [--reserialize]
 ```
 

@@ -1,6 +1,6 @@
 // Generated from crates/pdfi-api by `UPDATE_TS=1 cargo test -p pdfi-api`. Do not edit.
 
-export const PROTOCOL_VERSION = 11;
+export const PROTOCOL_VERSION = 12;
 
 export type DocId = number;
 export type JobId = number;
@@ -747,6 +747,22 @@ full_width: number, full_height: number, scale: number,
  */
 ops: number, notes: Array<RenderNote>, };
 
+export type RegionSelect = "inside" | "overlaps";
+
+export type ExtractInfo = { part: number, bytes: number, 
+/**
+ * The page's `/MediaBox`, in the content's space.
+ */
+media_box: Rect, 
+/**
+ * Painting operations kept and dropped (also inside forms cut).
+ */
+kept: number, dropped: number, 
+/**
+ * Form XObjects cut because they were partly inside.
+ */
+forms: number, objects: number, };
+
 export type ContentIssue = { op: number | null, severity: Severity, code: string, message: string, 
 /**
  * For syntax problems: the stream and the bytes in its decoded data.
@@ -900,7 +916,11 @@ tile: PixelRect | null,
 /**
  * Run operations up to and including this one.
  */
-until: number | null, layer: RenderLayer, } | { "op": "hitTest", doc: number, content: ContentRef, x: number, y: number, radius: number, until: number | null, } | { "op": "rawBytes", doc: number, offset: number, len: number, } | { "op": "streamData", doc: number, id: ObjRef, 
+until: number | null, layer: RenderLayer, } | { "op": "hitTest", doc: number, content: ContentRef, x: number, y: number, radius: number, until: number | null, } | { "op": "extractRegion", doc: number, content: ContentRef, rect: Rect, select: RegionSelect, 
+/**
+ * Shrink the page to what is kept.
+ */
+fit: boolean, } | { "op": "rawBytes", doc: number, offset: number, len: number, } | { "op": "streamData", doc: number, id: ObjRef, 
 /**
  * Decrypt and apply filters; otherwise the bytes as stored.
  */
@@ -908,7 +928,7 @@ decoded: boolean, offset: number, len: number, } | { "op": "startJob", doc: numb
 
 export type Response = { "ok": ResponseBody } | { "err": ApiError };
 
-export type ResponseBody = { "type": "hello" } & HelloInfo | { "type": "dir" } & DirListing | { "type": "doc" } & DocSummary | { "type": "docs", docs: Array<DocInfo>, } | { "type": "objects" } & Page<ObjectSummary> | { "type": "objectClasses", classes: Array<ObjectClass>, } | { "type": "object" } & ObjectView | { "type": "children" } & Page<NodeView> | { "type": "xref" } & Page<XrefRow> | { "type": "diagnostics" } & Page<DiagnosticInfo> | { "type": "schema" } & ObjectSchema | { "type": "document" } & DocumentView | { "type": "xmp" } & XmpView | { "type": "pages" } & Page<PageSummary> | { "type": "pageDetail" } & PageDetail | { "type": "pageIndex", index: number | null, } | { "type": "annotations" } & Page<AnnotInfo> | { "type": "outline" } & Page<OutlineItem> | { "type": "fonts" } & Page<FontInfo> | { "type": "images" } & Page<ImageInfo> | { "type": "referrers" } & Page<Referrer> | { "type": "refPath" } & RefPath | { "type": "objRefs" } & Page<ObjRef> | { "type": "content" } & ContentSummary | { "type": "ops" } & Page<OpView> | { "type": "contentIssues" } & Page<ContentIssue> | { "type": "elements" } & Page<ElementView> | { "type": "opState" } & OpState | { "type": "font" } & FontDetail | { "type": "glyphs" } & Page<GlyphView> | { "type": "programGlyphs" } & Page<ProgramGlyph> | { "type": "fontUses" } & FontUsesView | { "type": "bitmap" } & BitmapInfo | { "type": "hits", ops: Array<number>, } | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "batch", responses: Array<Response>, } | { "type": "empty" };
+export type ResponseBody = { "type": "hello" } & HelloInfo | { "type": "dir" } & DirListing | { "type": "doc" } & DocSummary | { "type": "docs", docs: Array<DocInfo>, } | { "type": "objects" } & Page<ObjectSummary> | { "type": "objectClasses", classes: Array<ObjectClass>, } | { "type": "object" } & ObjectView | { "type": "children" } & Page<NodeView> | { "type": "xref" } & Page<XrefRow> | { "type": "diagnostics" } & Page<DiagnosticInfo> | { "type": "schema" } & ObjectSchema | { "type": "document" } & DocumentView | { "type": "xmp" } & XmpView | { "type": "pages" } & Page<PageSummary> | { "type": "pageDetail" } & PageDetail | { "type": "pageIndex", index: number | null, } | { "type": "annotations" } & Page<AnnotInfo> | { "type": "outline" } & Page<OutlineItem> | { "type": "fonts" } & Page<FontInfo> | { "type": "images" } & Page<ImageInfo> | { "type": "referrers" } & Page<Referrer> | { "type": "refPath" } & RefPath | { "type": "objRefs" } & Page<ObjRef> | { "type": "content" } & ContentSummary | { "type": "ops" } & Page<OpView> | { "type": "contentIssues" } & Page<ContentIssue> | { "type": "elements" } & Page<ElementView> | { "type": "opState" } & OpState | { "type": "font" } & FontDetail | { "type": "glyphs" } & Page<GlyphView> | { "type": "programGlyphs" } & Page<ProgramGlyph> | { "type": "fontUses" } & FontUsesView | { "type": "bitmap" } & BitmapInfo | { "type": "hits", ops: Array<number>, } | { "type": "extract" } & ExtractInfo | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "batch", responses: Array<Response>, } | { "type": "empty" };
 
 export type HelloInfo = { protocol: number, backend: string, version: string, 
 /**

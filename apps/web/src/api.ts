@@ -8,6 +8,7 @@ import type {
   ContentRef,
   ContentSummary,
   ElementView,
+  ExtractInfo,
   OpState,
   OpView,
   DirListing,
@@ -39,8 +40,10 @@ import type {
   PageSummary,
   PixelRect,
   Range,
+  Rect,
   Referrer,
   RefPath,
+  RegionSelect,
   RenderLayer,
   Request,
   ResponseBody,
@@ -190,6 +193,17 @@ export const api = {
     radius: number,
     until: number | null,
   ): Promise<number[]> => (await call(b, "hits", { op: "hitTest", doc, content, x, y, radius, until })).body.ops,
+  extractRegion: async (
+    b: Backend,
+    doc: DocId,
+    content: ContentRef,
+    rect: Rect,
+    select: RegionSelect,
+    fit: boolean,
+  ): Promise<{ info: ExtractInfo; data: Uint8Array }> => {
+    const r = await call(b, "extract", { op: "extractRegion", doc, content, rect, select, fit });
+    return { info: r.body, data: r.blobs[r.body.part] ?? new Uint8Array() };
+  },
   rawBytes: async (b: Backend, doc: DocId, offset: number, len: number, signal?: AbortSignal): Promise<Bytes> =>
     bytes(await call(b, "bytes", { op: "rawBytes", doc, offset, len }, signal)),
   streamData: async (

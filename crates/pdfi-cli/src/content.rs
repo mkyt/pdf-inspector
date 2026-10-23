@@ -1,10 +1,11 @@
 //! `pdfi ops`: the operations of a content stream; `pdfi render`: its
-//! rendering.
+//! rendering; `pdfi extract`: a region of it cut out.
 
 use std::path::Path;
 use std::time::Instant;
 
 use anyhow::{Result, anyhow, bail};
+use pdfi_content::extract::{Region, Select};
 use pdfi_content::interp::{Color, State};
 use pdfi_content::op::Op;
 use pdfi_content::{Analysis, DocContent, Issue, Target};
@@ -267,5 +268,52 @@ pub fn ops(
     for (k, op) in a.read_ops(from, end - from).iter().enumerate() {
         print_op(&a, from + k, op);
     }
+    Ok(())
+}
+
+pub fn extract(
+    file: &PdfFile,
+    page: Option<u64>,
+    obj: Option<u32>,
+    rect: &[f64],
+    overlaps: bool,
+    fit: bool,
+    out: &Path,
+) -> Result<()> {
+    let [x0, y0, x1, y1] = *rect else {
+        bail!("--rect takes x0,y0,x1,y1");
+    };
+    let dm = DocModel::new();
+    let dc = DocContent::new();
+    let c = dc.on(dm.on(file));
+    let a = c
+        .analyze(target(file, page, obj)?)
+        .map_err(|e| anyhow!(e))?;
+    let region = Region {
+        rect: Rect {
+            x0: x0.min(x1),
+            y0: y0.min(y1),
+            x1: x0.max(x1),
+            y1: y0.max(y1),
+        },
+        select: if overlaps {
+            Select::Overlaps
+        } else {
+            Select::Inside
+        },
+        fit,
+    };
+    let x = c.extract(&a, &region, &|| false).map_err(|e| anyhow!(e))?;
+    std::fs::write(out, &x.pdf)?;
+    println!(
+        "{} of {} painting operations kept, {} forms cut, {} objects, {} bytes, /MediaBox {} → {}",
+        x.kept,
+        x.kept + x.dropped,
+        x.forms,
+        x.objects,
+        x.pdf.len(),
+        rect_text(&x.media_box),
+        out.display()
+    );
     Ok(())
 }

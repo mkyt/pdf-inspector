@@ -472,6 +472,13 @@ impl Session {
             } => Ok(ResponseBody::Hits {
                 ops: content::hit_test(&*self.doc(doc)?, content, (x, y), radius, until, cancel)?,
             }),
+            Request::ExtractRegion {
+                doc,
+                content,
+                rect,
+                select,
+                fit,
+            } => content::extract(&*self.doc(doc)?, content, rect, select, fit, cancel, blobs),
             Request::RawBytes { doc, offset, len } => {
                 let d = self.doc(doc)?;
                 let len = check_chunk(len)?;

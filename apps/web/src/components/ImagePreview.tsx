@@ -166,7 +166,7 @@ async function imageBlob(d: ImageDict, ext: string, bytes: Uint8Array): Promise<
   return c.convertToBlob({ type: "image/png" });
 }
 
-function save(blob: Blob, name: string) {
+export function save(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

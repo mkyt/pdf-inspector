@@ -88,6 +88,14 @@ fn write_dict(d: &Dict, out: &mut Vec<u8>) {
     out.extend_from_slice(b">>");
 }
 
+/// `data` compressed for `/FlateDecode`.
+pub fn deflate(data: &[u8]) -> Vec<u8> {
+    let mut e = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+    // Writing to a Vec cannot fail.
+    let _ = e.write_all(data);
+    e.finish().unwrap_or_default()
+}
+
 /// Human-readable multi-line rendering in PDF syntax.
 pub fn pretty(o: &Object) -> String {
     let mut s = String::new();

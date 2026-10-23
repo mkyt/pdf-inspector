@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
+use pdfi_content::extract::{Extract, Region, Select};
 use pdfi_content::interp::{ElementKind, Kind};
 use pdfi_content::op::Operator;
 use pdfi_content::{Analysis, DocContent, Target};
 use pdfi_model::{DocModel, Rect};
-use pdfi_syntax::{MemSource, ObjId, OpenOptions, PdfFile, Severity};
+use pdfi_syntax::{DictExt, MemSource, ObjId, Object, OpenOptions, PdfFile, Severity};
 
 fn open_bytes(data: Vec<u8>) -> PdfFile {
     PdfFile::open(Arc::new(MemSource::new(data)), OpenOptions::default()).unwrap()
@@ -286,4 +287,172 @@ fn text_clipping_modes() {
             y1: 792.0
         })
     );
+}
+
+/// A document of `objs` (object 1 the catalog).
+fn document(objs: &[&[u8]]) -> Vec<u8> {
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+        out.extend_from_slice(o);
+        out.extend_from_slice(b"\nendobj\n");
+    }
+    let xref = out.len();
+    let n = objs.len() + 1;
+    out.extend_from_slice(format!("xref\n0 {n}\n0000000000 65535 f\r\n").as_bytes());
+    for o in offsets {
+        out.extend_from_slice(format!("{o:010} 00000 n\r\n").as_bytes());
+    }
+    out.extend_from_slice(
+        format!("trailer\n<< /Size {n} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n").as_bytes(),
+    );
+    out
+}
+
+fn stream(dict: &str, data: &[u8]) -> Vec<u8> {
+    [
+        format!("<< {dict} /Length {} >>\nstream\n", data.len()).as_bytes(),
+        data,
+        b"\nendstream",
+    ]
+    .concat()
+}
+
+/// Cut `rect` out of page 0; the file written and its page's content.
+fn cut(f: &PdfFile, rect: Rect, select: Select) -> (Extract, PdfFile, String) {
+    let dm = DocModel::new();
+    let dc = DocContent::new();
+    let c = dc.on(dm.on(f));
+    let a = c.analyze(Target::Page(0)).unwrap();
+    let region = Region {
+        rect,
+        select,
+        fit: false,
+    };
+    let x = c.extract(&a, &region, &|| false).unwrap();
+    let out = open_bytes(x.pdf.clone());
+    assert!(
+        out.diagnostics()
+            .iter()
+            .all(|d| d.severity == Severity::Info),
+        "{:?}",
+        out.diagnostics()
+    );
+    let page = out.get(ObjId::new(3, 0)).unwrap();
+    let id = match page.node.obj.as_dict().unwrap().get_key("Contents") {
+        Some(Object::Ref(id)) => *id,
+        o => panic!("{o:?}"),
+    };
+    let text = stream_text(&out, id);
+    (x, out, text)
+}
+
+fn stream_text(f: &PdfFile, id: ObjId) -> String {
+    let h = f.get(id).unwrap();
+    let s = h.node.obj.as_stream().unwrap();
+    String::from_utf8(f.decode_stream(id, s, None).data).unwrap()
+}
+
+#[test]
+fn extract_paths_and_text() {
+    let f = one_page(
+        b"q 1 0 0 RG 2 w 10 10 m 90 90 l S Q\n\
+          0 0 1 rg 300 300 50 50 re f\n\
+          10 10 500 500 re W n\n\
+          BT /F1 12 Tf 20 200 Td (Left) Tj (Right) Tj 0 -20 TD (Next) Tj ET",
+    );
+    // "Left" spans 20–40, "Right" 40–73, "Next" 20–44 on the line below.
+    let (x, out, text) = cut(&f, rect(0.0, 0.0, 200.0, 250.0), Select::Inside);
+    assert_eq!((x.kept, x.dropped), (4, 1));
+    assert!(text.contains("10 10 m\n90 90 l\nS\n"), "{text}");
+    assert!(!text.contains("300 300"), "{text}");
+    // The clip stays.
+    assert!(text.contains("10 10 500 500 re\nW\nn\n"), "{text}");
+    let page = out.get(ObjId::new(3, 0)).unwrap();
+    let mb = page
+        .node
+        .obj
+        .as_dict()
+        .unwrap()
+        .get_key("MediaBox")
+        .unwrap();
+    assert_eq!(Rect::read(&out, mb), Some(rect(0.0, 0.0, 200.0, 250.0)));
+
+    // Only "Right": "Left" is shown invisibly for where it ends; the line
+    // after goes, but not the leading `TD` sets.
+    let (x, _, text) = cut(&f, rect(39.0, 190.0, 200.0, 215.0), Select::Inside);
+    assert_eq!((x.kept, x.dropped), (1, 4));
+    assert!(
+        text.contains("20 200 Td\n3 Tr\n(Left) Tj\n0 Tr\n(Right) Tj"),
+        "{text}"
+    );
+    assert!(!text.contains("Next") && text.contains("20.0 TL"), "{text}");
+    // The font is kept, the stroke and fill are not.
+    assert!(!text.contains("\nS\n") && !text.contains("\nf\n"), "{text}");
+
+    // Overlapping: the line below too, no invisible text needed.
+    let (x, _, text) = cut(&f, rect(21.0, 170.0, 30.0, 215.0), Select::Overlaps);
+    assert_eq!(x.kept, 2);
+    assert!(text.contains("(Left) Tj\n0 -20 TD\n(Next) Tj"), "{text}");
+    assert!(!text.contains("Right") && !text.contains("Tr"), "{text}");
+}
+
+#[test]
+fn extract_cuts_forms() {
+    let page = stream("", b"q 1 0 0 1 100 0 cm /Fm1 Do Q /Fm1 Do");
+    let form = stream(
+        "/Type /XObject /Subtype /Form /BBox [0 0 600 800] /Resources << /ExtGState << /G0 << /CA 0.5 >> /G1 << /CA 1 >> >> >>",
+        b"/G0 gs 0 0 1 rg 10 10 50 50 re f 1 0 0 rg 300 300 50 50 re f",
+    );
+    let f = open_bytes(document(&[
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 600 800] >>",
+        b"<< /Type /Page /Parent 2 0 R /Contents 4 0 R /Resources << /XObject << /Fm1 5 0 R >> >> >>",
+        &page,
+        &form,
+    ]));
+    // The first square of the first form (at 110–160): the form is cut,
+    // the second `Do` (its square at 10–60) not taken.
+    let (x, out, text) = cut(&f, rect(100.0, 0.0, 200.0, 200.0), Select::Inside);
+    assert_eq!((x.kept, x.dropped, x.forms), (1, 3, 1));
+    assert_eq!(text, "q\n1 0 0 1 100 0 cm\n/PdfiCut0 Do\nQ\n");
+    let page = out.get(ObjId::new(3, 0)).unwrap();
+    let res = page
+        .node
+        .obj
+        .as_dict()
+        .unwrap()
+        .get_key("Resources")
+        .unwrap();
+    let xo = res
+        .as_dict()
+        .unwrap()
+        .get_key("XObject")
+        .unwrap()
+        .as_dict()
+        .unwrap();
+    assert_eq!(xo.len(), 1);
+    let Some(Object::Ref(id)) = xo.get_key("PdfiCut0") else {
+        panic!()
+    };
+    let inner = stream_text(&out, *id);
+    assert_eq!(inner, "/G0 gs\n0 0 1 rg\n10 10 50 50 re\nf\n1 0 0 rg\n");
+    let form = out.get(*id).unwrap();
+    let d = &form.node.obj.as_stream().unwrap().dict;
+    assert!(d.get_key("BBox").is_some());
+    // Only the graphics state used.
+    let gs = d
+        .get_key("Resources")
+        .unwrap()
+        .as_dict()
+        .unwrap()
+        .get_key("ExtGState");
+    assert_eq!(gs.unwrap().as_dict().unwrap().len(), 1);
+
+    // Both forms wholly inside: painted as they are.
+    let (x, _, text) = cut(&f, rect(0.0, 0.0, 600.0, 800.0), Select::Inside);
+    assert_eq!((x.kept, x.dropped, x.forms), (2, 0, 0));
+    assert_eq!(text, "q\n1 0 0 1 100 0 cm\n/Fm1 Do\nQ\n/Fm1 Do\n");
 }

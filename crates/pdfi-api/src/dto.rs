@@ -1187,6 +1187,31 @@ pub struct BitmapInfo {
     pub notes: Vec<RenderNote>,
 }
 
+/// Which painting operations a region of a content takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub enum RegionSelect {
+    /// What they paint lies inside it.
+    Inside,
+    /// What they paint touches it.
+    Overlaps,
+}
+
+/// A region cut out of a content: a one-page PDF in binary part `part`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct ExtractInfo {
+    pub part: u32,
+    pub bytes: u64,
+    /// The page's `/MediaBox`, in the content's space.
+    pub media_box: Rect,
+    /// Painting operations kept and dropped (also inside forms cut).
+    pub kept: u64,
+    pub dropped: u64,
+    /// Form XObjects cut because they were partly inside.
+    pub forms: u64,
+    pub objects: u64,
+}
+
 /// A problem of a content: of one operation, or (`op: None`) of the whole.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct ContentIssue {

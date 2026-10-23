@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 11;
+pub const PROTOCOL_VERSION: u32 = 12;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct ClientMessage {
@@ -215,6 +215,17 @@ pub enum Request {
         radius: f64,
         until: Option<u32>,
     },
+    /// Cut a region out of a content (`rect` in the content's space) into
+    /// a one-page PDF with only the operations painting there: a binary
+    /// part (`ExtractInfo`).
+    ExtractRegion {
+        doc: DocId,
+        content: ContentRef,
+        rect: Rect,
+        select: RegionSelect,
+        /// Shrink the page to what is kept.
+        fit: bool,
+    },
     RawBytes {
         doc: DocId,
         offset: u64,
@@ -298,6 +309,7 @@ pub enum ResponseBody {
     FontUses(FontUsesView),
     Bitmap(BitmapInfo),
     Hits { ops: Vec<u32> },
+    Extract(ExtractInfo),
     Bytes(BytesInfo),
     Job(JobInfo),
     Batch { responses: Vec<Response> },

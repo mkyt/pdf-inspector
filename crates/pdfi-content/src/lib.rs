@@ -9,6 +9,7 @@
 //! again to paint it on a [`device::Device`].
 
 pub mod device;
+pub mod extract;
 pub mod geom;
 pub mod interp;
 pub mod op;

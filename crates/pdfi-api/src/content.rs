@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 
+use pdfi_content::extract::{Region, Select};
 use pdfi_content::interp::{self, Element, State};
 use pdfi_content::op::{Op, Operator};
 use pdfi_content::{Analysis, Target};
@@ -218,6 +219,48 @@ fn annot_layer(
             })
             .collect(),
     ))
+}
+
+pub fn extract(
+    d: &Doc,
+    c: ContentRef,
+    r: Rect,
+    select: RegionSelect,
+    fit: bool,
+    cancel: &dyn Fn() -> bool,
+    blobs: &mut Vec<Vec<u8>>,
+) -> Result<ResponseBody, ApiError> {
+    let a = analysis(d, c)?;
+    let content = d.content.on(d.model.on(&d.file));
+    let region = Region {
+        rect: pdfi_model::Rect {
+            x0: r.x0.min(r.x1),
+            y0: r.y0.min(r.y1),
+            x1: r.x0.max(r.x1),
+            y1: r.y0.max(r.y1),
+        },
+        select: match select {
+            RegionSelect::Inside => Select::Inside,
+            RegionSelect::Overlaps => Select::Overlaps,
+        },
+        fit,
+    };
+    let x = content.extract(&a, &region, cancel).map_err(|e| {
+        if cancel() {
+            ApiError::new(ErrorCode::Cancelled, "cancelled")
+        } else {
+            ApiError::new(ErrorCode::BadRequest, e)
+        }
+    })?;
+    Ok(ResponseBody::Extract(ExtractInfo {
+        bytes: x.pdf.len() as u64,
+        part: push_part(blobs, x.pdf),
+        media_box: rect(x.media_box),
+        kept: x.kept,
+        dropped: x.dropped,
+        forms: x.forms,
+        objects: x.objects,
+    }))
 }
 
 pub fn hit_test(
