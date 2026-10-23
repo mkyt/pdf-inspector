@@ -78,6 +78,31 @@ impl CidWidths {
     }
 }
 
+/// Vertical metrics of a CID font (`/W2`, `/DW2`), in glyph space.
+#[derive(Clone, Debug)]
+struct CidVertical {
+    /// (first CID, last CID, [w1y, v.x, v.y]).
+    ranges: Vec<(u32, u32, [f64; 3])>,
+    /// `/DW2`: v.y and w1y of the CIDs `/W2` does not list.
+    default: [f64; 2],
+}
+
+impl Default for CidVertical {
+    fn default() -> Self {
+        CidVertical {
+            ranges: Vec::new(),
+            default: [880.0, -1000.0],
+        }
+    }
+}
+
+impl CidVertical {
+    fn get(&self, cid: u32) -> Option<[f64; 3]> {
+        let k = self.ranges.partition_point(|r| r.1 < cid);
+        self.ranges.get(k).filter(|r| r.0 <= cid).map(|r| r.2)
+    }
+}
+
 /// `/CIDToGIDMap` of a CIDFontType2 font.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CidToGid {
@@ -210,6 +235,7 @@ pub struct Font {
     /// looked up after `cids`.
     predefined: Option<Arc<predefined::Predefined>>,
     cid_widths: CidWidths,
+    cid_vertical: CidVertical,
     unicode: HashMap<CodeKey, String>,
     /// Simple fonts: glyph names from `/Differences` (256 or empty).
     diff_names: Vec<Option<Box<str>>>,
@@ -346,14 +372,26 @@ impl Font {
         match self.kind {
             FontKind::Type0 => {
                 if self.vertical {
-                    // /W2 is not read: the default vertical metrics.
-                    -1.0
+                    self.vertical_metrics(c).0
                 } else {
                     self.cid_widths.get(self.cid(c)) * self.scale
                 }
             }
             _ => self.width(c.code) * self.scale,
         }
+    }
+
+    /// Vertical writing: the advance `w1y` (negative: down) and the
+    /// position vector `v` from the glyph's vertical origin to its
+    /// horizontal one subtracted (`/W2`, else `/DW2` with `v.x` half the
+    /// horizontal width), in text space per unit of font size.
+    pub fn vertical_metrics(&self, c: Code) -> (f64, f64, f64) {
+        let cid = self.cid(c);
+        let [w1y, vx, vy] = self.cid_vertical.get(cid).unwrap_or_else(|| {
+            let [vy, w1y] = self.cid_vertical.default;
+            [w1y, self.cid_widths.get(cid) / 2.0, vy]
+        });
+        (w1y * self.scale, vx * self.scale, vy * self.scale)
     }
 
     /// Width of a simple font's code in glyph space.
@@ -794,6 +832,7 @@ impl Font {
             cids: None,
             predefined: None,
             cid_widths: CidWidths::default(),
+            cid_vertical: CidVertical::default(),
             unicode: HashMap::new(),
             diff_names: Vec::new(),
             base_names: None,
@@ -1245,6 +1284,7 @@ fn type0(file: &PdfFile, d: &Dict, f: &mut Font) {
         }
     }
     f.cid_widths.ranges.sort_by_key(|r| r.0);
+    vertical_metrics(file, dd, f);
     if let Some(m) = dd.get_key("CIDToGIDMap") {
         let (mid, r) = resolve(file, m);
         f.cid_to_gid = match &*r {
@@ -1275,6 +1315,56 @@ fn type0(file: &PdfFile, d: &Dict, f: &mut Font) {
 }
 
 /// Code lengths of a predefined CMap, by the family its name tells.
+/// `/DW2` ([v.y w1y]) and `/W2` (`c [w1y vx vy ...]` or
+/// `first last w1y vx vy`) of a CID font.
+fn vertical_metrics(file: &PdfFile, dd: &Dict, f: &mut Font) {
+    let nums_of = |o: &Object| -> Vec<f64> {
+        let (_, r) = resolve(file, o);
+        r.as_array()
+            .map(|a| a.iter().filter_map(|n| num(file, &n.obj)).collect())
+            .unwrap_or_default()
+    };
+    if let Some(d) = dd.get_key("DW2").map(nums_of) {
+        if let [vy, w1y] = d[..] {
+            f.cid_vertical.default = [vy, w1y];
+        }
+    }
+    let Some(w) = dd.get_key("W2").map(|o| resolve(file, o).1) else {
+        return;
+    };
+    let Some(a) = w.as_array() else { return };
+    let v = &mut f.cid_vertical.ranges;
+    let mut i = 0;
+    while i < a.len() && v.len() <= cmap::MAX_ENTRIES {
+        let Some(first) = num(file, &a[i].obj) else {
+            break;
+        };
+        let first = first.max(0.0) as u32;
+        match a.get(i + 1).map(|n| resolve(file, &n.obj).1) {
+            Some(r) if r.as_array().is_some() => {
+                let m = nums_of(&r);
+                for (k, t) in m.chunks_exact(3).enumerate() {
+                    let c = first.saturating_add(k as u32);
+                    v.push((c, c, [t[0], t[1], t[2]]));
+                }
+                i += 2;
+            }
+            Some(r) => {
+                let last = r.as_f64().unwrap_or(0.0).max(0.0) as u32;
+                let t: Vec<f64> = (2..5)
+                    .filter_map(|k| a.get(i + k).and_then(|n| num(file, &n.obj)))
+                    .collect();
+                if let [w1y, vx, vy] = t[..] {
+                    v.push((first, last.max(first), [w1y, vx, vy]));
+                }
+                i += 5;
+            }
+            None => break,
+        }
+    }
+    v.sort_by_key(|r| r.0);
+}
+
 fn predefined_codes(name: &str) -> Codes {
     if name.contains("UCS2") {
         Codes::TwoBytes

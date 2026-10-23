@@ -1342,12 +1342,27 @@ impl<'r> Interp<'r> {
                         let spacing =
                             t.char_spacing + if f.is_space(c) { t.word_spacing } else { 0.0 };
                         let (ox, oy) = (x, y);
+                        // Vertical: the position vector (`/W2`, `/DW2`).
+                        let (_, vx, vy) = if f.vertical {
+                            f.vertical_metrics(c)
+                        } else {
+                            (0.0, 0.0, 0.0)
+                        };
                         let glyph = if f.vertical {
                             let ty = w0 * size + spacing;
+                            // Across: the horizontal width from the
+                            // horizontal origin (half an em each way
+                            // without one).
+                            let w = f.glyph_width(c) * f.scale;
+                            let (x0, x1) = if w > 0.0 {
+                                (-vx * size, (w - vx) * size)
+                            } else {
+                                (-0.5 * size, 0.5 * size)
+                            };
                             let r = Rect {
-                                x0: -0.5 * size,
+                                x0,
                                 y0: y + ty.min(0.0),
-                                x1: 0.5 * size,
+                                x1,
                                 y1: y + ty.max(0.0),
                             };
                             y += ty;
@@ -1366,10 +1381,9 @@ impl<'r> Interp<'r> {
                         bbox = Some(union(bbox, glyph));
                         if drawing {
                             // Vertical: the glyph's horizontal origin is
-                            // half its width left and 0.88 em below (the
-                            // default position vector).
+                            // the vertical one minus the position vector.
                             let (gx, gy) = if f.vertical {
-                                (-0.5 * f.glyph_width(c) * f.scale * size, oy - 0.88 * size)
+                                (-vx * size, oy - vy * size)
                             } else {
                                 (ox, oy + t.rise)
                             };

@@ -431,6 +431,10 @@ fn text() {
     assert_eq!(dark(290, 340, 542, 592).0, 0);
     let (n, w, h) = dark(290, 390, 592, 692);
     assert!(n > 100 && h > 3 * w, "{n} {w} {h}");
+    // /W2: the second hiragana a 150 below the first (not 100) and right
+    // of the vertical origin x = 440 (v.x 0, not half the width).
+    assert!(dark(440, 540, 700, 745).0 > 100);
+    assert_eq!(dark(400, 440, 600, 750).0, 0);
     let notes: Vec<&str> = o.notes.iter().map(|(n, _)| n.as_str()).collect();
     assert_eq!(
         notes,
@@ -439,6 +443,7 @@ fn text() {
             "font /F11 (PdfiGothic) is drawn with Harano Aji Gothic",
             "font /F12 (MS-Mincho) is drawn with Harano Aji Mincho",
             "font /F13 (Ryumin-Light-Identity-V) is drawn with Harano Aji Mincho",
+            "font /F14 (Ryumin-Light-Identity-V) is drawn with Harano Aji Mincho",
             "font /F8 (Helvetica) is drawn with Foxit Sans",
             "font /F9 (PdfiMissingCID) has no glyphs: text is drawn as boxes"
         ]

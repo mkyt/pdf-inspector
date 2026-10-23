@@ -455,8 +455,9 @@ BT /F10 100 Tf 470 350 Td <034B> Tj ET
 BT /F11 100 Tf 50 200 Td <0001> Tj ET
 BT /F12 100 Tf 170 200 Td <82A0> Tj ET
 BT /F13 100 Tf 340 300 Td <027A 0294> Tj ET
+BT /F14 100 Tf 440 300 Td <034B 034B> Tj ET
 """
-font_res = b" ".join(b"/F%d %d 0 R" % (i, 20 + i) for i in range(1, 14))
+font_res = b" ".join(b"/F%d %d 0 R" % (i, 20 + i) for i in range(1, 15))
 objs = {
     1: b"<< /Type /Catalog /Pages 2 0 R >>",
     2: b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 612 792] >>",
@@ -482,6 +483,10 @@ objs = {
     # Vertical (Identity-V) with the horizontal CIDs of 、 and ー (634,
     # 660): drawn with the substitute's vertical forms.
     33: b"<< /Type /Font /Subtype /Type0 /BaseFont /Ryumin-Light-Identity-V /Encoding /Identity-V /DescendantFonts [<< /Type /Font /Subtype /CIDFontType0 /BaseFont /Ryumin-Light /CIDSystemInfo << /Registry (Adobe) /Ordering (Japan1) /Supplement 4 >> /FontDescriptor 47 0 R >>] >>",
+    # Vertical metrics: /W2 gives the hiragana a an advance of 1.5 em and
+    # the position vector (0, 880), so the glyphs stand 150 apart, right
+    # of the vertical origin.
+    34: b"<< /Type /Font /Subtype /Type0 /BaseFont /Ryumin-Light-Identity-V /Encoding /Identity-V /DescendantFonts [<< /Type /Font /Subtype /CIDFontType0 /BaseFont /Ryumin-Light /CIDSystemInfo << /Registry (Adobe) /Ordering (Japan1) /Supplement 4 >> /FontDescriptor 47 0 R /DW2 [880 -1000] /W2 [843 [-1500 0 880]] >>] >>",
     47: desc(4, b""),
     48: desc(4, b""),
     41: desc(32, b"/FontFile2 61 0 R"),
