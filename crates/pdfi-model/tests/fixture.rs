@@ -274,8 +274,36 @@ fn annotation_appearances() {
     );
     assert!(!a[5].shown() && a[5].paint().is_none());
     assert!(a[6].appearance.is_none() && a[6].shown());
+    // Every appearance: N's states, then D's; a rollover beside N.
+    let v: Vec<_> = a[4]
+        .variants
+        .iter()
+        .map(|v| (v.kind.as_str(), v.state.as_deref(), v.id))
+        .collect();
+    assert_eq!(
+        v,
+        [
+            ("N", Some("On"), Some(id(23))),
+            ("N", Some("Off"), Some(id(24))),
+            ("D", Some("On"), Some(id(27)))
+        ]
+    );
+    assert_eq!(
+        a[4].paint_variant("D", Some("On")).map(|p| p.0),
+        Some(id(27))
+    );
+    assert_eq!(a[4].paint_variant("R", None), None);
+    assert_eq!(
+        a[2].paint_variant("R", None),
+        Some((id(26), [10.0, 0.0, 0.0, 10.0, 50.0, 200.0]))
+    );
     // States without /AS.
     let e = a[7].appearance.as_ref().unwrap();
     assert!(e.error.as_deref().unwrap().contains("no /AS"), "{e:?}");
     assert!(a[7].paint().is_none());
+    // ... can still be looked at one by one.
+    assert_eq!(
+        a[7].paint_variant("N", Some("On")).map(|p| p.0),
+        Some(id(23))
+    );
 }

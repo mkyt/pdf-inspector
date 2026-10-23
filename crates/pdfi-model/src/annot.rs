@@ -61,15 +61,18 @@ fn bounds(r: &Rect, m: &Matrix) -> Rect {
     }
 }
 
-/// The normal appearance (`/AP /N`) chosen for an annotation, and how it
-/// is put on the page.
+/// One appearance stream of an annotation's `/AP`, and how it is put on
+/// the page.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Appearance {
+    /// The `/AP` entry: `N` (normal), `R` (rollover) or `D` (down).
+    pub kind: String,
     /// The form XObject (`None` when it is a direct object, which cannot be).
     pub id: Option<ObjId>,
-    /// The `/AP /N` state used (by `/AS`), when `/N` is a dictionary.
+    /// The state, when the entry is a dictionary of states (the one `/AS`
+    /// chooses, for the normal appearance).
     pub state: Option<String>,
-    /// All states of `/N`, when it is a dictionary.
+    /// All states of the entry, when it is a dictionary.
     pub states: Vec<String>,
     /// The form's `/BBox`.
     pub bbox: Option<Rect>,
@@ -114,8 +117,14 @@ pub struct Annot {
     pub paths: Vec<Vec<(f64, f64)>>,
     /// The `/AP` entries present (`N`, `R`, `D`).
     pub appearances: Vec<String>,
-    /// The normal appearance, when there is one.
+    /// The normal appearance (by `/AS` when `/N` has states), when there
+    /// is one.
     pub appearance: Option<Appearance>,
+    /// Every appearance stream of `/AP` (`N`, `R`, `D`, each state), for
+    /// looking at the ones a viewer shows only on interaction.
+    pub variants: Vec<Appearance>,
+    /// `/AS`.
+    pub r#as: Option<String>,
     /// Where a link (or a widget's action) goes.
     pub link: Option<Link>,
     /// `/Parent` of a pop-up, `/IRT` of a reply.
@@ -146,6 +155,8 @@ impl Annot {
             paths: Vec::new(),
             appearances: Vec::new(),
             appearance: None,
+            variants: Vec::new(),
+            r#as: None,
             link: None,
             parent: None,
             popup: None,
@@ -169,6 +180,19 @@ impl Annot {
         }
         Some((a.id?, a.to_page?))
     }
+
+    /// Another appearance stream to paint instead (`/AP` entry `kind`,
+    /// state `state`), when it is shown and that one can be painted.
+    pub fn paint_variant(&self, kind: &str, state: Option<&str>) -> Option<(ObjId, Matrix)> {
+        let a = self
+            .variants
+            .iter()
+            .find(|v| v.kind == kind && v.state.as_deref() == state)?;
+        if !self.shown() || a.error.is_some() {
+            return None;
+        }
+        Some((a.id?, a.to_page?))
+    }
 }
 
 /// Points `(x, y)` from a flat list of numbers.
@@ -176,95 +200,120 @@ fn points(v: &[f64]) -> Vec<(f64, f64)> {
     v.chunks_exact(2).map(|p| (p[0], p[1])).collect()
 }
 
-fn appearance(f: &PdfFile, d: &pdfi_syntax::Dict, rect: Option<Rect>) -> Option<Appearance> {
-    let ap = get(f, d, "AP")?;
-    let n = ap.as_dict()?.get_key("N")?;
-    let (n_id, n_r) = resolve(f, n);
-    let mut state = None;
-    let mut states = Vec::new();
-    let mut error = None;
-    // A state's value, kept to resolve it.
-    let picked: pdfi_syntax::Object;
-    let (id, r) = match n_r.as_dict().filter(|_| n_r.as_stream().is_none()) {
-        None => (n_id, n_r),
-        Some(sd) => {
-            states = sd.iter().map(|(k, _)| name_str(k)).collect();
-            state = name(f, d, "AS").map(|n| name_str(&n));
-            let chosen = state.as_deref().and_then(|s| sd.get_key(s)).cloned();
-            let Some(v) = chosen else {
-                error = Some(match &state {
-                    None => "/AP /N has states but there is no /AS to choose one".into(),
-                    Some(s) => format!("/AS /{s} is not a state of /AP /N"),
-                });
-                return Some(Appearance {
-                    id: None,
-                    state,
-                    states,
-                    bbox: None,
-                    matrix: IDENTITY,
-                    to_page: None,
-                    error,
-                });
-            };
-            picked = v;
-            resolve(f, &picked)
-        }
+/// An appearance stream (`r`, object `id`) put on `rect`.
+fn form(
+    f: &PdfFile,
+    id: Option<ObjId>,
+    r: &pdfi_syntax::Object,
+    kind: &str,
+    state: Option<String>,
+    states: Vec<String>,
+    rect: Option<Rect>,
+) -> Appearance {
+    let mut a = Appearance {
+        kind: kind.into(),
+        id,
+        state,
+        states,
+        bbox: None,
+        matrix: IDENTITY,
+        to_page: None,
+        error: None,
     };
     let Some(s) = r.as_stream() else {
-        return Some(Appearance {
-            id,
-            state,
-            states,
-            bbox: None,
-            matrix: IDENTITY,
-            to_page: None,
-            error: Some(format!(
-                "the appearance is not a stream ({})",
-                r.type_name()
-            )),
-        });
+        a.error = Some(format!(
+            "the appearance is not a stream ({})",
+            r.type_name()
+        ));
+        return a;
     };
-    let bbox = s.dict.get_key("BBox").and_then(|b| Rect::read(f, b));
-    let matrix = s
+    a.bbox = s.dict.get_key("BBox").and_then(|b| Rect::read(f, b));
+    a.matrix = s
         .dict
         .get_key("Matrix")
         .and_then(|m| numbers(f, m))
         .and_then(|m| <[f64; 6]>::try_from(m).ok())
         .unwrap_or(IDENTITY);
-    let to_page = match (bbox, rect) {
-        (Some(b), Some(rect)) => {
-            let t = bounds(&b, &matrix);
-            let sx = if t.width() > 0.0 {
-                rect.width() / t.width()
-            } else {
-                1.0
-            };
-            let sy = if t.height() > 0.0 {
-                rect.height() / t.height()
-            } else {
-                1.0
-            };
-            let a = [sx, 0.0, 0.0, sy, rect.x0 - t.x0 * sx, rect.y0 - t.y0 * sy];
-            Some(mul(&matrix, &a))
-        }
-        _ => None,
-    };
-    if bbox.is_none() {
-        error = Some("the appearance stream has no valid /BBox".into());
-    } else if rect.is_none() {
-        error = Some("the annotation has no valid /Rect".into());
-    } else if id.is_none() {
-        error = Some("the appearance stream is a direct object".into());
+    if let (Some(b), Some(rect)) = (a.bbox, rect) {
+        let t = bounds(&b, &a.matrix);
+        let sx = if t.width() > 0.0 {
+            rect.width() / t.width()
+        } else {
+            1.0
+        };
+        let sy = if t.height() > 0.0 {
+            rect.height() / t.height()
+        } else {
+            1.0
+        };
+        let fit = [sx, 0.0, 0.0, sy, rect.x0 - t.x0 * sx, rect.y0 - t.y0 * sy];
+        a.to_page = Some(mul(&a.matrix, &fit));
     }
-    Some(Appearance {
-        id,
-        state,
-        states,
-        bbox,
-        matrix,
-        to_page,
-        error,
-    })
+    if a.bbox.is_none() {
+        a.error = Some("the appearance stream has no valid /BBox".into());
+    } else if rect.is_none() {
+        a.error = Some("the annotation has no valid /Rect".into());
+    } else if id.is_none() {
+        a.error = Some("the appearance stream is a direct object".into());
+    }
+    a
+}
+
+/// Every appearance stream of `/AP`, and the normal one chosen by `/AS`.
+fn appearances(
+    f: &PdfFile,
+    d: &pdfi_syntax::Dict,
+    rect: Option<Rect>,
+    r#as: Option<&str>,
+) -> (Option<Appearance>, Vec<Appearance>) {
+    let Some(ap) = get(f, d, "AP") else {
+        return (None, Vec::new());
+    };
+    let Some(ap) = ap.as_dict() else {
+        return (None, Vec::new());
+    };
+    let mut normal = None;
+    let mut all = Vec::new();
+    for kind in ["N", "R", "D"] {
+        let Some(v) = ap.get_key(kind) else { continue };
+        let (id, r) = resolve(f, v);
+        match r.as_dict().filter(|_| r.as_stream().is_none()) {
+            None => {
+                let a = form(f, id, &r, kind, None, Vec::new(), rect);
+                if kind == "N" {
+                    normal = Some(a.clone());
+                }
+                all.push(a);
+            }
+            Some(sd) => {
+                let states: Vec<String> = sd.iter().map(|(k, _)| name_str(k)).collect();
+                for (k, v) in sd {
+                    let (id, r) = resolve(f, &v.obj);
+                    let a = form(f, id, &r, kind, Some(name_str(k)), states.clone(), rect);
+                    if kind == "N" && r#as == Some(name_str(k).as_str()) {
+                        normal = Some(a.clone());
+                    }
+                    all.push(a);
+                }
+                if kind == "N" && normal.is_none() {
+                    normal = Some(Appearance {
+                        kind: kind.into(),
+                        id: None,
+                        state: r#as.map(Into::into),
+                        states,
+                        bbox: None,
+                        matrix: IDENTITY,
+                        to_page: None,
+                        error: Some(match r#as {
+                            None => "/AP /N has states but there is no /AS to choose one".into(),
+                            Some(s) => format!("/AS /{s} is not a state of /AP /N"),
+                        }),
+                    });
+                }
+            }
+        }
+    }
+    (normal, all)
 }
 
 impl Model<'_> {
@@ -336,7 +385,8 @@ impl Model<'_> {
                             .map(|ap| ap.iter().map(|(k, _)| name_str(k)).collect())
                     })
                     .unwrap_or_default();
-                a.appearance = appearance(f, d, a.rect);
+                a.r#as = name(f, d, "AS").map(|n| name_str(&n));
+                (a.appearance, a.variants) = appearances(f, d, a.rect, a.r#as.as_deref());
                 a.link = self.link(d);
                 a.parent = d
                     .get_key("Parent")

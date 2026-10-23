@@ -53,6 +53,7 @@ pub fn typescript() -> String {
         OutlineItem::decl(&cfg),
         AnnotInfo::decl(&cfg),
         AppearanceInfo::decl(&cfg),
+        AppearancePick::decl(&cfg),
         InfoEntry::decl(&cfg),
         Feature::decl(&cfg),
         DocumentView::decl(&cfg),

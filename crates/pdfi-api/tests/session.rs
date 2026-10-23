@@ -580,3 +580,46 @@ fn object_classes_filters_and_ref_paths() {
     assert_eq!(path.steps[1].key, "/Pages");
     assert!(path.steps.last().unwrap().key.starts_with("/Kids["));
 }
+
+#[test]
+fn annotation_layer_picks_appearances() {
+    let (s, _) = session();
+    let doc = open(&s, "annots.pdf", None).info.doc;
+    let pixel = |pick: Vec<AppearancePick>, x: usize, y: usize| {
+        let (b, blobs) = ok(s.dispatch(Request::Render {
+            doc,
+            content: ContentRef::Page { index: 0 },
+            scale: 1.0,
+            tile: None,
+            until: None,
+            layer: RenderLayer::Annots { only: None, pick },
+        }));
+        let ResponseBody::Bitmap(info) = b else {
+            panic!("{b:?}")
+        };
+        let i = (y * info.rect.width as usize + x) * 4;
+        blobs[info.part as usize][i..i + 4].to_vec()
+    };
+    let pick = |index, kind: &str, state: Option<&str>| AppearancePick {
+        index,
+        kind: kind.into(),
+        state: state.map(Into::into),
+    };
+    // The square's rollover, the checkbox pressed, and its other state.
+    assert_eq!(pixel(vec![], 100, 150), [255, 0, 0, 255]);
+    assert_eq!(
+        pixel(vec![pick(2, "R", None)], 100, 150),
+        [255, 128, 0, 255]
+    );
+    assert_eq!(
+        pixel(vec![pick(4, "D", Some("On"))], 320, 180),
+        [0, 102, 0, 255]
+    );
+    assert_eq!(pixel(vec![pick(4, "N", Some("Off"))], 320, 180)[3], 0);
+    // States without /AS: not painted, unless one is picked.
+    assert_eq!(pixel(vec![], 360, 40)[3], 0);
+    assert_eq!(
+        pixel(vec![pick(7, "N", Some("On"))], 360, 40),
+        [0, 255, 0, 255]
+    );
+}

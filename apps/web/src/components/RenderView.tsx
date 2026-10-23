@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { api, useBackend } from "../api";
 import { contentKey, useNav } from "../nav";
-import type { ContentRef, ContentSummary, PixelRect, RenderLayer, RenderNote } from "../protocol/generated";
+import type { AppearancePick, ContentRef, ContentSummary, PixelRect, RenderLayer, RenderNote } from "../protocol/generated";
 import { AnnotCard, AnnotOverlay, annotsAt, toView } from "./AnnotOverlay";
 import classes from "./RenderView.module.css";
 
@@ -15,7 +15,6 @@ const HIT_RADIUS = 4;
 const MAX_HIGHLIGHT = 2048;
 /** Annotations of a page fetched for the overlay. */
 const MAX_ANNOTS = 2000;
-const ANNOTS_LAYER: RenderLayer = { kind: "annots", only: null };
 const ZOOMS = [0.1, 0.17, 0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8, 12, 16];
 
 /** Bitmap size in device pixels, as the backend computes it. */
@@ -77,8 +76,12 @@ export function RenderView({
   const annot = annotProp !== undefined ? annotProp : ownAnnot;
   const setAnnot = onAnnot ?? setOwnAnnot;
   const [showAp, setShowAp] = useState(true);
+  // Appearances shown instead of the normal ones (rollover, down, other states), by annotation.
+  const [picks, setPicks] = useState<Record<number, AppearancePick>>({});
+  const annotsLayer = useMemo<RenderLayer>(() => ({ kind: "annots", only: null, pick: Object.values(picks) }), [picks]);
   const [showOutlines, setShowOutlines] = useState(true);
   const page = content.kind === "page" ? content.index : null;
+  useEffect(() => setPicks({}), [page]);
   const annotsQ = useQuery({
     queryKey: ["doc", nav.doc, "annots", page, "overlay"],
     queryFn: () => api.annotations(backend, nav.doc, page!, { offset: 0, limit: MAX_ANNOTS }),
@@ -274,7 +277,7 @@ export function RenderView({
             />
           ))}
           {showAp &&
-            annots.some((a) => a.appearance?.to_page) &&
+            annots.some((a) => a.variants.some((x) => x.to_page)) &&
             tiles.map((t) => (
               <Tile
                 key={`a${t.x},${t.y}`}
@@ -283,7 +286,7 @@ export function RenderView({
                 until={null}
                 tile={t}
                 dpr={dpr}
-                layer={ANNOTS_LAYER}
+                layer={annotsLayer}
                 onNotes={onNotes}
               />
             ))}
@@ -307,6 +310,7 @@ export function RenderView({
               view={v}
               zoom={z}
               selected={annot}
+              picks={picks}
               onSelect={(i) => setAnnot(i === annot ? null : i)}
             />
           )}
@@ -317,6 +321,15 @@ export function RenderView({
           a={selAnnot}
           total={annotsQ.data?.total ?? annots.length}
           contentOps={summary.ops}
+          pick={picks[selAnnot.index] ?? null}
+          onPick={(p) =>
+            setPicks((old) => {
+              const next = { ...old };
+              if (p) next[selAnnot.index] = p;
+              else delete next[selAnnot.index];
+              return next;
+            })
+          }
           onClose={() => setAnnot(null)}
         />
       )}
@@ -357,7 +370,7 @@ function Tile({
   const nav = useNav();
   const canvas = useRef<HTMLCanvasElement>(null);
   const q = useQuery({
-    queryKey: ["doc", nav.doc, "content", ...contentKey(content), "render", layer.kind, scale, until, tile.x, tile.y, tile.width, tile.height],
+    queryKey: ["doc", nav.doc, "content", ...contentKey(content), "render", JSON.stringify(layer), scale, until, tile.x, tile.y, tile.width, tile.height],
     queryFn: ({ signal }) => api.render(backend, nav.doc, content, scale, tile, until, layer, signal),
     // Keep showing the previous bitmap while a new one (step, zoom) renders.
     placeholderData: (prev) => prev,

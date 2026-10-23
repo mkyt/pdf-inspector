@@ -256,6 +256,19 @@ pub fn annotations(d: &Doc, page_index: u32, range: Range) -> Result<Page<AnnotI
     })
 }
 
+fn appearance_info(p: pdfi_model::annot::Appearance) -> AppearanceInfo {
+    AppearanceInfo {
+        kind: p.kind,
+        id: p.id.map(Into::into),
+        state: p.state,
+        states: p.states,
+        bbox: p.bbox.map(rect),
+        matrix: p.matrix.to_vec(),
+        to_page: p.to_page.map(|m| m.to_vec()),
+        error: p.error,
+    }
+}
+
 fn annot_info(a: pdfi_model::annot::Annot) -> AnnotInfo {
     let shown = a.shown();
     AnnotInfo {
@@ -287,15 +300,9 @@ fn annot_info(a: pdfi_model::annot::Annot) -> AnnotInfo {
             .map(|p| p.iter().flat_map(|&(x, y)| [x, y]).collect())
             .collect(),
         appearances: a.appearances,
-        appearance: a.appearance.map(|p| AppearanceInfo {
-            id: p.id.map(Into::into),
-            state: p.state,
-            states: p.states,
-            bbox: p.bbox.map(rect),
-            matrix: p.matrix.to_vec(),
-            to_page: p.to_page.map(|m| m.to_vec()),
-            error: p.error,
-        }),
+        appearance: a.appearance.map(appearance_info),
+        variants: a.variants.into_iter().map(appearance_info).collect(),
+        as_state: a.r#as,
         link: a.link.map(link),
         parent: a.parent.map(Into::into),
         popup: a.popup.map(Into::into),

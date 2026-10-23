@@ -1,8 +1,8 @@
-import { Anchor, Badge, CloseButton, Group, Paper, Stack, Table, Text } from "@mantine/core";
+import { Anchor, Badge, Button, CloseButton, Group, Paper, Stack, Table, Text } from "@mantine/core";
 import type { ReactNode } from "react";
 import { rectText } from "../format";
 import { useNav } from "../nav";
-import type { AnnotInfo, Rect, ViewInfo } from "../protocol/generated";
+import type { AnnotInfo, AppearanceInfo, AppearancePick, Rect, ViewInfo } from "../protocol/generated";
 import { ObjLink } from "./DocumentPanel";
 import { LinkView } from "./LinkView";
 
@@ -42,6 +42,14 @@ function ink(a: AnnotInfo): string {
   const [r, g, b] = c.length === 1 ? [c[0], c[0], c[0]] : c;
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.6 ? "black" : "white";
 }
+
+/** The appearance painted for an annotation: the one picked, else the normal one. */
+export function shownAppearance(a: AnnotInfo, pick: AppearancePick | null): AppearanceInfo | null {
+  if (!pick) return a.appearance;
+  return a.variants.find((v) => v.kind === pick.kind && v.state === pick.state) ?? null;
+}
+
+const variantText = (v: { kind: string; state: string | null }) => `/${v.kind}${v.state ? ` /${v.state}` : ""}`;
 
 const matrixAttr = (m: number[]) => `matrix(${m.join(" ")})`;
 
@@ -90,9 +98,12 @@ export function AnnotOverlay({
   view,
   zoom,
   selected,
+  picks,
   onSelect,
 }: {
   annots: AnnotInfo[];
+  /** Appearances painted instead of the normal ones. */
+  picks: Record<number, AppearancePick>;
   view: ViewInfo;
   /** CSS pixels per point. */
   zoom: number;
@@ -100,7 +111,7 @@ export function AnnotOverlay({
   onSelect: (index: number) => void;
 }) {
   const sel = annots.find((a) => a.index === selected) ?? null;
-  const ap = sel?.appearance;
+  const ap = sel ? shownAppearance(sel, picks[sel.index] ?? null) : null;
   return (
     <>
       <svg
@@ -234,6 +245,8 @@ export function AnnotCard({
   a,
   total,
   contentOps,
+  pick,
+  onPick,
   onClose,
 }: {
   a: AnnotInfo;
@@ -241,10 +254,15 @@ export function AnnotCard({
   total: number;
   /** Operations of the page's content (painted before every annotation). */
   contentOps: number;
+  /** The appearance painted instead of the normal one. */
+  pick: AppearancePick | null;
+  onPick: (p: AppearancePick | null) => void;
   onClose: () => void;
 }) {
   const nav = useNav();
-  const ap = a.appearance;
+  const ap = shownAppearance(a, pick);
+  const normal = a.appearance;
+  const isNormal = (v: AppearanceInfo) => !!normal && !normal.error && v.kind === normal.kind && v.state === normal.state;
   const color = annotColor(a.color);
   const painted = a.shown && ap && !ap.error && ap.id && ap.to_page;
   return (
@@ -262,6 +280,34 @@ export function AnnotCard({
           ))}
           <CloseButton size="xs" ml="auto" onClick={onClose} aria-label="Close" />
         </Group>
+        {a.variants.length > 1 || (a.variants.length === 1 && !!normal?.error) ? (
+          <Group gap={4}>
+            <Text size="xs" c="dimmed">
+              Appearance:
+            </Text>
+            {a.variants.map((v) => {
+              const on = pick ? v.kind === pick.kind && v.state === pick.state : isNormal(v);
+              return (
+                <Button
+                  key={variantText(v)}
+                  size="compact-xs"
+                  variant={on ? "filled" : "light"}
+                  color={v.error ? "orange" : undefined}
+                  title={v.error ?? (isNormal(v) ? "What a viewer shows (chosen by /AS)" : undefined)}
+                  onClick={() => onPick(isNormal(v) ? null : { index: a.index, kind: v.kind, state: v.state })}
+                >
+                  {variantText(v)}
+                  {isNormal(v) ? " ·AS" : ""}
+                </Button>
+              );
+            })}
+            {pick && (
+              <Text size="xs" c="orange.8">
+                (not what a viewer shows at rest)
+              </Text>
+            )}
+          </Group>
+        ) : null}
         <Text size="xs" c="dimmed">
           {painted
             ? `Painted over all ${contentOps.toLocaleString()} content operations${a.index > 0 ? ` and annotations [0]–[${a.index - 1}]` : ""}; ${total - a.index - 1} annotation${total - a.index - 1 === 1 ? "" : "s"} above it.`
@@ -325,7 +371,7 @@ export function AnnotCard({
             <Row k="/AP">{a.appearances.length > 0 ? a.appearances.map((k) => `/${k}`).join(" ") : "none"}</Row>
             {ap && (
               <>
-                <Row k="Normal">
+                <Row k={ap.kind === "N" ? "Normal" : ap.kind === "R" ? "Rollover" : "Down"}>
                   {ap.id ? (
                     <Anchor
                       size="xs"
@@ -340,7 +386,7 @@ export function AnnotCard({
                   {ap.states.length > 0 && (
                     <Text span size="xs" c="dimmed">
                       {" "}
-                      · /AS {ap.state ? `/${ap.state}` : "missing"} of {ap.states.map((s) => `/${s}`).join(" ")}
+                      · {pick ? "state" : "/AS"} {ap.state ? `/${ap.state}` : "missing"} of {ap.states.map((s) => `/${s}`).join(" ")}
                     </Text>
                   )}
                 </Row>

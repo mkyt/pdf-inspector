@@ -145,7 +145,7 @@ pub fn render(
         layer: match layer {
             RenderLayer::Content => pdfi_render::Layer::Content,
             RenderLayer::Highlight { ops } => pdfi_render::Layer::Highlight(ops),
-            RenderLayer::Annots { only } => annot_layer(d, c, only)?,
+            RenderLayer::Annots { only, pick } => annot_layer(d, c, only, &pick)?,
         },
     };
     let content = d.content.on(d.model.on(&d.file));
@@ -188,6 +188,7 @@ fn annot_layer(
     d: &Doc,
     c: ContentRef,
     only: Option<Vec<u32>>,
+    pick: &[AppearancePick],
 ) -> Result<pdfi_render::Layer, ApiError> {
     let ContentRef::Page { index } = c else {
         return Err(ApiError::new(
@@ -205,7 +206,10 @@ fn annot_layer(
             .iter()
             .filter(|a| only.as_ref().is_none_or(|o| o.contains(&(a.index as u32))))
             .filter_map(|a| {
-                let (id, matrix) = a.paint()?;
+                let (id, matrix) = match pick.iter().find(|p| p.index as usize == a.index) {
+                    Some(p) => a.paint_variant(&p.kind, p.state.as_deref())?,
+                    None => a.paint()?,
+                };
                 Some(pdfi_render::AnnotPaint {
                     id,
                     matrix,

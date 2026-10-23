@@ -26,13 +26,13 @@ endobj
 << /Type /Annot /Subtype /Popup /Rect [220 300 380 380] /Parent 10 0 R >>
 endobj
 12 0 obj
-<< /Type /Annot /Subtype /Square /Rect [50 200 150 300] /C [1 0 0] /BS << /W 2 >> /AP << /N 21 0 R >> >>
+<< /Type /Annot /Subtype /Square /Rect [50 200 150 300] /C [1 0 0] /BS << /W 2 >> /AP << /N 21 0 R /R 26 0 R >> >>
 endobj
 13 0 obj
 << /Type /Annot /Subtype /FreeText /Rect [200 150 240 290] /DA (/Helv 12 Tf 0 g) /AP << /N 22 0 R >> >>
 endobj
 14 0 obj
-<< /Type /Annot /Subtype /Widget /FT /Btn /Rect [300 200 340 240] /AS /On /AP << /N << /On 23 0 R /Off 24 0 R >> >> >>
+<< /Type /Annot /Subtype /Widget /FT /Btn /Rect [300 200 340 240] /AS /On /AP << /N << /On 23 0 R /Off 24 0 R >> /D << /On 27 0 R >> >> >>
 endobj
 15 0 obj
 << /Type /Annot /Subtype /Ink /F 2 /Rect [260 40 380 120] /InkList [[270 50 300 100 330 60 370 110]] /AP << /N 25 0 R >> >>
@@ -84,8 +84,22 @@ stream
 
 endstream
 endobj
+26 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length 26 >>
+stream
+1 0.5 0 rg 0 0 10 10 re f
+
+endstream
+endobj
+27 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 40 40] /Length 26 >>
+stream
+0 0.4 0 rg 0 0 40 40 re f
+
+endstream
+endobj
 xref
-0 26
+0 28
 0000000000 65535 f
 0000000015 00000 n
 0000000064 00000 n
@@ -99,21 +113,23 @@ xref
 0000000498 00000 n
 0000000746 00000 n
 0000000836 00000 n
-0000000957 00000 n
-0000001077 00000 n
-0000001212 00000 n
-0000001352 00000 n
-0000001439 00000 n
+0000000967 00000 n
+0000001087 00000 n
+0000001242 00000 n
+0000001382 00000 n
+0000001469 00000 n
 0000000000 00000 f
 0000000000 00000 f
-0000001554 00000 n
-0000001686 00000 n
-0000001809 00000 n
-0000001957 00000 n
-0000002080 00000 n
-0000002178 00000 n
+0000001584 00000 n
+0000001716 00000 n
+0000001839 00000 n
+0000001987 00000 n
+0000002110 00000 n
+0000002208 00000 n
+0000002365 00000 n
+0000002490 00000 n
 trailer
-<< /Size 26 /Root 1 0 R >>
+<< /Size 28 /Root 1 0 R >>
 startxref
-2335
+2615
 %%EOF

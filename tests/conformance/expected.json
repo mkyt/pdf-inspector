@@ -5,7 +5,7 @@
       "ok": {
         "backend": null,
         "filesystem": null,
-        "protocol": 8,
+        "protocol": 9,
         "type": "hello",
         "version": "0.1.0"
       }
@@ -16,7 +16,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 999, backend speaks 8"
+        "message": "client speaks protocol 999, backend speaks 9"
       }
     }
   },
@@ -4606,6 +4606,7 @@
           {
             "appearance": null,
             "appearances": [],
+            "as_state": null,
             "author": null,
             "border": null,
             "color": null,
@@ -4650,11 +4651,13 @@
             },
             "shown": true,
             "subject": null,
-            "subtype": "Link"
+            "subtype": "Link",
+            "variants": []
           },
           {
             "appearance": null,
             "appearances": [],
+            "as_state": null,
             "author": null,
             "border": null,
             "color": null,
@@ -4687,11 +4690,13 @@
             },
             "shown": true,
             "subject": null,
-            "subtype": "Link"
+            "subtype": "Link",
+            "variants": []
           },
           {
             "appearance": null,
             "appearances": [],
+            "as_state": null,
             "author": null,
             "border": null,
             "color": null,
@@ -4726,11 +4731,13 @@
             },
             "shown": true,
             "subject": null,
-            "subtype": "Text"
+            "subtype": "Text",
+            "variants": []
           },
           {
             "appearance": null,
             "appearances": [],
+            "as_state": null,
             "author": null,
             "border": null,
             "color": null,
@@ -4763,7 +4770,8 @@
             },
             "shown": true,
             "subject": null,
-            "subtype": "Popup"
+            "subtype": "Popup",
+            "variants": []
           }
         ],
         "offset": 0,

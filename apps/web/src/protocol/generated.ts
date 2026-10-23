@@ -1,6 +1,6 @@
 // Generated from crates/pdfi-api by `UPDATE_TS=1 cargo test -p pdfi-api`. Do not edit.
 
-export const PROTOCOL_VERSION = 8;
+export const PROTOCOL_VERSION = 9;
 
 export type DocId = number;
 export type JobId = number;
@@ -320,9 +320,17 @@ paths: Array<Array<number>>,
  */
 appearances: Array<string>, 
 /**
- * The normal appearance.
+ * The normal appearance (by `/AS` when `/N` has states).
  */
-appearance: AppearanceInfo | null, link: LinkTarget | null, 
+appearance: AppearanceInfo | null, 
+/**
+ * Every appearance stream of `/AP`: `N`, `R`, `D`, each state.
+ */
+variants: Array<AppearanceInfo>, 
+/**
+ * `/AS`.
+ */
+as_state: string | null, link: LinkTarget | null, 
 /**
  * `/Parent` of a pop-up, `/IRT` of a reply.
  */
@@ -334,11 +342,16 @@ popup: ObjRef | null, error: string | null, };
 
 export type AppearanceInfo = { 
 /**
+ * The `/AP` entry: `N` (normal), `R` (rollover) or `D` (down).
+ */
+kind: string, 
+/**
  * The form XObject (open it as a `stream` content).
  */
 id: ObjRef | null, 
 /**
- * The `/AS` state chosen, when `/N` has states.
+ * The state, when the entry has states (for the normal appearance,
+ * the one `/AS` chooses).
  */
 state: string | null, states: Array<string>, 
 /**
@@ -358,6 +371,12 @@ to_page: Array<number> | null,
  * Why it is not painted.
  */
 error: string | null, };
+
+export type AppearancePick = { 
+/**
+ * Position in the page's `/Annots`.
+ */
+index: number, kind: string, state: string | null, };
 
 export type InfoEntry = { key: string, text: string, 
 /**
@@ -607,7 +626,11 @@ matrix: Array<number>, rotate: number, };
 
 export type PixelRect = { x: number, y: number, width: number, height: number, };
 
-export type RenderLayer = { "kind": "content" } | { "kind": "highlight", ops: Array<number>, } | { "kind": "annots", only: Array<number> | null, };
+export type RenderLayer = { "kind": "content" } | { "kind": "highlight", ops: Array<number>, } | { "kind": "annots", only: Array<number> | null, 
+/**
+ * Appearances to paint instead of the normal one.
+ */
+pick: Array<AppearancePick>, };
 
 export type RenderNote = { 
 /**

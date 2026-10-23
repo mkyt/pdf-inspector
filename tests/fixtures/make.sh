@@ -818,7 +818,8 @@ python3 -I - <<'PY'
 # Annotations (pdfi-model, pdfi-render): appearance streams put on the
 # page by /Matrix and the fit of /BBox to /Rect (same box, a 10x scale, a
 # 90-degree turn), a state chosen by /AS, a hidden one, one without an
-# appearance and one whose state cannot be chosen; markup entries.
+# appearance and one whose state cannot be chosen; markup entries; a
+# rollover (/R) and a down appearance with a state (/D).
 objs, streams = {}, {}
 objs[1] = b"<< /Type /Catalog /Pages 2 0 R >>"
 objs[2] = b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 400 400] >>"
@@ -827,9 +828,9 @@ streams[4] = (b"<< /Length %d >>", b"0.8 g 40 40 320 80 re f BT /F1 24 Tf 44 340
 objs[5] = b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
 objs[10] = b"<< /Type /Annot /Subtype /Highlight /Rect [40 330 200 370] /QuadPoints [40 370 200 370 40 330 200 330] /C [1 1 0] /CA 0.5 /T (Alice) /M (D:20240131123456Z) /Contents (Check this) /NM (hl-1) /F 4 /Popup 11 0 R /AP << /N 20 0 R >> >>"
 objs[11] = b"<< /Type /Annot /Subtype /Popup /Rect [220 300 380 380] /Parent 10 0 R >>"
-objs[12] = b"<< /Type /Annot /Subtype /Square /Rect [50 200 150 300] /C [1 0 0] /BS << /W 2 >> /AP << /N 21 0 R >> >>"
+objs[12] = b"<< /Type /Annot /Subtype /Square /Rect [50 200 150 300] /C [1 0 0] /BS << /W 2 >> /AP << /N 21 0 R /R 26 0 R >> >>"
 objs[13] = b"<< /Type /Annot /Subtype /FreeText /Rect [200 150 240 290] /DA (/Helv 12 Tf 0 g) /AP << /N 22 0 R >> >>"
-objs[14] = b"<< /Type /Annot /Subtype /Widget /FT /Btn /Rect [300 200 340 240] /AS /On /AP << /N << /On 23 0 R /Off 24 0 R >> >> >>"
+objs[14] = b"<< /Type /Annot /Subtype /Widget /FT /Btn /Rect [300 200 340 240] /AS /On /AP << /N << /On 23 0 R /Off 24 0 R >> /D << /On 27 0 R >> >> >>"
 objs[15] = b"<< /Type /Annot /Subtype /Ink /F 2 /Rect [260 40 380 120] /InkList [[270 50 300 100 330 60 370 110]] /AP << /N 25 0 R >> >>"
 objs[16] = b"<< /Type /Annot /Subtype /Text /Rect [20 20 40 40] /Contents (Note) >>"
 objs[17] = b"<< /Type /Annot /Subtype /Widget /FT /Btn /Rect [340 340 380 380] /AP << /N << /On 23 0 R >> >> >>"
@@ -839,6 +840,8 @@ streams[21] = (form % (b"0 0 10 10", b""), b"1 0 0 rg 0 0 10 10 re f\n")
 streams[22] = (form % (b"0 0 140 40", b" /Matrix [0 1 -1 0 0 0]"), b"0 0 1 rg 0 0 140 40 re f\n")
 streams[23] = (form % (b"0 0 40 40", b""), b"0 1 0 rg 0 0 40 40 re f\n")
 streams[24] = (form % (b"0 0 40 40", b""), b"")
+streams[26] = (form % (b"0 0 10 10", b""), b"1 0.5 0 rg 0 0 10 10 re f\n")
+streams[27] = (form % (b"0 0 40 40", b""), b"0 0.4 0 rg 0 0 40 40 re f\n")
 streams[25] = (form % (b"260 40 380 120", b""), b"1 0 1 RG 4 w 270 50 m 300 100 l 330 60 l 370 110 l S\n")
 out = bytearray(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")
 offsets = {}

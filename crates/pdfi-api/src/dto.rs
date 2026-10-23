@@ -661,8 +661,12 @@ pub struct AnnotInfo {
     pub paths: Vec<Vec<f64>>,
     /// The `/AP` entries present (`N`, `R`, `D`).
     pub appearances: Vec<String>,
-    /// The normal appearance.
+    /// The normal appearance (by `/AS` when `/N` has states).
     pub appearance: Option<AppearanceInfo>,
+    /// Every appearance stream of `/AP`: `N`, `R`, `D`, each state.
+    pub variants: Vec<AppearanceInfo>,
+    /// `/AS`.
+    pub as_state: Option<String>,
     pub link: Option<LinkTarget>,
     /// `/Parent` of a pop-up, `/IRT` of a reply.
     pub parent: Option<ObjRef>,
@@ -675,9 +679,12 @@ pub struct AnnotInfo {
 /// (ISO 32000-2 12.5.5).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct AppearanceInfo {
+    /// The `/AP` entry: `N` (normal), `R` (rollover) or `D` (down).
+    pub kind: String,
     /// The form XObject (open it as a `stream` content).
     pub id: Option<ObjRef>,
-    /// The `/AS` state chosen, when `/N` has states.
+    /// The state, when the entry has states (for the normal appearance,
+    /// the one `/AS` chooses).
     pub state: Option<String>,
     pub states: Vec<String>,
     /// The form's `/BBox`, in form space.
@@ -1044,7 +1051,22 @@ pub enum RenderLayer {
     /// A page's annotation appearances (those shown, or only these
     /// `/Annots` indices) on transparent, instead of the content: they are
     /// painted over it in this order.
-    Annots { only: Option<Vec<u32>> },
+    Annots {
+        only: Option<Vec<u32>>,
+        /// Appearances to paint instead of the normal one.
+        #[serde(default)]
+        pick: Vec<AppearancePick>,
+    },
+}
+
+/// Another appearance of an annotation to paint: `/AP` entry `kind`
+/// (`N`, `R`, `D`) and its state.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct AppearancePick {
+    /// Position in the page's `/Annots`.
+    pub index: u32,
+    pub kind: String,
+    pub state: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
