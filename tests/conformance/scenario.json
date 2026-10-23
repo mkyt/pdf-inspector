@@ -178,6 +178,27 @@
     { "request": { "op": "close", "doc": 7 } },
     { "request": { "op": "close", "doc": 7 } },
     { "request": { "op": "summary", "doc": 7 } },
-    { "request": { "op": "docs" } }
+    { "request": { "op": "docs" } },
+    { "request": { "op": "apply", "doc": 9, "label": "several edits", "commands": [
+      { "op": "setInfo", "key": "Title", "value": "Conformance", "sync_xmp": true },
+      { "op": "setEntry", "node": { "root": { "kind": "object", "id": { "num": 1, "generation": 0 } }, "path": [] }, "key": "/PageLayout", "value": "/OneColumn" },
+      { "op": "deletePages", "pages": [1] },
+      { "op": "insertBlankPage", "at": 0, "width": 200, "height": 100 },
+      { "op": "rotatePages", "pages": [0], "by": 270 },
+      { "op": "addObject", "value": "<< /Type /Example >>", "data": { "kind": "base64", "data": "aGVsbG8=" } }
+    ] } },
+    { "request": { "op": "summary", "doc": 9 } },
+    { "request": { "op": "pages", "doc": 9, "range": { "offset": 0, "limit": 10 } } },
+    { "request": { "op": "object", "doc": 9, "id": { "num": 1, "generation": 0 } } },
+    { "request": { "op": "streamData", "doc": 9, "id": { "num": 92, "generation": 0 }, "decoded": true, "offset": 0, "len": 100 } },
+    { "request": { "op": "objects", "doc": 9, "range": { "offset": 88, "limit": 10 } } },
+    { "request": { "op": "apply", "doc": 9, "label": "bad", "commands": [{ "op": "setValue", "node": { "root": { "kind": "object", "id": { "num": 1, "generation": 0 } }, "path": [] }, "value": "<< /A" }] } },
+    { "request": { "op": "undo", "doc": 9 } },
+    { "request": { "op": "pages", "doc": 9, "range": { "offset": 0, "limit": 10 } } },
+    { "request": { "op": "redo", "doc": 9 } },
+    { "request": { "op": "redo", "doc": 9 } },
+    { "request": { "op": "apply", "doc": 9, "label": "copy", "commands": [{ "op": "insertPages", "at": 99, "from": 12, "pages": [0] }, { "op": "movePages", "pages": [5], "to": 0 }] } },
+    { "request": { "op": "document", "doc": 9 } },
+    { "request": { "op": "pages", "doc": 9, "range": { "offset": 0, "limit": 10 } } }
   ]
 }

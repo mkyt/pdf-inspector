@@ -8,6 +8,17 @@
   &[data-selected] {
     background: var(--mantine-primary-color-light);
   }
+
+  &:hover .menu,
+  & .menu[data-expanded] {
+    visibility: visible;
+  }
+}
+
+.menu {
+  flex-shrink: 0;
+  margin-left: 4px;
+  visibility: hidden;
 }
 
 .toggle {

@@ -152,5 +152,60 @@ for (let i = 0; i < Math.max(actual.length, expected.length); i++) {
   }
 }
 
+// Saving through the host (browser mode): written chunk by chunk to a file
+// handle, then reopened from it. An in-memory handle stands in for the
+// File System Access API.
+{
+  let written: Uint8Array[] = [];
+  let file: Uint8Array | null = null;
+  const handle = {
+    createWritable: async () => ({
+      write: async (d: Uint8Array) => void written.push(d.slice()),
+      close: async () => {
+        file = new Uint8Array(written.reduce((n, d) => n + d.length, 0));
+        let o = 0;
+        for (const d of written) {
+          file.set(d, o);
+          o += d.length;
+        }
+        written = [];
+      },
+      abort: async () => void (written = []),
+    }),
+    getFile: async () => {
+      const blob = new File([file!], "saved.pdf");
+      bytesOf.set(blob, file!);
+      return blob;
+    },
+  };
+  const original = new Uint8Array(read("tests/fixtures/model.pdf"));
+  const blob = new Blob([original]);
+  bytesOf.set(blob, original);
+  const o = ++nextId;
+  const opened = await call(o, { kind: "open", id: o, file: blob, name: "model.pdf", password: null, recover: false });
+  const doc = "ok" in opened.response && opened.response.ok.type === "doc" ? opened.response.ok.info.doc : -1;
+  await request({ op: "apply", doc, label: "delete", commands: [{ op: "deletePages", pages: [0] }] });
+  const id = ++nextId;
+  const r = await call(id, { kind: "save", id, doc, mode: { kind: "incremental" }, handle });
+  const saved = file as Uint8Array | null;
+  const ok =
+    "ok" in r.response &&
+    r.response.ok.type === "saved" &&
+    r.response.ok.summary.pages === 4 &&
+    r.response.ok.summary.revisions.length === 2 &&
+    !r.response.ok.summary.edit.dirty &&
+    saved !== null &&
+    r.response.ok.result.bytes === saved.length &&
+    original.every((b, i) => saved[i] === b);
+  // An error comes back as an error response, and the host keeps going.
+  const bad = ++nextId;
+  const r2 = await call(bad, { kind: "save", id: bad, doc: 999, mode: { kind: "incremental" }, handle });
+  const after = await request({ op: "summary", doc });
+  if (!ok || !("err" in r2.response) || !("ok" in after.response)) {
+    console.error("wasm: saving through the host did not work", JSON.stringify(r.response).slice(0, 400));
+    failed = true;
+  }
+}
+
 if (failed) process.exit(1);
-console.log(`wasm: ${actual.length} steps match expected.json; cancel ok`);
+console.log(`wasm: ${actual.length} steps match expected.json; cancel ok; save ok`);

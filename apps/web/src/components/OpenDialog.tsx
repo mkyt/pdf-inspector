@@ -15,9 +15,19 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, useBackend } from "../api";
+import { fileHandles } from "../edit";
 import { bytesText } from "../format";
 import type { DocId } from "../protocol/generated";
 import { Row } from "./Row";
+
+// The File System Access API (Chromium) is not in TypeScript's DOM library.
+declare global {
+  interface Window {
+    showOpenFilePicker?(options?: {
+      types?: { description?: string; accept: Record<string, string[]> }[];
+    }): Promise<FileSystemFileHandle[]>;
+  }
+}
 
 export function OpenDialog({
   opened,
@@ -35,6 +45,8 @@ export function OpenDialog({
   const [dir, setDir] = useState<string | null>(null);
   const [file, setFile] = useState("");
   const [localFile, setLocalFile] = useState<File | null>(null);
+  // Picked with `showOpenFilePicker`: saving can write back to it.
+  const [handle, setHandle] = useState<FileSystemFileHandle | null>(null);
   const [password, setPassword] = useState("");
   const [recover, setRecover] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -54,6 +66,7 @@ export function OpenDialog({
       const s = localFile
         ? await api.openFile(backend, localFile, password || null, recover)
         : await api.openPath(backend, file, password || null, recover);
+      if (localFile && handle) fileHandles.set(s.info.doc, handle);
       await qc.invalidateQueries({ queryKey: ["docs"] });
       onOpened(s.info.doc);
       onClose();
@@ -69,15 +82,39 @@ export function OpenDialog({
     <Modal opened={opened} onClose={onClose} title="Open a PDF" size="lg">
       <Stack gap="xs">
         {local ? (
-          <FileInput
-            size="xs"
-            label="File"
-            placeholder="Choose a PDF on this computer"
-            accept="application/pdf,.pdf"
-            value={localFile}
-            onChange={setLocalFile}
-            clearable
-          />
+          <Group gap="xs" align="flex-end">
+            <FileInput
+              size="xs"
+              label="File"
+              placeholder="Choose a PDF on this computer"
+              accept="application/pdf,.pdf"
+              value={localFile}
+              onChange={(f) => {
+                setLocalFile(f);
+                setHandle(null);
+              }}
+              clearable
+              style={{ flex: 1 }}
+            />
+            {window.showOpenFilePicker && (
+              <Button
+                size="xs"
+                variant="default"
+                title="Lets Save write back to the same file"
+                onClick={() => {
+                  window
+                    .showOpenFilePicker!({ types: [{ description: "PDF document", accept: { "application/pdf": [".pdf"] } }] })
+                    .then(async ([h]) => {
+                      setLocalFile(await h.getFile());
+                      setHandle(h);
+                    })
+                    .catch(() => {});
+                }}
+              >
+                Browse…
+              </Button>
+            )}
+          </Group>
         ) : (
           <>
             <Group gap="xs">

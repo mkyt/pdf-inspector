@@ -29,6 +29,24 @@ pub trait SourceProvider: Send + Sync {
             "this backend cannot list directories",
         ))
     }
+
+    /// Start writing a file at `path` (replacing it only on
+    /// [`SaveTarget::commit`]).
+    fn create(&self, _path: &str) -> Result<Box<dyn SaveTarget>, ApiError> {
+        Err(ApiError::new(
+            ErrorCode::Unsupported,
+            "this backend cannot write files",
+        ))
+    }
+}
+
+/// A file being written. Dropping it without `commit` leaves nothing
+/// behind (and the old file, if any, as it was).
+pub trait SaveTarget: Send {
+    fn write(&mut self, data: &[u8]) -> std::io::Result<()>;
+
+    /// Put the file in place and open it for reading.
+    fn commit(self: Box<Self>) -> Result<Opened, ApiError>;
 }
 
 /// Provider that opens nothing; documents are added with

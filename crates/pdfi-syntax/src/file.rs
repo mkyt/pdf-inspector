@@ -126,21 +126,50 @@ impl<V: Clone> Cache<V> {
     }
 }
 
+/// Changes over the objects of the file: a snapshot made with
+/// [`PdfFile::with_edits`] reads these instead of the file.
+#[derive(Clone, Debug, Default)]
+pub struct Edits {
+    /// By object number.
+    pub objects: std::collections::BTreeMap<u32, Edited>,
+    /// The trailer (`None`: the file's).
+    pub trailer: Option<Dict>,
+}
+
+#[derive(Clone, Debug)]
+pub enum Edited {
+    /// Replaced or added. Strings and stream data are not encrypted.
+    Object(Arc<IndirectObject>),
+    /// Removed; the number is free with this generation.
+    Deleted { generation: u16 },
+}
+
+impl Edits {
+    pub fn is_empty(&self) -> bool {
+        self.objects.is_empty() && self.trailer.is_none()
+    }
+}
+
+/// A PDF file, or a snapshot of it with [`Edits`] applied. Snapshots share
+/// the source, the parsed cross-reference data and the object caches.
 pub struct PdfFile {
     src: Arc<dyn ByteSource>,
     header: Header,
-    revisions: Vec<Revision>,
+    revisions: Arc<Vec<Revision>>,
     xref: XrefTable,
     trailer: Dict,
     recovered: bool,
     recovery_mode: Recovery,
     security: Option<SecurityHandler>,
     encrypt_ref: Option<ObjId>,
-    cache: Mutex<Cache<Arc<IndirectObject>>>,
-    objstms: Mutex<Cache<Arc<ObjStm>>>,
+    cache: Arc<Mutex<Cache<Arc<IndirectObject>>>>,
+    objstms: Arc<Mutex<Cache<Arc<ObjStm>>>>,
     /// Object offsets found by scanning, built on first need.
-    scan_index: OnceLock<HashMap<u32, (u64, u16)>>,
-    diags: DiagSink,
+    scan_index: Arc<OnceLock<HashMap<u32, (u64, u16)>>>,
+    diags: Arc<DiagSink>,
+    /// The file's own table and trailer, under `edits`.
+    base: Option<Arc<(XrefTable, Dict)>>,
+    edits: Option<Arc<Edits>>,
 }
 
 impl std::fmt::Debug for PdfFile {
@@ -176,17 +205,19 @@ impl PdfFile {
         let mut f = PdfFile {
             src,
             header,
-            revisions: Vec::new(),
+            revisions: Arc::default(),
             xref: XrefTable::default(),
             trailer: Dict::new(),
             recovered: false,
             recovery_mode: opts.recovery,
             security: None,
             encrypt_ref: None,
-            cache: Mutex::new(Cache::new(opts.object_cache)),
-            objstms: Mutex::new(Cache::new(64)),
-            scan_index: OnceLock::new(),
-            diags,
+            cache: Arc::new(Mutex::new(Cache::new(opts.object_cache))),
+            objstms: Arc::new(Mutex::new(Cache::new(64))),
+            scan_index: Arc::default(),
+            diags: Arc::new(diags),
+            base: None,
+            edits: None,
         };
         let chain = if opts.recovery == Recovery::Force {
             Err(Error::Invalid("recovery forced".into()))
@@ -196,7 +227,7 @@ impl PdfFile {
         match chain {
             Ok(revs) => {
                 f.xref = XrefTable::from_revisions(&revs);
-                f.revisions = revs;
+                f.revisions = Arc::new(revs);
                 f.trailer = merged_trailer(&f.revisions);
             }
             Err(e) => {
@@ -241,8 +272,66 @@ impl PdfFile {
         &self.xref
     }
 
+    /// The trailer (with edits applied).
     pub fn trailer(&self) -> &Dict {
         &self.trailer
+    }
+
+    /// The edits this snapshot applies over the file.
+    pub fn edits(&self) -> Option<&Edits> {
+        self.edits.as_deref()
+    }
+
+    /// The file's own merged cross-reference table, without edits.
+    pub fn file_xref(&self) -> &XrefTable {
+        self.base.as_ref().map_or(&self.xref, |b| &b.0)
+    }
+
+    /// The file's own trailer, without edits.
+    pub fn file_trailer(&self) -> &Dict {
+        self.base.as_ref().map_or(&self.trailer, |b| &b.1)
+    }
+
+    /// A snapshot of the file with `edits` applied (replacing any edits of
+    /// this one). Shares the source and caches with `self`.
+    pub fn with_edits(&self, edits: Edits) -> PdfFile {
+        let base = self
+            .base
+            .clone()
+            .unwrap_or_else(|| Arc::new((self.xref.clone(), self.trailer.clone())));
+        let mut xref = base.0.clone();
+        for (&num, e) in &edits.objects {
+            xref.set(
+                num,
+                match e {
+                    Edited::Object(o) => XrefEntry::Edited {
+                        generation: o.id.generation,
+                    },
+                    &Edited::Deleted { generation } => XrefEntry::Free {
+                        next: 0,
+                        generation,
+                    },
+                },
+            );
+        }
+        let trailer = edits.trailer.clone().unwrap_or_else(|| base.1.clone());
+        PdfFile {
+            src: self.src.clone(),
+            header: self.header.clone(),
+            revisions: self.revisions.clone(),
+            xref,
+            trailer,
+            recovered: self.recovered,
+            recovery_mode: self.recovery_mode,
+            security: self.security.clone(),
+            encrypt_ref: self.encrypt_ref,
+            cache: self.cache.clone(),
+            objstms: self.objstms.clone(),
+            scan_index: self.scan_index.clone(),
+            diags: self.diags.clone(),
+            edits: (!edits.is_empty()).then(|| Arc::new(edits)),
+            base: Some(base),
+        }
     }
 
     pub fn is_recovered(&self) -> bool {
@@ -276,6 +365,17 @@ impl PdfFile {
     // ---------------------------------------------------------------- objects
 
     pub fn get(&self, id: ObjId) -> Result<Arc<IndirectObject>> {
+        if let Some(e) = self.edits.as_ref().and_then(|e| e.objects.get(&id.num)) {
+            return match e {
+                Edited::Object(o) if o.id == id => Ok(o.clone()),
+                _ => Err(Error::Missing(id)),
+            };
+        }
+        self.get_depth(id, 0)
+    }
+
+    /// The object as stored in the file, ignoring edits.
+    pub fn get_original(&self, id: ObjId) -> Result<Arc<IndirectObject>> {
         self.get_depth(id, 0)
     }
 
@@ -292,7 +392,7 @@ impl PdfFile {
         if depth > 16 {
             return Err(Error::Object(id, "reference chain too deep".into()));
         }
-        let obj = match self.xref.get(id.num) {
+        let obj = match self.file_xref().get(id.num) {
             Some(XrefEntry::InUse { offset, generation }) => {
                 if generation != id.generation {
                     return Err(Error::Missing(id));
@@ -316,7 +416,9 @@ impl PdfFile {
                 }
                 self.load_compressed(id, stream, index, depth)?
             }
-            Some(XrefEntry::Free { .. }) | None => return Err(Error::Missing(id)),
+            Some(XrefEntry::Free { .. } | XrefEntry::Edited { .. }) | None => {
+                return Err(Error::Missing(id));
+            }
         };
         let obj = Arc::new(obj);
         self.lock_cache().insert(id, obj.clone());
@@ -439,7 +541,7 @@ impl PdfFile {
     }
 
     pub fn objstm(&self, num: u32, depth: u32) -> Result<Arc<ObjStm>> {
-        let generation = self.xref.get(num).map_or(0, |e| e.generation());
+        let generation = self.file_xref().get(num).map_or(0, |e| e.generation());
         let sid = ObjId::new(num, generation);
         if let Some(o) = self
             .objstms
@@ -730,6 +832,10 @@ impl PdfFile {
         specs: &[FilterSpec],
     ) -> Option<Box<dyn Decoder>> {
         let sec = self.security.as_ref()?;
+        // Data held in memory comes from edits, which are not encrypted.
+        if matches!(s.data, StreamData::Owned(_)) {
+            return None;
+        }
         if Some(id) == self.encrypt_ref || s.dict.type_is("XRef") {
             return None;
         }
@@ -1154,7 +1260,7 @@ impl PdfFile {
             ),
         ));
         let len = self.src.len();
-        self.revisions.insert(
+        Arc::make_mut(&mut self.revisions).insert(
             0,
             Revision {
                 kind: XrefKind::Recovered,

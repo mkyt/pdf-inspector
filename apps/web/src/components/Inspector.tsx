@@ -1,6 +1,8 @@
-import { Alert, Anchor, Badge, Code, Group, Loader, Stack, Tabs, Text, Title, Tooltip } from "@mantine/core";
+import { Alert, Anchor, Badge, Button, Code, Group, Loader, Menu, Stack, Tabs, Text, Title, Tooltip } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { api, useBackend } from "../api";
+import { useEdit } from "../edit";
 import { bytesAsText, objText, spanText, valueText } from "../format";
 import { useNav } from "../nav";
 import type { NodeRoot, ObjRef, ObjectView, Span, TypeOrigin } from "../protocol/generated";
@@ -9,7 +11,8 @@ import { ImagePreview } from "./ImagePreview";
 import { IssueList } from "./Issues";
 import { Referrers } from "./Referrers";
 import { StreamPanel } from "./StreamPanel";
-import { NodeChildren } from "./Tree";
+import { NodeChildren, TreeEditContext } from "./Tree";
+import { ValueEditor, type ValueEdit } from "./ValueEditor";
 
 /** Source bytes shown in the "Source" tab. */
 const MAX_SOURCE = 1 << 20;
@@ -18,27 +21,87 @@ const MAX_SOURCE = 1 << 20;
 export function Inspector() {
   const nav = useNav();
   const t = nav.target;
-  if (t.kind !== "object") {
-    return (
-      <Stack p="sm" gap="xs">
-        <Group gap="sm">
-          <Title order={5}>Trailer</Title>
-          <SchemaBadge root={{ kind: "trailer" }} />
-        </Group>
-        <Text size="xs" c="dimmed">
-          Merged trailer of all revisions.
-        </Text>
-        <SchemaIssues root={{ kind: "trailer" }} />
-        <div>
-          <NodeChildren path={{ root: { kind: "trailer" }, path: [] }} depth={0} />
-        </div>
-      </Stack>
-    );
-  }
-  return <ObjectInspector key={`${t.id.num}/${t.id.generation}`} id={t.id} />;
+  const [edit, setEdit] = useState<ValueEdit | null>(null);
+  return (
+    <TreeEditContext.Provider value={setEdit}>
+      {t.kind !== "object" ? (
+        <Stack p="sm" gap="xs">
+          <Group gap="sm">
+            <Title order={5}>Trailer</Title>
+            <SchemaBadge root={{ kind: "trailer" }} />
+            <EditMenu root={{ kind: "trailer" }} type="dict" name="the trailer" onEdit={setEdit} />
+          </Group>
+          <Text size="xs" c="dimmed">
+            Merged trailer of all revisions.
+          </Text>
+          <SchemaIssues root={{ kind: "trailer" }} />
+          <div>
+            <NodeChildren path={{ root: { kind: "trailer" }, path: [] }} depth={0} />
+          </div>
+        </Stack>
+      ) : (
+        <ObjectInspector key={`${t.id.num}/${t.id.generation}`} id={t.id} onEdit={setEdit} />
+      )}
+      <ValueEditor edit={edit} onClose={() => setEdit(null)} />
+    </TreeEditContext.Provider>
+  );
 }
 
-function ObjectInspector({ id }: { id: ObjRef }) {
+/** Edits of a whole object or the trailer. */
+function EditMenu({
+  root,
+  type,
+  name,
+  onEdit,
+}: {
+  root: NodeRoot;
+  type: string;
+  name: string;
+  onEdit: (e: ValueEdit) => void;
+}) {
+  const edit = useEdit();
+  const nav = useNav();
+  const path = { root, path: [] };
+  return (
+    <Menu position="bottom-start" shadow="md">
+      <Menu.Target>
+        <Button size="compact-xs" variant="light">
+          Edit
+        </Button>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item fz="xs" onClick={() => onEdit({ kind: "set", path, title: `Edit ${name}` })}>
+          Edit as text…
+        </Menu.Item>
+        {(type === "dict" || type === "stream") && (
+          <Menu.Item fz="xs" onClick={() => onEdit({ kind: "entry", path, title: `Add an entry to ${name}` })}>
+            Add entry…
+          </Menu.Item>
+        )}
+        <Menu.Item fz="xs" onClick={() => onEdit({ kind: "new", title: "New object" })}>
+          New object…
+        </Menu.Item>
+        {root.kind === "object" && (
+          <>
+            <Menu.Divider />
+            <Menu.Item
+              fz="xs"
+              color="red"
+              onClick={() => {
+                edit.run(`Delete ${name}`, [{ op: "deleteObject", id: root.id }]);
+                nav.back();
+              }}
+            >
+              Delete object
+            </Menu.Item>
+          </>
+        )}
+      </Menu.Dropdown>
+    </Menu>
+  );
+}
+
+function ObjectInspector({ id, onEdit }: { id: ObjRef; onEdit: (e: ValueEdit) => void }) {
   const backend = useBackend();
   const nav = useNav();
   const q = useQuery({
@@ -62,7 +125,11 @@ function ObjectInspector({ id }: { id: ObjRef }) {
         <Badge variant="light" color="gray">
           {valueText(o.value)}
         </Badge>
-        {o.location.kind === "file" ? (
+        {o.location.kind === "edited" ? (
+          <Badge variant="light" color="yellow">
+            edited, not saved
+          </Badge>
+        ) : o.location.kind === "file" ? (
           <Anchor size="xs" onClick={() => nav.showBytes((o.location as { span: Span }).span)}>
             file {spanText(o.location.span)}
           </Anchor>
@@ -71,6 +138,7 @@ function ObjectInspector({ id }: { id: ObjRef }) {
             in object stream {o.location.stream.num} {o.location.stream.generation} [index {o.location.index}]
           </Anchor>
         )}
+        <EditMenu root={{ kind: "object", id: o.id }} type={o.value.type} name={objText(o.id)} onEdit={onEdit} />
       </Group>
       {o.diagnostics.map((d, i) => (
         <Alert key={i} p={6} color={severityColor[d.severity]}>
@@ -173,6 +241,7 @@ function Source({ o }: { o: ObjectView }) {
   const backend = useBackend();
   const nav = useNav();
   const span = o.location.kind === "file" ? o.location.span : null;
+  const edited = o.location.kind === "edited";
   // Stream data is shown in its own tab; here only the object up to `stream`.
   const end = span && o.stream?.data_span ? o.stream.data_span.start : span?.end;
   const len = span && end !== undefined ? Math.min(end - span.start, MAX_SOURCE) : 0;
@@ -184,7 +253,9 @@ function Source({ o }: { o: ObjectView }) {
   if (!span) {
     return (
       <Text size="xs" c="dimmed">
-        Stored in an object stream; open the stream to see its decoded data.
+        {edited
+          ? "Changed by an edit: it is written to the file when the document is saved."
+          : "Stored in an object stream; open the stream to see its decoded data."}
       </Text>
     );
   }

@@ -814,6 +814,7 @@ name = "pdfi-api"
 version = "0.1.0"
 dependencies = [
  "pdfi-content",
+ "pdfi-edit",
  "pdfi-model",
  "pdfi-render",
  "pdfi-schema",
@@ -830,6 +831,7 @@ dependencies = [
  "anyhow",
  "clap",
  "pdfi-content",
+ "pdfi-edit",
  "pdfi-model",
  "pdfi-render",
  "pdfi-schema",
@@ -845,6 +847,16 @@ dependencies = [
  "pdfi-font",
  "pdfi-model",
  "pdfi-syntax",
+]
+
+[[package]]
+name = "pdfi-edit"
+version = "0.1.0"
+dependencies = [
+ "md-5",
+ "pdfi-model",
+ "pdfi-syntax",
+ "quick-xml",
 ]
 
 [[package]]

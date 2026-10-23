@@ -1,5 +1,13 @@
-import { PROTOCOL_VERSION, type ClientMessage, type Event, type Request, type ServerMessage } from "../protocol/generated";
-import type { Inbound, Outbound } from "../worker/host";
+import {
+  PROTOCOL_VERSION,
+  type ClientMessage,
+  type DocId,
+  type Event,
+  type Request,
+  type SaveMode,
+  type ServerMessage,
+} from "../protocol/generated";
+import type { Inbound, Outbound, SaveHandle } from "../worker/host";
 import { ApiFailure, type Backend, type ConnectionState, type Reply } from "./backend";
 
 interface Pending {
@@ -101,5 +109,10 @@ export class WorkerBackend implements Backend {
   async openFile(file: File, password: string | null, recover: boolean): Promise<Reply> {
     await this.ready;
     return this.post((id) => ({ kind: "open", id, file, name: file.name, password, recover }));
+  }
+
+  async saveFile(doc: DocId, mode: SaveMode, handle: FileSystemFileHandle): Promise<Reply> {
+    await this.ready;
+    return this.post((id) => ({ kind: "save", id, doc, mode, handle: handle as unknown as SaveHandle }));
   }
 }

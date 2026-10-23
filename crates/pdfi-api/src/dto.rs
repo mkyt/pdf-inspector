@@ -119,6 +119,7 @@ pub struct DocSummary {
     pub pages: u32,
     /// What the inventory job found, once it has run.
     pub inventory: Option<InventoryStats>,
+    pub edit: EditStatus,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -156,9 +157,22 @@ pub struct RevisionInfo {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum XrefEntry {
-    Free { next: u32, generation: u16 },
-    InUse { offset: u64, generation: u16 },
-    Compressed { stream: u32, index: u32 },
+    Free {
+        next: u32,
+        generation: u16,
+    },
+    InUse {
+        offset: u64,
+        generation: u16,
+    },
+    Compressed {
+        stream: u32,
+        index: u32,
+    },
+    /// Changed or added by an edit that is not saved yet.
+    Edited {
+        generation: u16,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -359,8 +373,15 @@ pub struct NodeSchema {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Location {
-    File { span: Span },
-    ObjStm { stream: ObjRef, index: u32 },
+    File {
+        span: Span,
+    },
+    ObjStm {
+        stream: ObjRef,
+        index: u32,
+    },
+    /// Changed or added by an edit that is not saved yet.
+    Edited,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -438,6 +459,13 @@ pub enum JobKind {
     /// Go through the pages using a font (all pages without the
     /// inventory) for the text it shows; read with `FontUses`.
     FontUses { font: ObjRef },
+    /// Write the document with its edits to `path` (`None`: over the file
+    /// it was opened from), then reopen it from there. Needs a backend with
+    /// a filesystem; the browser saves through the Worker instead.
+    Save {
+        path: Option<String>,
+        mode: SaveMode,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -446,6 +474,8 @@ pub enum JobState {
     Running,
     Completed,
     Cancelled,
+    /// Stopped by an error (`JobInfo.error`).
+    Failed,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -457,6 +487,7 @@ pub struct JobInfo {
     pub done: u64,
     pub total: u64,
     pub result: Option<JobResult>,
+    pub error: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -488,6 +519,7 @@ pub enum JobResult {
         /// Text-showing operations.
         uses: u64,
     },
+    Save(SaveResult),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -517,6 +549,186 @@ impl InventoryStats {
             unreferenced: inv.unreferenced.len() as u64,
         }
     }
+}
+
+// ------------------------------------------------------------------ editing
+
+/// One edit. Values are written in PDF syntax: `<< /A [1 2 0 R] >>`,
+/// `(text)`, `/Name`. Nodes are addressed like `Children` does.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[serde(tag = "op", rename_all = "camelCase")]
+pub enum EditCommand {
+    /// Replace a node. An empty path replaces the whole object (a stream
+    /// given a dictionary keeps its data) or the trailer.
+    SetValue {
+        node: NodePath,
+        value: String,
+    },
+    /// Add or replace an entry of the dictionary or stream at `node`.
+    SetEntry {
+        node: NodePath,
+        key: String,
+        value: String,
+    },
+    RemoveEntry {
+        node: NodePath,
+        key: String,
+    },
+    /// Insert into the array at `node` (`index` may be its length).
+    Insert {
+        node: NodePath,
+        index: u32,
+        value: String,
+    },
+    /// Remove the child at `index` of the array or dictionary at `node`.
+    RemoveChild {
+        node: NodePath,
+        index: u32,
+    },
+    /// A new object; a stream when `data` is given (stored as is, so the
+    /// dictionary's `/Filter` must match it).
+    AddObject {
+        value: String,
+        data: Option<StreamPayload>,
+    },
+    DeleteObject {
+        id: ObjRef,
+    },
+    /// Replace the decoded data of a stream. Image codecs at the end of its
+    /// filters (DCT, JPX, JBIG2, CCITT) stay: the data is their input.
+    SetStreamData {
+        id: ObjRef,
+        data: StreamPayload,
+        filter: StreamFilter,
+    },
+    /// Decode a stream's data and encode it again.
+    SetStreamFilter {
+        id: ObjRef,
+        filter: StreamFilter,
+    },
+    DeletePages {
+        pages: Vec<u32>,
+    },
+    /// Move pages so that they start at index `to` of the result.
+    MovePages {
+        pages: Vec<u32>,
+        to: u32,
+    },
+    /// Add a multiple of 90 degrees to each page's rotation.
+    RotatePages {
+        pages: Vec<u32>,
+        by: i32,
+    },
+    /// A page with an empty content, before page `at` (or at the end).
+    InsertBlankPage {
+        at: u32,
+        width: f64,
+        height: f64,
+    },
+    /// Copy pages of an open document (this one too) before page `at`.
+    InsertPages {
+        at: u32,
+        from: DocId,
+        pages: Vec<u32>,
+    },
+    /// Set (`None`: remove) an Info entry. Dates may be ISO 8601 or PDF
+    /// dates. `sync_xmp` updates the matching XMP property, if any.
+    SetInfo {
+        key: String,
+        value: Option<String>,
+        sync_xmp: bool,
+    },
+    /// Replace or add the catalog's XMP metadata.
+    SetXmp {
+        xml: String,
+    },
+}
+
+/// Stream data in a JSON message.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum StreamPayload {
+    /// UTF-8 text.
+    Text {
+        text: String,
+    },
+    Base64 {
+        data: String,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub enum StreamFilter {
+    None,
+    Flate,
+}
+
+/// The undo / redo state of a document and what saving can do.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct EditStatus {
+    /// Edits are applied that are not saved.
+    pub dirty: bool,
+    /// Objects added, changed or deleted.
+    pub edited_objects: u32,
+    /// Labels of what `Undo` and `Redo` would do.
+    pub undo: Option<String>,
+    pub redo: Option<String>,
+    /// Signed signature fields: a full rewrite invalidates them.
+    pub signatures: u32,
+    /// Why an incremental update is not possible (encrypted or recovered).
+    pub no_incremental: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct ApplyResult {
+    pub status: EditStatus,
+    /// Objects added, in order.
+    pub created: Vec<ObjRef>,
+    /// Object numbers changed, added or deleted.
+    pub changed: Vec<u32>,
+    pub trailer_changed: bool,
+    pub notes: Vec<String>,
+    /// Schema problems of the changed objects (the first ones).
+    pub issues: Vec<DiagnosticInfo>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum SaveMode {
+    /// Append the edits to the unchanged file; keeps signatures valid.
+    Incremental,
+    /// Write every object anew: decrypted, without old revisions.
+    Full {
+        /// A cross-reference stream instead of a table.
+        xref_stream: bool,
+        /// Objects other than streams in object streams (implies a
+        /// cross-reference stream).
+        object_streams: bool,
+        /// Flate-compress streams that have no filter.
+        compress: bool,
+        /// Leave out objects the trailer does not reach.
+        remove_unused: bool,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct SaveResult {
+    /// Where it went (`None` in the browser).
+    pub path: Option<String>,
+    pub bytes: u64,
+    pub objects: u64,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub enum ChangeReason {
+    Edit,
+    Undo,
+    Redo,
+    /// Saved and reopened from the saved file.
+    Saved,
 }
 
 // ------------------------------------------------------------------ model

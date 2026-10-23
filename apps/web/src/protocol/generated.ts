@@ -1,6 +1,6 @@
 // Generated from crates/pdfi-api by `UPDATE_TS=1 cargo test -p pdfi-api`. Do not edit.
 
-export const PROTOCOL_VERSION = 12;
+export const PROTOCOL_VERSION = 13;
 
 export type DocId = number;
 export type JobId = number;
@@ -46,7 +46,7 @@ pages: number,
 /**
  * What the inventory job found, once it has run.
  */
-inventory: InventoryStats | null, };
+inventory: InventoryStats | null, edit: EditStatus, };
 
 export type EncryptionInfo = { filter: string, v: number, r: number, key_bits: number, stream_method: string, string_method: string, permissions: number, authenticated: boolean, };
 
@@ -58,7 +58,7 @@ export type RevisionInfo = {
  */
 index: number, kind: XrefKind, offset: number, span: Span, entries: number, xref_stream: ObjRef | null, };
 
-export type XrefEntry = { "kind": "free", next: number, generation: number, } | { "kind": "inUse", offset: number, generation: number, } | { "kind": "compressed", stream: number, index: number, };
+export type XrefEntry = { "kind": "free", next: number, generation: number, } | { "kind": "inUse", offset: number, generation: number, } | { "kind": "compressed", stream: number, index: number, } | { "kind": "edited", generation: number, };
 
 export type XrefRow = { num: number, entry: XrefEntry, };
 
@@ -113,7 +113,7 @@ span: Span | null,
  */
 schema: NodeSchema | null, };
 
-export type Location = { "kind": "file", span: Span, } | { "kind": "objStm", stream: ObjRef, index: number, };
+export type Location = { "kind": "file", span: Span, } | { "kind": "objStm", stream: ObjRef, index: number, } | { "kind": "edited" };
 
 export type StreamInfo = { 
 /**
@@ -871,11 +871,11 @@ eof: boolean,
  */
 stopped_at: string | null, errors: Array<string>, };
 
-export type JobKind = { "kind": "checkObjects", decode_streams: boolean, } | { "kind": "validate", root: ObjRef | null, } | { "kind": "inventory" } | { "kind": "fontUses", font: ObjRef, };
+export type JobKind = { "kind": "checkObjects", decode_streams: boolean, } | { "kind": "validate", root: ObjRef | null, } | { "kind": "inventory" } | { "kind": "fontUses", font: ObjRef, } | { "kind": "save", path: string | null, mode: SaveMode, };
 
-export type JobState = "running" | "completed" | "cancelled";
+export type JobState = "running" | "completed" | "cancelled" | "failed";
 
-export type JobInfo = { job: number, doc: number, kind: JobKind, state: JobState, done: number, total: number, result: JobResult | null, };
+export type JobInfo = { job: number, doc: number, kind: JobKind, state: JobState, done: number, total: number, result: JobResult | null, error: string | null, };
 
 export type JobResult = { "kind": "checkObjects", ok: number, failed: number, missing: number, streams: number, decoded_bytes: number, decode_errors: number, diagnostics: number, } | { "kind": "validate", objects: number, errors: number, warnings: number, infos: number, 
 /**
@@ -890,7 +890,7 @@ scanned: number, pages: number,
 /**
  * Text-showing operations.
  */
-uses: number, };
+uses: number, } | { "kind": "save" } & SaveResult;
 
 export type InventoryStats = { objects: number, 
 /**
@@ -901,6 +901,75 @@ failed: number, pages: number, fonts: number, images: number, forms: number,
  * Edges of the reference graph.
  */
 references: number, unreferenced: number, };
+
+export type EditCommand = { "op": "setValue", node: NodePath, value: string, } | { "op": "setEntry", node: NodePath, key: string, value: string, } | { "op": "removeEntry", node: NodePath, key: string, } | { "op": "insert", node: NodePath, index: number, value: string, } | { "op": "removeChild", node: NodePath, index: number, } | { "op": "addObject", value: string, data: StreamPayload | null, } | { "op": "deleteObject", id: ObjRef, } | { "op": "setStreamData", id: ObjRef, data: StreamPayload, filter: StreamFilter, } | { "op": "setStreamFilter", id: ObjRef, filter: StreamFilter, } | { "op": "deletePages", pages: Array<number>, } | { "op": "movePages", pages: Array<number>, to: number, } | { "op": "rotatePages", pages: Array<number>, by: number, } | { "op": "insertBlankPage", at: number, width: number, height: number, } | { "op": "insertPages", at: number, from: number, pages: Array<number>, } | { "op": "setInfo", key: string, value: string | null, sync_xmp: boolean, } | { "op": "setXmp", xml: string, };
+
+export type StreamPayload = { "kind": "text", text: string, } | { "kind": "base64", data: string, };
+
+export type StreamFilter = "none" | "flate";
+
+export type EditStatus = { 
+/**
+ * Edits are applied that are not saved.
+ */
+dirty: boolean, 
+/**
+ * Objects added, changed or deleted.
+ */
+edited_objects: number, 
+/**
+ * Labels of what `Undo` and `Redo` would do.
+ */
+undo: string | null, redo: string | null, 
+/**
+ * Signed signature fields: a full rewrite invalidates them.
+ */
+signatures: number, 
+/**
+ * Why an incremental update is not possible (encrypted or recovered).
+ */
+no_incremental: string | null, };
+
+export type ApplyResult = { status: EditStatus, 
+/**
+ * Objects added, in order.
+ */
+created: Array<ObjRef>, 
+/**
+ * Object numbers changed, added or deleted.
+ */
+changed: Array<number>, trailer_changed: boolean, notes: Array<string>, 
+/**
+ * Schema problems of the changed objects (the first ones).
+ */
+issues: Array<DiagnosticInfo>, };
+
+export type SaveMode = { "kind": "incremental" } | { "kind": "full", 
+/**
+ * A cross-reference stream instead of a table.
+ */
+xref_stream: boolean, 
+/**
+ * Objects other than streams in object streams (implies a
+ * cross-reference stream).
+ */
+object_streams: boolean, 
+/**
+ * Flate-compress streams that have no filter.
+ */
+compress: boolean, 
+/**
+ * Leave out objects the trailer does not reach.
+ */
+remove_unused: boolean, };
+
+export type SaveResult = { 
+/**
+ * Where it went (`None` in the browser).
+ */
+path: string | null, bytes: number, objects: number, warnings: Array<string>, };
+
+export type ChangeReason = "edit" | "undo" | "redo" | "saved";
 
 export type ClientMessage = { id: number, request: Request, };
 
@@ -924,11 +993,19 @@ fit: boolean, } | { "op": "rawBytes", doc: number, offset: number, len: number, 
 /**
  * Decrypt and apply filters; otherwise the bytes as stored.
  */
-decoded: boolean, offset: number, len: number, } | { "op": "startJob", doc: number, job: JobKind, } | { "op": "jobStatus", job: number, } | { "op": "cancelJob", job: number, } | { "op": "jobDiagnostics", job: number, range: Range, } | { "op": "cancel", request: number, } | { "op": "batch", requests: Array<Request>, };
+decoded: boolean, offset: number, len: number, } | { "op": "startJob", doc: number, job: JobKind, } | { "op": "jobStatus", job: number, } | { "op": "cancelJob", job: number, } | { "op": "jobDiagnostics", job: number, range: Range, } | { "op": "nodeSyntax", doc: number, path: NodePath, } | { "op": "apply", doc: number, 
+/**
+ * What `Undo` will say it reverts.
+ */
+label: string, commands: Array<EditCommand>, } | { "op": "undo", doc: number, } | { "op": "redo", doc: number, } | { "op": "cancel", request: number, } | { "op": "batch", requests: Array<Request>, };
 
 export type Response = { "ok": ResponseBody } | { "err": ApiError };
 
-export type ResponseBody = { "type": "hello" } & HelloInfo | { "type": "dir" } & DirListing | { "type": "doc" } & DocSummary | { "type": "docs", docs: Array<DocInfo>, } | { "type": "objects" } & Page<ObjectSummary> | { "type": "objectClasses", classes: Array<ObjectClass>, } | { "type": "object" } & ObjectView | { "type": "children" } & Page<NodeView> | { "type": "xref" } & Page<XrefRow> | { "type": "diagnostics" } & Page<DiagnosticInfo> | { "type": "schema" } & ObjectSchema | { "type": "document" } & DocumentView | { "type": "xmp" } & XmpView | { "type": "pages" } & Page<PageSummary> | { "type": "pageDetail" } & PageDetail | { "type": "pageIndex", index: number | null, } | { "type": "annotations" } & Page<AnnotInfo> | { "type": "outline" } & Page<OutlineItem> | { "type": "fonts" } & Page<FontInfo> | { "type": "images" } & Page<ImageInfo> | { "type": "referrers" } & Page<Referrer> | { "type": "refPath" } & RefPath | { "type": "objRefs" } & Page<ObjRef> | { "type": "content" } & ContentSummary | { "type": "ops" } & Page<OpView> | { "type": "contentIssues" } & Page<ContentIssue> | { "type": "elements" } & Page<ElementView> | { "type": "opState" } & OpState | { "type": "font" } & FontDetail | { "type": "glyphs" } & Page<GlyphView> | { "type": "programGlyphs" } & Page<ProgramGlyph> | { "type": "fontUses" } & FontUsesView | { "type": "bitmap" } & BitmapInfo | { "type": "hits", ops: Array<number>, } | { "type": "extract" } & ExtractInfo | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "batch", responses: Array<Response>, } | { "type": "empty" };
+export type ResponseBody = { "type": "hello" } & HelloInfo | { "type": "dir" } & DirListing | { "type": "doc" } & DocSummary | { "type": "docs", docs: Array<DocInfo>, } | { "type": "objects" } & Page<ObjectSummary> | { "type": "objectClasses", classes: Array<ObjectClass>, } | { "type": "object" } & ObjectView | { "type": "children" } & Page<NodeView> | { "type": "xref" } & Page<XrefRow> | { "type": "diagnostics" } & Page<DiagnosticInfo> | { "type": "schema" } & ObjectSchema | { "type": "document" } & DocumentView | { "type": "xmp" } & XmpView | { "type": "pages" } & Page<PageSummary> | { "type": "pageDetail" } & PageDetail | { "type": "pageIndex", index: number | null, } | { "type": "annotations" } & Page<AnnotInfo> | { "type": "outline" } & Page<OutlineItem> | { "type": "fonts" } & Page<FontInfo> | { "type": "images" } & Page<ImageInfo> | { "type": "referrers" } & Page<Referrer> | { "type": "refPath" } & RefPath | { "type": "objRefs" } & Page<ObjRef> | { "type": "content" } & ContentSummary | { "type": "ops" } & Page<OpView> | { "type": "contentIssues" } & Page<ContentIssue> | { "type": "elements" } & Page<ElementView> | { "type": "opState" } & OpState | { "type": "font" } & FontDetail | { "type": "glyphs" } & Page<GlyphView> | { "type": "programGlyphs" } & Page<ProgramGlyph> | { "type": "fontUses" } & FontUsesView | { "type": "bitmap" } & BitmapInfo | { "type": "hits", ops: Array<number>, } | { "type": "extract" } & ExtractInfo | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "syntax", text: string, 
+/**
+ * Longer than what is returned: not editable as text.
+ */
+truncated: boolean, } | { "type": "applied" } & ApplyResult | { "type": "saved", summary: DocSummary, result: SaveResult, } | { "type": "edit" } & EditStatus | { "type": "batch", responses: Array<Response>, } | { "type": "empty" };
 
 export type HelloInfo = { protocol: number, backend: string, version: string, 
 /**
@@ -942,4 +1019,8 @@ export type ApiError = { code: ErrorCode, message: string, };
 
 export type ServerMessage = { "kind": "response", id: number, response: Response, } | { "kind": "event", event: Event, };
 
-export type Event = { "type": "docOpened", info: DocInfo, } | { "type": "docClosed", doc: number, } | { "type": "jobProgress", job: number, doc: number, done: number, total: number, } | { "type": "jobDone", info: JobInfo, };
+export type Event = { "type": "docOpened", info: DocInfo, } | { "type": "docClosed", doc: number, } | { "type": "jobProgress", job: number, doc: number, done: number, total: number, } | { "type": "jobDone", info: JobInfo, } | { "type": "docChanged", doc: number, reason: ChangeReason, 
+/**
+ * The document as reopened (`Saved`).
+ */
+info: DocInfo | null, };

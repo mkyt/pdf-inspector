@@ -75,6 +75,7 @@ pub fn xref_entry(e: syn::xref::XrefEntry) -> XrefEntry {
         E::Free { next, generation } => XrefEntry::Free { next, generation },
         E::InUse { offset, generation } => XrefEntry::InUse { offset, generation },
         E::Compressed { stream, index } => XrefEntry::Compressed { stream, index },
+        E::Edited { generation } => XrefEntry::Edited { generation },
     }
 }
 

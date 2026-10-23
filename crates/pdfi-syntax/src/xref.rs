@@ -6,9 +6,22 @@ use crate::object::{Dict, DictExt, ObjId, Object, Span};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum XrefEntry {
-    Free { next: u32, generation: u16 },
-    InUse { offset: u64, generation: u16 },
-    Compressed { stream: u32, index: u32 },
+    Free {
+        next: u32,
+        generation: u16,
+    },
+    InUse {
+        offset: u64,
+        generation: u16,
+    },
+    Compressed {
+        stream: u32,
+        index: u32,
+    },
+    /// Replaced or added by edits (not in the file).
+    Edited {
+        generation: u16,
+    },
 }
 
 impl XrefEntry {
@@ -18,7 +31,9 @@ impl XrefEntry {
 
     pub fn generation(&self) -> u16 {
         match *self {
-            XrefEntry::Free { generation, .. } | XrefEntry::InUse { generation, .. } => generation,
+            XrefEntry::Free { generation, .. }
+            | XrefEntry::InUse { generation, .. }
+            | XrefEntry::Edited { generation } => generation,
             XrefEntry::Compressed { .. } => 0,
         }
     }

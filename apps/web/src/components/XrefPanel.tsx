@@ -65,7 +65,7 @@ export function XrefPanel({ summary }: { summary: DocSummary }) {
               {entryGeneration(x.entry)}
             </Text>
             <Text size="xs" className={classes.mono}>
-              {x.entry.kind === "inUse" ? "n" : x.entry.kind === "free" ? "f" : "c"} {entryText(x.entry)}
+              {{ inUse: "n", free: "f", compressed: "c", edited: "e" }[x.entry.kind]} {entryText(x.entry)}
             </Text>
           </Row>
         )}

@@ -63,6 +63,8 @@ export function entryText(e: XrefEntry): string {
       return `@${e.offset.toLocaleString()}`;
     case "compressed":
       return `in ${e.stream} [${e.index}]`;
+    case "edited":
+      return "edited (not saved)";
   }
 }
 

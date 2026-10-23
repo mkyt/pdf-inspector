@@ -2,6 +2,11 @@ import { createContext, useContext } from "react";
 import type { Backend, Reply } from "./backend/backend";
 import type {
   AnnotInfo,
+  ApplyResult,
+  EditCommand,
+  EditStatus,
+  SaveMode,
+  SaveResult,
   BitmapInfo,
   BytesInfo,
   ContentIssue,
@@ -214,6 +219,26 @@ export const api = {
     offset: number,
     len: number,
   ): Promise<Bytes> => bytes(await call(b, "bytes", { op: "streamData", doc, id, decoded, offset, len })),
+  nodeSyntax: async (b: Backend, doc: DocId, path: NodePath): Promise<{ text: string; truncated: boolean }> => {
+    const r = (await call(b, "syntax", { op: "nodeSyntax", doc, path })).body;
+    return { text: r.text, truncated: r.truncated };
+  },
+  apply: async (b: Backend, doc: DocId, label: string, commands: EditCommand[]): Promise<ApplyResult> =>
+    (await call(b, "applied", { op: "apply", doc, label, commands })).body,
+  undo: async (b: Backend, doc: DocId): Promise<EditStatus> => (await call(b, "edit", { op: "undo", doc })).body,
+  redo: async (b: Backend, doc: DocId): Promise<EditStatus> => (await call(b, "edit", { op: "redo", doc })).body,
+  /** Browser mode: write to a file the user picked. */
+  saveFile: async (
+    b: Backend,
+    doc: DocId,
+    mode: SaveMode,
+    handle: FileSystemFileHandle,
+  ): Promise<{ summary: DocSummary; result: SaveResult }> => {
+    if (!b.saveFile) throw new Error("this backend saves to paths, not files");
+    const r = await b.saveFile(doc, mode, handle);
+    if (r.body.type !== "saved") throw new Error(`expected saved, got ${r.body.type}`);
+    return { summary: r.body.summary, result: r.body.result };
+  },
   startJob: async (b: Backend, doc: DocId, job: JobKind): Promise<JobInfo> =>
     (await call(b, "job", { op: "startJob", doc, job })).body,
   jobStatus: async (b: Backend, job: number): Promise<JobInfo> =>

@@ -1,13 +1,18 @@
-import { Anchor, Button, Loader, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { ActionIcon, Anchor, Button, Loader, Menu, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import { api, useBackend } from "../api";
+import { useEdit } from "../edit";
 import { hasChildren, refText, valueText } from "../format";
 import { useNav } from "../nav";
 import type { NodePath, NodeView } from "../protocol/generated";
 import { severityColor } from "./DiagnosticsPanel";
 import { worst } from "./Issues";
 import classes from "./Tree.module.css";
+import type { ValueEdit } from "./ValueEditor";
+
+/** Opens the value editor; without it the tree is read-only. */
+export const TreeEditContext = createContext<((e: ValueEdit) => void) | null>(null);
 
 const PAGE = 200;
 const MAX_DEPTH = 32;
@@ -113,6 +118,7 @@ function NodeRow({ parent, node, depth, label }: { parent: NodePath; node: NodeV
           )}
           {schema?.value_type && <span className={classes.schemaType}>{schema.value_type}</span>}
         </UnstyledButton>
+        <RowMenu parent={parent} node={node} here={here} />
         {issue && schema && (
           <Tooltip
             multiline
@@ -126,5 +132,59 @@ function NodeRow({ parent, node, depth, label }: { parent: NodePath; node: NodeV
       </div>
       {open && expandable && <NodeChildren path={childPath} depth={depth + 1} label={childLabel} />}
     </>
+  );
+}
+
+/** Edits of one entry: its value, what it holds, removing it. */
+function RowMenu({ parent, node, here }: { parent: NodePath; node: NodeView; here: string }) {
+  const editValue = useContext(TreeEditContext);
+  const edit = useEdit();
+  if (!editValue) return null;
+  const v = node.value;
+  const path: NodePath = { root: parent.root, path: [...parent.path, node.index] };
+  const name = here || "/";
+  const inArray = node.key === null;
+  return (
+    <Menu position="bottom-end" withinPortal shadow="md">
+      <Menu.Target>
+        <ActionIcon size="xs" variant="subtle" color="gray" className={classes.menu} aria-label={`Edit ${name}`}>
+          ⋯
+        </ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item fz="xs" onClick={() => editValue({ kind: "set", path, title: `Edit ${name}` })}>
+          Edit value…
+        </Menu.Item>
+        {(v.type === "dict" || v.type === "stream") && (
+          <Menu.Item fz="xs" onClick={() => editValue({ kind: "entry", path, title: `Add an entry to ${name}` })}>
+            Add entry…
+          </Menu.Item>
+        )}
+        {v.type === "array" && (
+          <Menu.Item
+            fz="xs"
+            onClick={() => editValue({ kind: "insert", path, index: v.len, title: `Append to ${name}` })}
+          >
+            Append item…
+          </Menu.Item>
+        )}
+        {inArray && (
+          <Menu.Item
+            fz="xs"
+            onClick={() => editValue({ kind: "insert", path: parent, index: node.index, title: `Insert before ${name}` })}
+          >
+            Insert item before…
+          </Menu.Item>
+        )}
+        <Menu.Divider />
+        <Menu.Item
+          fz="xs"
+          color="red"
+          onClick={() => edit.run(`Remove ${name}`, [{ op: "removeChild", node: parent, index: node.index }])}
+        >
+          Remove
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
   );
 }

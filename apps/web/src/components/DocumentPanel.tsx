@@ -1,8 +1,27 @@
-import { Alert, Anchor, Badge, Button, Code, Group, Loader, Stack, Table, Text, Title } from "@mantine/core";
+import {
+  ActionIcon,
+  Alert,
+  Anchor,
+  Autocomplete,
+  Badge,
+  Button,
+  Checkbox,
+  Code,
+  Group,
+  Loader,
+  Modal,
+  Stack,
+  Table,
+  Text,
+  Textarea,
+  Title,
+  Tooltip,
+} from "@mantine/core";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { api, useBackend } from "../api";
 import { useDoc } from "../doc";
+import { useEdit } from "../edit";
 import { bytesText, objText } from "../format";
 import { useNav } from "../nav";
 import type { ObjRef } from "../protocol/generated";
@@ -24,6 +43,10 @@ export function DocumentPanel() {
   const backend = useBackend();
   const nav = useNav();
   const { summary: s } = useDoc();
+  const { run } = useEdit();
+  const [syncXmp, setSyncXmp] = useState(true);
+  const [info, setInfo] = useState<{ key: string; value: string; fixed: boolean } | null>(null);
+  const [xmp, setXmp] = useState(false);
   const q = useQuery({ queryKey: ["doc", nav.doc, "document"], queryFn: () => api.document(backend, nav.doc) });
   if (q.error) {
     return (
@@ -52,7 +75,25 @@ export function DocumentPanel() {
         </Alert>
       )}
 
-      <Section title="Info" right={d.info && <ObjLink id={d.info} />}>
+      <Section
+        title="Info"
+        right={
+          <>
+            {d.info && <ObjLink id={d.info} />}
+            <Button size="compact-xs" variant="light" onClick={() => setInfo({ key: "", value: "", fixed: false })}>
+              Add entry…
+            </Button>
+            <Tooltip label="Changing an Info entry changes the matching XMP property (dc:title, xmp:ModifyDate, …)">
+              <Checkbox
+                size="xs"
+                label="Update XMP too"
+                checked={syncXmp}
+                onChange={(e) => setSyncXmp(e.currentTarget.checked)}
+              />
+            </Tooltip>
+          </>
+        }
+      >
         {d.info_entries.length === 0 ? (
           <Text size="xs" c="dimmed">
             {d.info ? "Empty." : "No /Info dictionary."}
@@ -61,17 +102,39 @@ export function DocumentPanel() {
           <KeyTable
             rows={d.info_entries.map((e) => [
               `/${e.key}`,
-              <>
-                <Text span size="xs" style={{ wordBreak: "break-word" }}>
-                  {e.text}
-                </Text>
-                {e.date && (
-                  <Text span size="xs" c="dimmed">
-                    {" "}
-                    = {e.date}
+              <Group gap={6} wrap="nowrap" align="flex-start">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Text span size="xs" style={{ wordBreak: "break-word" }}>
+                    {e.text}
                   </Text>
-                )}
-              </>,
+                  {e.date && (
+                    <Text span size="xs" c="dimmed">
+                      {" "}
+                      = {e.date}
+                    </Text>
+                  )}
+                </div>
+                <ActionIcon
+                  size="xs"
+                  variant="subtle"
+                  color="gray"
+                  aria-label={`Edit /${e.key}`}
+                  onClick={() => setInfo({ key: e.key, value: e.date ?? e.text.replace(/^\//, ""), fixed: true })}
+                >
+                  ✎
+                </ActionIcon>
+                <ActionIcon
+                  size="xs"
+                  variant="subtle"
+                  color="red"
+                  aria-label={`Remove /${e.key}`}
+                  onClick={() =>
+                    run(`Remove /Info /${e.key}`, [{ op: "setInfo", key: e.key, value: null, sync_xmp: syncXmp }])
+                  }
+                >
+                  ✕
+                </ActionIcon>
+              </Group>,
             ])}
           />
         )}
@@ -97,7 +160,17 @@ export function DocumentPanel() {
         )}
       </Section>
 
-      <Section title="XMP metadata" right={d.metadata && <ObjLink id={d.metadata} />}>
+      <Section
+        title="XMP metadata"
+        right={
+          <>
+            {d.metadata && <ObjLink id={d.metadata} />}
+            <Button size="compact-xs" variant="light" onClick={() => setXmp(true)}>
+              {d.metadata ? "Edit XML…" : "Add XMP…"}
+            </Button>
+          </>
+        }
+      >
         {d.metadata ? (
           <Xmp />
         ) : (
@@ -106,7 +179,200 @@ export function DocumentPanel() {
           </Text>
         )}
       </Section>
+      <InfoEditor entry={info} syncXmp={syncXmp} onClose={() => setInfo(null)} />
+      <XmpEditor opened={xmp} metadata={d.metadata} onClose={() => setXmp(false)} />
     </Stack>
+  );
+}
+
+const INFO_KEYS = ["Title", "Author", "Subject", "Keywords", "Creator", "Producer", "CreationDate", "ModDate", "Trapped"];
+
+function InfoEditor({
+  entry,
+  syncXmp,
+  onClose,
+}: {
+  entry: { key: string; value: string; fixed: boolean } | null;
+  syncXmp: boolean;
+  onClose: () => void;
+}) {
+  const { apply } = useEdit();
+  const [key, setKey] = useState("");
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setKey(entry?.key ?? "");
+    setValue(entry?.value ?? "");
+    setError(null);
+  }, [entry]);
+  const k = key.trim().replace(/^\//, "");
+  const date = k === "CreationDate" || k === "ModDate";
+  const submit = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await apply(`Set /Info /${k}`, [{ op: "setInfo", key: k, value, sync_xmp: syncXmp }]);
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal opened={entry !== null} onClose={onClose} title={entry?.fixed ? `Edit /Info /${entry.key}` : "Add an Info entry"}>
+      <Stack gap="xs">
+        <Autocomplete
+          size="xs"
+          label="Key"
+          data={INFO_KEYS}
+          value={key}
+          onChange={setKey}
+          disabled={entry?.fixed}
+          data-autofocus={!entry?.fixed || undefined}
+        />
+        <Textarea
+          size="xs"
+          label="Value"
+          description={
+            date
+              ? "A date: ISO 8601 (2026-10-24T09:30:00+09:00) or a PDF date (D:20261024093000+09'00')."
+              : k === "Trapped"
+                ? "True, False or Unknown (stored as a name)."
+                : "Text; stored as PDFDocEncoding when plain ASCII, UTF-16 otherwise."
+          }
+          autosize
+          minRows={1}
+          maxRows={8}
+          value={value}
+          onChange={(e) => setValue(e.currentTarget.value)}
+          data-autofocus={entry?.fixed || undefined}
+        />
+        {date && (
+          <Button size="compact-xs" variant="subtle" style={{ alignSelf: "flex-start" }} onClick={() => setValue(nowIso())}>
+            Now
+          </Button>
+        )}
+        {error && (
+          <Alert color="red" p={6}>
+            <Text size="xs">{error}</Text>
+          </Alert>
+        )}
+        <Group justify="flex-end">
+          <Button size="xs" variant="default" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button size="xs" loading={busy} disabled={!k} onClick={() => void submit()}>
+            Apply
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
+
+/** The current time in ISO 8601 with the local offset. */
+function nowIso(): string {
+  const d = new Date();
+  const p = (n: number) => String(Math.abs(n)).padStart(2, "0");
+  const off = -d.getTimezoneOffset();
+  return (
+    `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}` +
+    `${off >= 0 ? "+" : "-"}${p(Math.trunc(off / 60))}:${p(off % 60)}`
+  );
+}
+
+const XMP_TEMPLATE = `<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    <rdf:Description rdf:about=""
+        xmlns:dc="http://purl.org/dc/elements/1.1/"
+        xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+        xmlns:pdf="http://ns.adobe.com/pdf/1.3/">
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>`;
+
+/** Largest metadata loaded for editing as text. */
+const MAX_XMP = 4 << 20;
+
+function XmpEditor({ opened, metadata, onClose }: { opened: boolean; metadata: ObjRef | null; onClose: () => void }) {
+  const backend = useBackend();
+  const nav = useNav();
+  const { apply } = useEdit();
+  const [text, setText] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!opened) return;
+    setError(null);
+    if (!metadata) {
+      setText(XMP_TEMPLATE);
+      return;
+    }
+    setText(null);
+    let live = true;
+    api.streamData(backend, nav.doc, metadata, true, 0, MAX_XMP).then(
+      (b) => {
+        if (!live) return;
+        if (!b.info.eof) setError("The metadata is too large to edit here.");
+        setText(new TextDecoder().decode(b.data));
+      },
+      (e) => live && setError(String(e)),
+    );
+    return () => {
+      live = false;
+    };
+  }, [opened, metadata, backend, nav.doc]);
+  const submit = async () => {
+    if (text === null) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await apply(metadata ? "Edit the XMP metadata" : "Add XMP metadata", [{ op: "setXmp", xml: text }]);
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal opened={opened} onClose={onClose} title="XMP metadata" size="xl">
+      <Stack gap="xs">
+        {text === null && !error ? (
+          <Loader size="sm" />
+        ) : (
+          <Textarea
+            size="xs"
+            styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)", fontSize: 12 } }}
+            autosize
+            minRows={8}
+            maxRows={28}
+            value={text ?? ""}
+            onChange={(e) => setText(e.currentTarget.value)}
+          />
+        )}
+        <Text size="xs" c="dimmed">
+          Stored unfiltered (UTF-8), as the catalog&apos;s /Metadata stream. It must be well-formed XML.
+        </Text>
+        {error && (
+          <Alert color="red" p={6}>
+            <Text size="xs">{error}</Text>
+          </Alert>
+        )}
+        <Group justify="flex-end">
+          <Button size="xs" variant="default" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button size="xs" loading={busy} disabled={text === null} onClick={() => void submit()}>
+            Apply
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
   );
 }
 

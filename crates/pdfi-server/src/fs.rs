@@ -3,7 +3,11 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use pdfi_api::{ApiError, DirEntry, DirListing, ErrorCode, OpenSource, Opened, SourceProvider};
+use std::io::Write;
+
+use pdfi_api::{
+    ApiError, DirEntry, DirListing, ErrorCode, OpenSource, Opened, SaveTarget, SourceProvider,
+};
 use pdfi_syntax::FileSource;
 
 /// Allows the given files and everything below the given directories. Every
@@ -54,6 +58,52 @@ impl FsProvider {
     }
 }
 
+/// A file written next to its destination and renamed over it on commit.
+struct TempFile {
+    tmp: PathBuf,
+    dest: PathBuf,
+    file: Option<std::io::BufWriter<std::fs::File>>,
+}
+
+impl SaveTarget for TempFile {
+    fn write(&mut self, data: &[u8]) -> std::io::Result<()> {
+        match &mut self.file {
+            Some(f) => f.write_all(data),
+            None => Err(std::io::Error::other("already committed")),
+        }
+    }
+
+    fn commit(mut self: Box<Self>) -> Result<Opened, ApiError> {
+        let f = self
+            .file
+            .take()
+            .ok_or_else(|| ApiError::new(ErrorCode::Internal, "already committed"))?;
+        let f = f.into_inner().map_err(|e| e.into_error())?;
+        f.sync_all()?;
+        drop(f);
+        // Replaces the old file atomically; a reader of the old one keeps it.
+        std::fs::rename(&self.tmp, &self.dest)?;
+        let src = FileSource::open(&self.dest)?;
+        Ok(Opened {
+            source: Arc::new(src),
+            name: self
+                .dest
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default(),
+            path: Some(display(&self.dest)),
+        })
+    }
+}
+
+impl Drop for TempFile {
+    fn drop(&mut self) {
+        if self.file.take().is_some() {
+            let _ = std::fs::remove_file(&self.tmp);
+        }
+    }
+}
+
 fn display(p: &Path) -> String {
     p.to_string_lossy().into_owned()
 }
@@ -95,6 +145,58 @@ impl SourceProvider for FsProvider {
                 .unwrap_or_default(),
             path: Some(display(&c)),
         })
+    }
+
+    fn create(&self, path: &str) -> Result<Box<dyn SaveTarget>, ApiError> {
+        let p = Path::new(path);
+        let name = p
+            .file_name()
+            .filter(|n| !n.is_empty())
+            .ok_or_else(|| {
+                ApiError::new(ErrorCode::BadRequest, format!("{path} is not a file name"))
+            })?
+            .to_owned();
+        // An existing file: the file itself must be allowed. A new one: its
+        // directory must be under a root.
+        let dest = match std::fs::canonicalize(p) {
+            Ok(c) => {
+                if !self.allowed_file(&c) {
+                    return Err(Self::forbidden(path));
+                }
+                if !c.is_file() {
+                    return Err(ApiError::new(
+                        ErrorCode::BadRequest,
+                        format!("{path} is not a file"),
+                    ));
+                }
+                c
+            }
+            Err(_) => {
+                let parent = p.parent().filter(|d| !d.as_os_str().is_empty());
+                let dir = self.resolve(&parent.map_or(".".into(), display))?;
+                if !self.under_root(&dir) || !dir.is_dir() {
+                    return Err(Self::forbidden(path));
+                }
+                dir.join(&name)
+            }
+        };
+        let dir = dest
+            .parent()
+            .ok_or_else(|| Self::forbidden(path))?
+            .to_path_buf();
+        let mut rnd = [0u8; 8];
+        getrandom::fill(&mut rnd).map_err(|e| ApiError::new(ErrorCode::Internal, e.to_string()))?;
+        let tag: String = rnd.iter().map(|b| format!("{b:02x}")).collect();
+        let tmp = dir.join(format!(".{}.{tag}.pdfi-tmp", name.to_string_lossy()));
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&tmp)?;
+        Ok(Box::new(TempFile {
+            tmp,
+            dest,
+            file: Some(std::io::BufWriter::with_capacity(1 << 20, file)),
+        }))
     }
 
     fn list_dir(&self, path: Option<&str>) -> Result<DirListing, ApiError> {

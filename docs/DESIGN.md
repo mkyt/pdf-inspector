@@ -12,6 +12,7 @@
 > - v2.7: M7 実装で確定した事項を §4.5 / §4.6 / §4.8 に追記（命令列の読み直しとチェックポイント、validation の項目、bbox の求め方、暫定のフォント情報、プロトコル v4）
 > - v2.8: M8 実装で確定した事項を §4.6 / §4.8 / §4.9 / §8 に追記（ラスタライザは tiny-skia、Device による描画、ビュー座標、タイルと余白、ハイライト層とヒットテスト、プロトコル v5、サーバーでの並列描画）
 > - v2.9: M9 実装で確定した事項を §4.4 / §4.5 / §4.6 / §4.8 / §8 に追記（pdfi-font の形、ttf-parser と hayro-font、グリフ選択、Foxit 代替フォントと AFM 幅、Type 3 の手続き実行、テキストのクリップ、プロトコル v6）
+> - v2.10: M10 実装で確定した事項を §4.1 / §4.7 / §4.8 / §4.9 / §5.3 に追記（スナップショットとしての編集レイヤ、コマンドとトランザクション、undo / redo、ページ操作、Info と XMP の同期、チャンク単位の書き出し、保存ジョブと Worker からの保存、プロトコル v13）
 
 ## 1. ゴール
 
@@ -144,6 +145,7 @@ pub struct Node { pub obj: Object, pub span: Option<Span> }  // 編集で作っ�
 - **暗号**: Standard security handler (RC4 40/128, AES-128/256, R2–R6)
 - **シリアライザ**: `io::Write` へのストリーミング出力。未変更オブジェクトは元バイトをコピー
 - **Diagnostic**: `{ severity, code, span, obj: Option<ObjId>, path, message }`
+- **M10 で確定した形**（Overlay）: 編集は `PdfFile` を変えず、`Edits`（オブジェクト番号ごとの置き換え・追加・削除と trailer）を重ねた**別のスナップショット**（`PdfFile::with_edits`）を作る。スナップショットはソース・xref の解析結果・オブジェクトと ObjStm のキャッシュ・診断を `Arc` で共有し、`get` は編集を先に見る（ファイルのオブジェクトだけがキャッシュに入る）。合成した xref では編集したものが `XrefEntry::Edited`、削除したものが世代 +1 の `Free`、オブジェクトの位置は `ObjLocation::Edited`（span なし）。編集で作ったデータ（`StreamData::Owned`）と文字列は暗号化されていないものとして扱う。新しい番号は xref の大きさの次から振り、空き番号は再利用しない
 
 ### 4.2 pdfi-schema — 既知スキーマと validation
 
@@ -289,6 +291,15 @@ pub struct RenderRequest { scale: f32, clip: Option<Rect>, until_op: Option<usiz
   - **Incremental update**: 元バイトをそのままコピー + 変更分を末尾追記。署名を壊さない。大きいファイルで最速
   - **Full rewrite**: xref stream / ObjStm 使用有無、再圧縮、未使用オブジェクト除去を選択
   - 署名付き PDF で full rewrite / 署名範囲に影響する変更をする場合は警告
+- **M10 で確定した形**（pdfi-edit。`pdfi-syntax` と `pdfi-model` に依存し、wasm32 でもビルドできる）:
+  - `Tx`（トランザクション）はスナップショットの `Edits` を複製して `Command` を順に当て、新しい `Edits` と `Applied`（作ったオブジェクト、変わった番号、注記）を返す。どれかが失敗したら何も残さない。ページ操作やメタ情報のようにモデルが要るコマンドは、途中の `Edits` を重ねたビューで pdfi-model を引く
+  - コマンド: ノード（ルート = trailer かオブジェクト + 子の添字の列。`Children` と同じ番地）の値の置き換え（空の列ならオブジェクト全体。ストリームに辞書を与えたらデータは残す）、辞書エントリの追加・置き換え・削除、配列への挿入・子の削除、オブジェクトの追加（データを与えればストリーム）・削除、ストリームのデータ置き換え（復号後のデータを Flate か無圧縮で。末尾の画像コーデック DCT / JPX / JBIG2 / CCITT は残し、データはその入力）とフィルタの掛け直し、ページの削除・移動・回転・空白ページの挿入・ページの複製（他の文書から、または同じ文書から）、Info の設定・削除、XMP の置き換え。値は**PDF 構文のテキスト**で受けて既存のパーサで読む（後ろに余計なものがある・構文の警告が出るものは拒否）
+  - **ページ操作**はページツリーへの小さな編集: 親の `/Kids` から外して移動先の `/Kids`（指定位置のページの前、末尾なら最後のページの後）に入れ、触ったノードの `/Count` を子から数え直す（`/Count` の無いノードも直る）。空になった中間ノードは外す。別の親へ移すページは、元の祖先から継承していた Resources / MediaBox / CropBox / Rotate をページに写し、移動先の祖先が持つものは既定値（CropBox = MediaBox、Rotate 0、空の Resources）をページに置いて継承させない。複製は参照を辿ってページが使うものを全部写し（ページ・ページツリーへの参照は null、`/Parent`・`/StructParents` は落とす。ストリームは復号して符号化されたままメモリに）、同じ文書からならページと注釈だけを写してリソースは共有する
+  - **Info と XMP**: 日付は ISO 8601 か PDF 日付で受けて PDF 日付にし、テキストは ASCII なら PDFDocEncoding、それ以外は UTF-16BE。Info が無ければ作って trailer から指す。同期を求めれば対応する XMP のプロパティ（dc:title / dc:creator / dc:description / pdf:Keywords / xmp:CreatorTool / pdf:Producer / xmp:CreateDate / xmp:ModifyDate）を quick-xml のイベントを書き写しながら差し替える（要素でも属性でも。無ければ最初の `rdf:Description` に要素として足す）。メタデータは無圧縮で書く
+  - **undo / redo**: 状態ごとの `Edits` の列（200 段）。編集・undo・redo のたびにファイルからのスナップショットを作り直すので、undo は逆操作ではなく前の状態に戻すだけ。保存するとそのファイルを開き直して履歴は空に戻る
+  - **保存**（`Saver`）は「ソースのこの範囲」「このオブジェクト」「xref」といった部品の列を作り、`next_chunk` で約 1 MB ずつ出す（元のバイトやストリームのデータはチャンク単位でソースから読む）。incremental update はファイルの全バイト + 編集したオブジェクト + 新しい xref 部（最新の部が xref stream / hybrid なら xref stream、そうでなければ表。`/Prev` は直前の部、`/ID` の 2 つ目は追記部の MD5）。暗号化されたファイル（追記するオブジェクトを暗号化しない）と xref を復元したファイル（`/Prev` が壊れている）は full rewrite のみ。full rewrite は生きているオブジェクト（未使用の除去を選べば trailer から届くもの）を番号はそのままに書き、古い xref stream / ObjStm / 線形化辞書 / 暗号辞書は落とし、復号して書く。オブジェクトストリームは 100 個ずつ、xref stream の `/W` は `[1 4|8 2]`
+  - 署名: AcroForm の `/FT /Sig` で値のあるフィールドを数え、full rewrite では「署名が無効になる」、update では「署名後の変更として表示されうる」と警告する
+  - 検証: `qpdf --check` を通ること、update の先頭が元のファイルとバイト一致すること、保存したものを開き直してページ順・値が保たれることをテストする（`crates/pdfi-edit/tests/edit.rs`）
 
 ### 4.8 pdfi-api — フロントとの境界（プロトコル）
 
@@ -319,6 +330,8 @@ impl Session {
   - ジョブは `step()` を繰り返す有界な作業単位。実行は `Executor` trait（server: ジョブごとのスレッド、wasm: `QueueExecutor` を協調的に回す）
   - ファイルアクセスは `SourceProvider` trait で注入（pdfi-api 自体は fs に触れない）
   - `Cancel(RequestId)` はトランスポート層で未着手のリクエストを破棄する。`Batch` はネスト不可
+- **M10 で追加（プロトコル v13）**: `Apply { doc, label, commands }`（`EditCommand` の列を 1 つの undo 単位で。値は PDF 構文の文字列、ストリームのデータは `StreamPayload`（テキストか base64）。応答 `ApplyResult`: 編集の状態、作ったオブジェクト、変わった番号、注記、変わったオブジェクトのスキーマの問題（先頭 50 個のオブジェクト・100 件まで））、`Undo` / `Redo`（`EditStatus`）、`NodeSyntax { doc, path }`（ノードの PDF 構文、1 MB まで。編集欄の初期値）、`JobKind::Save { path, mode }`（`SaveMode`: `incremental` | `full { xref_stream, object_streams, compress, remove_unused }`。結果は `JobResult::Save`、失敗は `JobState::Failed` と `JobInfo.error`）、`ResponseBody::Saved`（Worker 経由で保存したときの応答）。`DocSummary.edit`（`EditStatus`: 未保存か、編集したオブジェクト数、undo / redo の名前、署名の数、update できない理由）。`Event::DocChanged { doc, reason: edit | undo | redo | saved, info }` を受けたら UI はその文書のキャッシュを全部捨てる（編集のたびにスナップショットごと作り直すので、細かい無効化はしない）。`XrefEntry::Edited`、`Location::Edited`
+  - Session は文書を `Arc<Doc>` の差し替えで更新する。編集中の文書の読み取り（描画・ジョブ）は古いスナップショットのまま一貫して終わる。編集は文書ごとの履歴のロックで直列化する。インベントリやフォントの使用箇所は新しいスナップショットでは作り直し（UI はジョブの結果を消す）
 - **M12 の後で追加（プロトコル v9）**: `AnnotInfo.variants`（`/AP` の外観すべて: `/N`・`/R`・`/D` の各状態。`AppearanceInfo.kind` がどのエントリか）と `as_state`（`/AS`）。`RenderLayer::Annots.pick`（`AppearancePick { index, kind, state }`: その注釈は通常の外観の代わりにこれを描く）。UI は注釈の詳細で外観を切り替える（`/AS` が選ぶものに ·AS の印）
 - **M12 の後で追加（プロトコル v8）**: `AnnotInfo` を広げた（`/F` の名前、表示されるか、`/T`・`/Subj`・`/M`、`/C`・`/IC`・`/CA`、線幅、`/QuadPoints`、インク・頂点・線の座標、`/AP` のキー、`/Popup`、`appearance: AppearanceInfo`（外観ストリーム、`/AS` の状態とその一覧、`/BBox`、`/Matrix`、フォーム空間 → ページの行列、描けない理由））。`RenderLayer::Annots { only }`（ページの注釈の外観だけを透明な下地に。`only` で `/Annots` の番号を絞る）。UI はページの描画に「Appearances」（この層を内容のタイルに重ねる）と「Outlines」（SVG で `/Rect`・`/QuadPoints`・パス、選んだ注釈は変換後の `/BBox` とフォームの原点・x 軸）を出し、ラベルで選んだ注釈の詳細（描かれる順番、外観ストリームの命令列へのリンク）を示す
 - **M9 で追加（プロトコル v6）**: `Font { doc, id }`（`FontDetail`: 種類、`/Subtype`・`/BaseFont`、子孫 CID フォント、記述子と `/Flags` の名前、エンコーディングの説明、縦書き、`/ToUnicode` と件数、`/CIDToGIDMap`、プログラム（キー・`/Subtype`・読めた形式・バイト数・グリフ数・unitsPerEm・CID-keyed）、何で描くか（`embedded` | `substitute` | `procedures` | `none`）と代替フォント名、ascent / descent、Type 3 の `/FontMatrix`、`Glyphs` の件数、問題）、`Glyphs { doc, id, range }`（`GlyphView`: 符号とそのバイト列、CID、グリフ番号、名前、テキスト、幅、アウトラインの SVG パス（1000 単位 / em、y 上向き）と bbox、Type 3 のグリフ手続き）。一覧に出す符号は単純フォントが 0–255、Type 0 は CMap / `/ToUnicode` に出てくる符号、identity なら `/CIDToGIDMap` の範囲かグリフ数。子孫の CID フォントは `BadRequest`（Type 0 から見る）
@@ -373,6 +386,7 @@ doc.save(SaveOptions, sink: Box<dyn ByteSink>) -> JobId
 - **保存**: サーバー側で直接パスに書き出し（上書き・別名保存）。上書き時は一時ファイル → atomic rename
 - **セッション**: ドキュメント状態（Overlay, undo 履歴）はサーバーが保持。ブラウザのリロード・再接続後も継続。明示的に閉じるかアイドルタイムアウトで解放
 - **並列性**: ジョブ・タイル描画を `rayon` で並列実行。PDFium バックエンドも選択可能
+  - M10: 保存はジョブ（`JobKind::Save`）。`SourceProvider::create` が書き出し先（`SaveTarget`）を作り、同じディレクトリの一時ファイル（`.<名前>.<乱数>.pdfi-tmp`）に書いてから `rename` で置き換え、開き直して文書を差し替える。書けるのは開けるのと同じ範囲（既存のファイルなら許可されたファイル、新しいファイルなら許可ルート配下の既存のディレクトリ）。開いている元のファイルは置き換え後も読める（unix では古い inode を読み続ける）
   - M8: 接続ごとのリクエストは 1 本のスレッドで順に処理し、`Render` / `HitTest` だけ rayon のプールに回す（応答は ID で対応づくので順不同でよい）。`Cancel` は未着手なら破棄、実行中の描画は数百命令ごとの確認で止まる（`ErrorCode::Cancelled`）
 - **セキュリティ**（必須要件）
   - `127.0.0.1` / `::1` のみで listen（外部公開オプションは設けない）
@@ -494,6 +508,7 @@ UI は同じものを使い、起動経路（静的ホスティング or `pdfi s
   - ファイルは JSON に載らないため、Worker への専用メッセージ `{ kind: "open", id, file }` で渡し、`Request::Open` と同じ形の応答を返す（`Backend.openFile`）。UI はファイル選択とドラッグ & ドロップ。`showOpenFilePicker` と「最近使ったファイル」（IndexedDB の `FileSystemFileHandle`）は未実装
   - Worker 内の `Host`（`apps/web/src/worker/host.ts`）がリクエストをキューし、1 ターンに「リクエスト 1 件 → ジョブを最大 16 ms」実行して `MessageChannel` で次ターンを予約する。`Cancel` は未着手のリクエストをキューから外す。イベントはリクエストの応答より先に送る（WebSocket と同じ順序）
   - モード判定: URL / sessionStorage にトークンがあれば RemoteBackend、なければ WorkerBackend。`pdfi serve` の CSP に `'wasm-unsafe-eval'` を追加
+  - **M10: 保存**は Worker への専用メッセージ `{ kind: "save", id, doc, mode, handle }`（`handle` は `showSaveFilePicker` の `FileSystemFileHandle`）。Worker の `Host` が `createWritable()` を開き、`WasmSession.saveBegin` / `saveChunk`（約 1 MB ずつ）/ `saveEnd` で作った部分を `await write()` しながら書き、閉じたら `getFile()` で `WasmSession.reload` して文書を差し替える（同じファイルへの上書きでも Chromium は閉じるまで元のファイルを置き換えない）。保存中は他のリクエストを処理しない。上書き用のハンドルは「Browse…」（`showOpenFilePicker`）かドラッグ & ドロップ（`getAsFileSystemHandle`）で開いたとき、または保存したときに UI が文書ごとに覚える
   - ビルド: `scripts/build-wasm.sh`（`wasm-bindgen --target web`、出力は `apps/web/src/wasm/`、git 管理外）。`wasm-bindgen` crate は `=` で固定し CLI と版を揃える。`npm run build` が先に実行する
 
 ### 5.4 ローカルサーバーモード

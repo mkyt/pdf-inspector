@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use pdfi_content::DocContent;
+use pdfi_edit::History;
 use pdfi_model::DocModel;
 use pdfi_model::inventory::Inventory;
 use pdfi_render::DocRender;
@@ -13,13 +14,14 @@ use pdfi_schema::{self as schema, Container, DocSchema, Origin};
 use pdfi_syntax::{
     self as syn, ByteSource, DictExt, ObjLocation, Object, OpenOptions, PdfFile, Recovery,
 };
+use syn::file::Edits;
 
 use crate::convert::{self, value_of};
 use crate::dto::*;
 use crate::job::{Executor, Job};
 use crate::protocol::*;
-use crate::source::SourceProvider;
-use crate::{content, font, model};
+use crate::source::{Opened, SourceProvider};
+use crate::{content, edit, font, model};
 
 /// Largest binary chunk returned by one request.
 pub const MAX_CHUNK: u32 = 4 << 20;
@@ -52,10 +54,15 @@ impl EventBus {
     }
 }
 
+/// An open document: a snapshot of the file with its edits, and what was
+/// read from it. Every edit replaces the snapshot (same id, new caches);
+/// the history is shared by the snapshots.
 pub(crate) struct Doc {
     pub id: DocId,
     pub info: DocInfo,
     pub file: PdfFile,
+    pub history: Arc<Mutex<History>>,
+    pub signatures: OnceLock<u32>,
     /// Path and options it was opened with, to reuse it on a repeated open.
     key: Option<(String, Option<String>, bool)>,
     /// Object numbers present in the xref, ascending.
@@ -73,6 +80,42 @@ pub(crate) struct Doc {
 }
 
 impl Doc {
+    fn new(
+        id: DocId,
+        info: DocInfo,
+        file: PdfFile,
+        key: Option<(String, Option<String>, bool)>,
+        history: Arc<Mutex<History>>,
+    ) -> Self {
+        Self {
+            id,
+            info,
+            file,
+            history,
+            signatures: OnceLock::new(),
+            key,
+            nums: OnceLock::new(),
+            schema: DocSchema::new(),
+            model: DocModel::new(),
+            inventory: Mutex::default(),
+            font_uses: Mutex::default(),
+            filtered: Mutex::default(),
+            content: DocContent::new(),
+            render: DocRender::new(),
+        }
+    }
+
+    /// The same document with other edits.
+    fn with_edits(&self, edits: Edits) -> Self {
+        Self::new(
+            self.id,
+            self.info.clone(),
+            self.file.with_edits(edits),
+            self.key.clone(),
+            self.history.clone(),
+        )
+    }
+
     fn nums(&self) -> &[u32] {
         self.nums
             .get_or_init(|| self.file.xref().iter().map(|(n, _)| n).collect())
@@ -91,11 +134,13 @@ impl Doc {
     }
 }
 
+type Docs = Arc<Mutex<BTreeMap<DocId, Arc<Doc>>>>;
+
 pub struct Session {
-    provider: Box<dyn SourceProvider>,
+    provider: Arc<dyn SourceProvider>,
     executor: Box<dyn Executor>,
     backend: String,
-    docs: Mutex<BTreeMap<DocId, Arc<Doc>>>,
+    docs: Docs,
     jobs: Mutex<BTreeMap<JobId, Arc<Job>>>,
     next_doc: AtomicU32,
     next_job: AtomicU32,
@@ -111,10 +156,10 @@ impl Session {
         executor: impl Executor + 'static,
     ) -> Self {
         Self {
-            provider: Box::new(provider),
+            provider: Arc::new(provider),
             executor: Box::new(executor),
             backend: backend.into(),
-            docs: Mutex::default(),
+            docs: Arc::default(),
             jobs: Mutex::default(),
             next_doc: AtomicU32::new(1),
             next_job: AtomicU32::new(1),
@@ -186,44 +231,143 @@ impl Session {
         password: Option<String>,
         recover: bool,
     ) -> Result<DocSummary, ApiError> {
-        let size = source.len();
-        let file = PdfFile::open(
-            source,
-            OpenOptions {
-                password: password.as_ref().map(|p| p.as_bytes().to_vec()),
-                recovery: if recover {
-                    Recovery::Force
-                } else {
-                    Recovery::Auto
-                },
-                ..Default::default()
-            },
-        )?;
         let id = self.next_doc.fetch_add(1, Ordering::Relaxed);
-        let doc = Arc::new(Doc {
-            id,
-            info: DocInfo {
-                doc: id,
-                name,
-                path: path.clone(),
-                size,
-            },
-            file,
-            key: path.map(|p| (p, password, recover)),
-            nums: OnceLock::new(),
-            schema: DocSchema::new(),
-            model: DocModel::new(),
-            inventory: Mutex::default(),
-            font_uses: Mutex::default(),
-            filtered: Mutex::default(),
-            content: DocContent::new(),
-            render: DocRender::new(),
-        });
+        let doc = Arc::new(open_doc(id, source, name, path, password, recover)?);
         lock(&self.docs).insert(id, doc.clone());
         self.bus.emit(&Event::DocOpened {
             info: doc.info.clone(),
         });
         Ok(summary(&doc))
+    }
+
+    /// Replace a document by the file at `source` (after saving it), with
+    /// a fresh history.
+    pub fn reload(
+        &self,
+        doc: DocId,
+        source: Arc<dyn ByteSource>,
+        name: impl Into<String>,
+    ) -> Result<DocSummary, ApiError> {
+        let d = self.doc(doc)?;
+        reload(
+            &self.docs,
+            &self.bus,
+            doc,
+            Opened {
+                source,
+                name: name.into(),
+                path: d.info.path.clone(),
+            },
+        )
+    }
+
+    /// Start writing a document with its edits; the caller takes the
+    /// chunks and puts them where they go (the browser's file handle).
+    pub fn save_stream(&self, doc: DocId, mode: SaveMode) -> Result<SaveStream, ApiError> {
+        Ok(SaveStream {
+            saver: edit::saver(self.doc(doc)?, mode)?,
+        })
+    }
+
+    fn apply(
+        &self,
+        doc: DocId,
+        label: String,
+        cmds: &[EditCommand],
+    ) -> Result<ApplyResult, ApiError> {
+        let others: Vec<(DocId, Arc<Doc>)> = edit::sources(cmds, doc)
+            .into_iter()
+            .map(|id| Ok((id, self.doc(id)?)))
+            .collect::<Result<_, ApiError>>()?;
+        let history = self.doc(doc)?.history.clone();
+        let mut h = lock(&history);
+        // The newest snapshot, now that no other edit can run.
+        let d = self.doc(doc)?;
+        let cmds = cmds
+            .iter()
+            .map(|c| edit::command(c, doc, &others))
+            .collect::<Result<Vec<_>, ApiError>>()?;
+        let (edits, applied) = pdfi_edit::Tx::apply_all(&d.file, cmds)?;
+        h.push(label, edits.clone());
+        drop(h);
+        let new = Arc::new(d.with_edits(edits));
+        lock(&self.docs).insert(doc, new.clone());
+        self.bus.emit(&Event::DocChanged {
+            doc,
+            reason: ChangeReason::Edit,
+            info: None,
+        });
+        Ok(ApplyResult {
+            status: edit::status(&new),
+            created: applied.created.iter().map(|&i| i.into()).collect(),
+            issues: edit::issues(&new, &applied.changed),
+            changed: applied.changed,
+            trailer_changed: applied.trailer_changed,
+            notes: applied.notes,
+        })
+    }
+
+    fn step_history(&self, doc: DocId, redo: bool) -> Result<EditStatus, ApiError> {
+        let history = self.doc(doc)?.history.clone();
+        let mut h = lock(&history);
+        let d = self.doc(doc)?;
+        let edits = if redo { h.redo() } else { h.undo() };
+        let Some(edits) = edits.cloned() else {
+            return Err(ApiError::new(
+                ErrorCode::BadRequest,
+                if redo {
+                    "nothing to redo"
+                } else {
+                    "nothing to undo"
+                },
+            ));
+        };
+        drop(h);
+        let new = Arc::new(d.with_edits(edits));
+        lock(&self.docs).insert(doc, new.clone());
+        self.bus.emit(&Event::DocChanged {
+            doc,
+            reason: if redo {
+                ChangeReason::Redo
+            } else {
+                ChangeReason::Undo
+            },
+            info: None,
+        });
+        Ok(edit::status(&new))
+    }
+
+    fn start_save(
+        &self,
+        d: Arc<Doc>,
+        path: Option<String>,
+        mode: SaveMode,
+    ) -> Result<Arc<Job>, ApiError> {
+        let path = match path.or_else(|| d.info.path.clone()) {
+            Some(p) => p,
+            None => {
+                return Err(ApiError::new(
+                    ErrorCode::BadRequest,
+                    "the document has no path to save to",
+                ));
+            }
+        };
+        let saver = edit::saver(d.clone(), mode)?;
+        let target = self.provider.create(&path)?;
+        let (docs, bus, doc) = (self.docs.clone(), self.bus.clone(), d.id);
+        let id = self.next_job.fetch_add(1, Ordering::Relaxed);
+        Ok(Arc::new(Job::save(
+            id,
+            d,
+            JobKind::Save {
+                path: Some(path),
+                mode,
+            },
+            saver,
+            target,
+            Box::new(move |opened| reload(&docs, &bus, doc, opened).map(|_| ())),
+            self.bus.clone(),
+        )))
     }
 
     fn doc(&self, id: DocId) -> Result<Arc<Doc>, ApiError> {
@@ -511,8 +655,14 @@ impl Session {
             }
             Request::StartJob { doc, job } => {
                 let d = self.doc(doc)?;
-                let id = self.next_job.fetch_add(1, Ordering::Relaxed);
-                let j = Arc::new(Job::new(id, d, job, self.bus.clone()));
+                let j = match job {
+                    JobKind::Save { path, mode } => self.start_save(d, path, mode)?,
+                    job => {
+                        let id = self.next_job.fetch_add(1, Ordering::Relaxed);
+                        Arc::new(Job::new(id, d, job, self.bus.clone()))
+                    }
+                };
+                let id = j.info().job;
                 lock(&self.jobs).insert(id, j.clone());
                 let info = j.info();
                 self.executor.spawn(Box::new(move || j.step()));
@@ -533,6 +683,14 @@ impl Session {
                     items,
                 }))
             }
+            Request::NodeSyntax { doc, path } => node_syntax(&*self.doc(doc)?, &path),
+            Request::Apply {
+                doc,
+                label,
+                commands,
+            } => Ok(ResponseBody::Applied(self.apply(doc, label, &commands)?)),
+            Request::Undo { doc } => Ok(ResponseBody::Edit(self.step_history(doc, false)?)),
+            Request::Redo { doc } => Ok(ResponseBody::Edit(self.step_history(doc, true)?)),
             // Cancellation of queued requests happens in the transport; by
             // the time a request reaches the session it has started.
             Request::Cancel { .. } => Ok(ResponseBody::Empty),
@@ -642,6 +800,98 @@ fn summary(d: &Doc) -> DocSummary {
         },
         pages: d.model.on(f).page_count().min(u32::MAX as u64) as u32,
         inventory: lock(&d.inventory).as_deref().map(InventoryStats::of),
+        edit: edit::status(d),
+    }
+}
+
+fn open_doc(
+    id: DocId,
+    source: Arc<dyn ByteSource>,
+    name: String,
+    path: Option<String>,
+    password: Option<String>,
+    recover: bool,
+) -> Result<Doc, ApiError> {
+    let size = source.len();
+    let file = PdfFile::open(
+        source,
+        OpenOptions {
+            password: password.as_ref().map(|p| p.as_bytes().to_vec()),
+            recovery: if recover {
+                Recovery::Force
+            } else {
+                Recovery::Auto
+            },
+            ..Default::default()
+        },
+    )?;
+    Ok(Doc::new(
+        id,
+        DocInfo {
+            doc: id,
+            name,
+            path: path.clone(),
+            size,
+        },
+        file,
+        path.map(|p| (p, password, recover)),
+        Arc::default(),
+    ))
+}
+
+/// Replace document `id` by the file `opened` (saved from it).
+fn reload(docs: &Docs, bus: &EventBus, id: DocId, opened: Opened) -> Result<DocSummary, ApiError> {
+    let d = Arc::new(open_doc(
+        id,
+        opened.source,
+        opened.name,
+        opened.path,
+        None,
+        false,
+    )?);
+    {
+        let mut docs = lock(docs);
+        // Closed while it was being saved: it stays closed.
+        if !docs.contains_key(&id) {
+            return Err(ApiError::new(
+                ErrorCode::NoSuchDoc,
+                format!("no document {id}"),
+            ));
+        }
+        docs.insert(id, d.clone());
+    }
+    bus.emit(&Event::DocChanged {
+        doc: id,
+        reason: ChangeReason::Saved,
+        info: Some(d.info.clone()),
+    });
+    Ok(summary(&d))
+}
+
+/// A document being written in chunks (see [`Session::save_stream`]).
+pub struct SaveStream {
+    saver: pdfi_edit::Saver<edit::DocFile>,
+}
+
+impl SaveStream {
+    /// The next part of the file, `None` at the end.
+    pub fn next_chunk(&mut self) -> Result<Option<Vec<u8>>, ApiError> {
+        Ok(self.saver.next_chunk()?)
+    }
+
+    /// Bytes produced so far and an estimate of the total.
+    pub fn progress(&self) -> (u64, u64) {
+        self.saver.progress()
+    }
+
+    pub fn result(&self) -> SaveResult {
+        let r = self.saver.report();
+        SaveResult {
+            path: None,
+            bytes: r.bytes,
+            objects: r.objects,
+            warnings: r.warnings.clone(),
+        }
     }
 }
 
@@ -704,6 +954,7 @@ fn object(d: &Doc, id: ObjRef) -> Result<ObjectView, ApiError> {
             stream: stream.into(),
             index,
         },
+        ObjLocation::Edited => Location::Edited,
     };
     let stream = o.node.obj.as_stream().map(|s| {
         let specs = d.file.filter_specs(&s.dict);
@@ -801,6 +1052,45 @@ fn children(d: &Doc, path: &NodePath, range: Range) -> Result<Page<NodeView>, Ap
             })
             .collect()
     }))
+}
+
+/// Longest text `NodeSyntax` returns.
+const MAX_SYNTAX: usize = 1 << 20;
+
+fn node_syntax(d: &Doc, path: &NodePath) -> Result<ResponseBody, ApiError> {
+    let held;
+    let trailer;
+    let mut cur: &Object = match &path.root {
+        NodeRoot::Trailer => {
+            trailer = Object::Dict(d.file.trailer().clone());
+            &trailer
+        }
+        NodeRoot::Object { id } => {
+            held = d.file.get((*id).into())?;
+            &held.node.obj
+        }
+    };
+    for &i in &path.path {
+        let i = i as usize;
+        cur = match cur {
+            Object::Dict(x) | Object::Stream(syn::Stream { dict: x, .. }) => {
+                x.get_index(i).map(|(_, v)| &v.obj)
+            }
+            Object::Array(a) => a.get(i).map(|v| &v.obj),
+            _ => None,
+        }
+        .ok_or_else(|| ApiError::new(ErrorCode::NotFound, "no such node"))?;
+    }
+    let mut text = syn::write::pretty(cur);
+    let truncated = text.len() > MAX_SYNTAX;
+    if truncated {
+        let mut end = MAX_SYNTAX;
+        while !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        text.truncate(end);
+    }
+    Ok(ResponseBody::Syntax { text, truncated })
 }
 
 /// Entries per container checked for [`ObjectSchema`]; the validation job

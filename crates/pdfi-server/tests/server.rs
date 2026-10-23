@@ -476,3 +476,118 @@ async fn renders_run_in_parallel_and_can_be_cancelled() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Wait for the `jobDone` event of `job`.
+async fn job_done(ws: &mut Ws, job: u32) -> pdfi_api::JobInfo {
+    while let Some(m) = ws.next().await {
+        if let Message::Text(t) = m.unwrap() {
+            if let ServerMessage::Event {
+                event: pdfi_api::Event::JobDone { info },
+            } = serde_json::from_str(&t).unwrap()
+            {
+                if info.job == job {
+                    return info;
+                }
+            }
+        }
+    }
+    panic!("connection closed");
+}
+
+#[tokio::test]
+async fn saves_within_roots() {
+    let dir = std::env::temp_dir().join(format!("pdfi-save-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let dir = dir.canonicalize().unwrap();
+    let original = std::fs::read(fixtures().join("model.pdf")).unwrap();
+    std::fs::write(dir.join("model.pdf"), &original).unwrap();
+    let r = start(ServeOptions {
+        files: vec![dir.join("model.pdf")],
+        roots: vec![dir.clone()],
+        ..Default::default()
+    })
+    .await;
+    let mut ws = good(&r).await;
+    let (res, _) = call(
+        &mut ws,
+        1,
+        serde_json::json!({ "op": "apply", "doc": 1, "label": "delete", "commands": [
+            { "op": "deletePages", "pages": [0] }
+        ] }),
+    )
+    .await;
+    assert!(
+        matches!(res, Response::Ok(ResponseBody::Applied(_))),
+        "{res:?}"
+    );
+    let save = |id: u64, path: Option<String>, mode: serde_json::Value| {
+        (
+            id,
+            serde_json::json!({ "op": "startJob", "doc": 1, "job": { "kind": "save", "path": path, "mode": mode } }),
+        )
+    };
+    // Over the file it was opened from.
+    let (id, req) = save(2, None, serde_json::json!({ "kind": "incremental" }));
+    let (res, _) = call(&mut ws, id, req).await;
+    let Response::Ok(ResponseBody::Job(j)) = res else {
+        panic!("{res:?}")
+    };
+    let info = job_done(&mut ws, j.job).await;
+    assert_eq!(
+        info.state,
+        pdfi_api::JobState::Completed,
+        "{:?}",
+        info.error
+    );
+    let saved = std::fs::read(dir.join("model.pdf")).unwrap();
+    assert!(saved.len() > original.len() && saved.starts_with(&original));
+    let (res, _) = call(&mut ws, 3, serde_json::json!({ "op": "summary", "doc": 1 })).await;
+    let Response::Ok(ResponseBody::Doc(s)) = res else {
+        panic!("{res:?}")
+    };
+    assert_eq!((s.pages, s.revisions.len(), s.edit.dirty), (4, 2, false));
+    // As a new file next to it; nowhere else.
+    let (id, req) = save(
+        4,
+        Some(dir.join("copy.pdf").to_string_lossy().into_owned()),
+        serde_json::json!({ "kind": "full", "xref_stream": true, "object_streams": true, "compress": true, "remove_unused": true }),
+    );
+    let (res, _) = call(&mut ws, id, req).await;
+    let Response::Ok(ResponseBody::Job(j)) = res else {
+        panic!("{res:?}")
+    };
+    let info = job_done(&mut ws, j.job).await;
+    assert_eq!(
+        info.state,
+        pdfi_api::JobState::Completed,
+        "{:?}",
+        info.error
+    );
+    assert!(dir.join("copy.pdf").is_file());
+    for (bad, code) in [
+        (
+            std::env::temp_dir().join("pdfi-outside.pdf"),
+            ErrorCode::Forbidden,
+        ),
+        (dir.join("../outside.pdf"), ErrorCode::Forbidden),
+        (dir.join("missing/inside.pdf"), ErrorCode::NotFound),
+    ] {
+        let (id, req) = save(
+            5,
+            Some(bad.to_string_lossy().into_owned()),
+            serde_json::json!({ "kind": "incremental" }),
+        );
+        let (res, _) = call(&mut ws, id, req).await;
+        assert!(
+            matches!(&res, Response::Err(e) if e.code == code),
+            "{bad:?}: {res:?}"
+        );
+    }
+    let names: Vec<String> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(names.iter().all(|n| !n.contains("pdfi-tmp")), "{names:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

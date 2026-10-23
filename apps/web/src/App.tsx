@@ -37,8 +37,10 @@ import {
   ForwardIcon,
   LeftPaneIcon,
   MoonIcon,
+  RedoIcon,
   RightPaneIcon,
   SunIcon,
+  UndoIcon,
 } from "./components/Icons";
 import { Inspector } from "./components/Inspector";
 import { Landmarks } from "./components/Landmarks";
@@ -50,6 +52,8 @@ import { ValidatePanel } from "./components/ValidatePanel";
 import { SummaryCard } from "./components/SummaryCard";
 import { XrefPanel } from "./components/XrefPanel";
 import { DocContext, type DocState } from "./doc";
+import { EditProvider, fileHandles, useEdit } from "./edit";
+import { SaveDialog } from "./components/SaveDialog";
 import { useJob } from "./jobs";
 import { useLayout, type Layout } from "./layout";
 import { contentKey, NavContext, sameTarget, type Nav, type Selection, type Target } from "./nav";
@@ -147,8 +151,15 @@ function Shell() {
     if (!backend.openFile || !file) return;
     e.preventDefault();
     setDropError(null);
+    // Chromium hands out a handle to the dropped file: saving can write back to it.
+    const item = e.dataTransfer.items[0] as DataTransferItem & {
+      getAsFileSystemHandle?(): Promise<FileSystemHandle | null>;
+    };
+    const handle = item?.getAsFileSystemHandle?.();
     api.openFile(backend, file, null, false).then(
       async (s) => {
+        const h = await handle?.catch(() => null);
+        if (h?.kind === "file") fileHandles.set(s.info.doc, h as FileSystemFileHandle);
         // Select it only once the list knows it, or the list effect resets the selection.
         await qc.invalidateQueries({ queryKey: ["docs"] });
         showDoc(s.info.doc);
@@ -162,6 +173,11 @@ function Shell() {
       backend.onEvent((ev) => {
         if (ev.type === "docOpened" || ev.type === "docClosed") {
           void qc.invalidateQueries({ queryKey: ["docs"] });
+        }
+        if (ev.type === "docChanged") {
+          // Everything read from it is stale (and saving may rename it).
+          void qc.invalidateQueries({ queryKey: ["doc", ev.doc] });
+          if (ev.info) void qc.invalidateQueries({ queryKey: ["docs"] });
         }
         if (ev.type === "docClosed") {
           qc.removeQueries({ queryKey: ["doc", ev.doc] });
@@ -260,6 +276,19 @@ function DocView({ doc, router, layout }: { doc: DocId; router: Router; layout: 
   const [validation, setValidation] = useJob(doc);
   const [inventoryJob, setInventoryJob] = useJob(doc);
   const [inventoryError, setInventoryError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const openSave = useCallback(() => setSaving(true), []);
+  // Jobs ran on the document before it changed: their results no longer apply.
+  useEffect(
+    () =>
+      backend.onEvent((ev) => {
+        if (ev.type === "docChanged" && ev.doc === doc) {
+          setValidation(null);
+          setInventoryJob(null);
+        }
+      }),
+    [backend, doc, setValidation, setInventoryJob],
+  );
 
   const open = useCallback(
     (t: Target) => {
@@ -331,6 +360,7 @@ function DocView({ doc, router, layout }: { doc: DocId; router: Router; layout: 
   return (
     <DocContext.Provider value={docState}>
       <NavContext.Provider value={nav}>
+        <EditProvider doc={doc} status={s.edit} onSave={openSave}>
         <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
           {left.shown && (
             <div
@@ -399,6 +429,7 @@ function DocView({ doc, router, layout }: { doc: DocId; router: Router; layout: 
                 </ActionIcon>
               </Tooltip>
               <Breadcrumbs />
+              <EditControls />
             </Group>
             <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
               {t.kind === "document" ? (
@@ -431,7 +462,40 @@ function DocView({ doc, router, layout }: { doc: DocId; router: Router; layout: 
             </>
           )}
         </div>
+        <SaveDialog doc={doc} opened={saving} onClose={() => setSaving(false)} />
+        </EditProvider>
       </NavContext.Provider>
     </DocContext.Provider>
+  );
+}
+
+/** Undo, redo and save, with what is unsaved. */
+function EditControls() {
+  const { status, undo, redo, openSave } = useEdit();
+  return (
+    <Group gap={4} ml="auto" wrap="nowrap">
+      <Tooltip label={status.undo ? `Undo ${status.undo} (Ctrl/⌘+Z)` : "Nothing to undo"}>
+        <ActionIcon variant="subtle" disabled={!status.undo} onClick={undo} aria-label="Undo">
+          <UndoIcon />
+        </ActionIcon>
+      </Tooltip>
+      <Tooltip label={status.redo ? `Redo ${status.redo} (Ctrl/⌘+Shift+Z)` : "Nothing to redo"}>
+        <ActionIcon variant="subtle" disabled={!status.redo} onClick={redo} aria-label="Redo">
+          <RedoIcon />
+        </ActionIcon>
+      </Tooltip>
+      {status.dirty && (
+        <Tooltip label="Objects added, changed or deleted and not saved">
+          <Badge variant="light" color="yellow" style={{ flexShrink: 0 }}>
+            {status.edited_objects.toLocaleString()} edited
+          </Badge>
+        </Tooltip>
+      )}
+      <Tooltip label="Save (Ctrl/⌘+S)">
+        <Button size="compact-xs" variant={status.dirty ? "filled" : "default"} onClick={openSave}>
+          Save…
+        </Button>
+      </Tooltip>
+    </Group>
   );
 }

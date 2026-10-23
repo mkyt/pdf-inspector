@@ -10,11 +10,16 @@ use pdfi_model::inventory::{self, Builder, Inventory, ObjClass};
 use pdfi_schema::{Severity, Walk};
 use pdfi_syntax::{ObjId, ObjLocation, Object};
 
+use pdfi_edit::Saver;
+
 use crate::convert;
-use crate::dto::{DiagnosticInfo, JobInfo, JobKind, JobResult, JobState};
+use crate::dto::{DiagnosticInfo, JobInfo, JobKind, JobResult, JobState, SaveResult};
+use crate::edit::DocFile;
 use crate::font::{self, FontUsage};
 use crate::protocol::Event;
+use crate::protocol::{ApiError, ErrorCode};
 use crate::session::{Doc, EventBus, lock};
+use crate::source::{Opened, SaveTarget};
 
 pub type Task = Box<dyn FnMut() -> bool + Send>;
 
@@ -72,6 +77,8 @@ const PAGE_STEP: usize = 32;
 const FONT_PAGE_STEP: usize = 4;
 /// Issues a validation job keeps for `JobDiagnostics`.
 const MAX_KEPT: usize = 100_000;
+/// Chunks (about 1 MB each) a save step writes.
+const SAVE_CHUNKS: usize = 4;
 
 pub(crate) struct Job {
     pub doc: Arc<Doc>,
@@ -87,6 +94,18 @@ enum Work {
     Validate(ValidateWork),
     Inventory(InventoryWork),
     FontUses(FontUsesWork),
+    Save(SaveWork),
+}
+
+/// What a save job does with the file once written: reopen the document.
+pub(crate) type Reopen = Box<dyn FnOnce(Opened) -> Result<(), ApiError> + Send>;
+
+struct SaveWork {
+    saver: Saver<DocFile>,
+    /// `None` once committed (or failed).
+    target: Option<Box<dyn SaveTarget>>,
+    path: Option<String>,
+    reopen: Option<Reopen>,
 }
 
 struct FontUsesWork {
@@ -159,6 +178,7 @@ impl Job {
             JobKind::Inventory => {
                 Work::Inventory(InventoryWork::Scan(Builder::new(&doc.model.on(&doc.file))))
             }
+            JobKind::Save { .. } => unreachable!("save jobs are made by Job::save"),
             JobKind::FontUses { font } => Work::FontUses(FontUsesWork {
                 font: (*font).into(),
                 pages: font::pages_to_scan(&doc, (*font).into()),
@@ -175,6 +195,7 @@ impl Job {
             }
             Work::Inventory(_) => 0,
             Work::FontUses(w) => w.pages.len() as u64,
+            Work::Save(w) => w.saver.progress().1,
         };
         Self {
             info: Mutex::new(JobInfo {
@@ -185,10 +206,50 @@ impl Job {
                 done: 0,
                 total,
                 result: None,
+                error: None,
             }),
             doc,
             cancel: AtomicBool::new(false),
             work: Mutex::new(work),
+            diags: Mutex::default(),
+            bus,
+        }
+    }
+
+    /// A job writing `doc` to `target`, then calling `reopen`.
+    pub fn save(
+        id: u32,
+        doc: Arc<Doc>,
+        kind: JobKind,
+        saver: Saver<DocFile>,
+        target: Box<dyn SaveTarget>,
+        reopen: Reopen,
+        bus: Arc<EventBus>,
+    ) -> Self {
+        let path = match &kind {
+            JobKind::Save { path, .. } => path.clone(),
+            _ => None,
+        };
+        let total = saver.progress().1;
+        Self {
+            info: Mutex::new(JobInfo {
+                job: id,
+                doc: doc.id,
+                kind,
+                state: JobState::Running,
+                done: 0,
+                total,
+                result: None,
+                error: None,
+            }),
+            doc,
+            cancel: AtomicBool::new(false),
+            work: Mutex::new(Work::Save(SaveWork {
+                saver,
+                target: Some(target),
+                path,
+                reopen: Some(reopen),
+            })),
             diags: Mutex::default(),
             bus,
         }
@@ -216,11 +277,51 @@ impl Job {
             return false;
         }
         if self.cancel.load(Ordering::Relaxed) {
+            // Drops a file being written.
+            *lock(&self.work) = Work::Check(CheckWork::default());
             self.finish(JobState::Cancelled, None);
             return false;
         }
         let mut work = lock(&self.work);
+        if let Work::Save(w) = &mut *work {
+            return match save_step(w) {
+                Ok(None) => {
+                    let (done, total) = w.saver.progress();
+                    drop(work);
+                    {
+                        let mut info = lock(&self.info);
+                        info.done = done;
+                        info.total = total;
+                    }
+                    self.bus.emit(&Event::JobProgress {
+                        job: self.info().job,
+                        doc: self.doc.id,
+                        done,
+                        total,
+                    });
+                    true
+                }
+                Ok(Some(r)) => {
+                    drop(work);
+                    {
+                        let mut info = lock(&self.info);
+                        info.done = r.bytes;
+                        info.total = r.bytes;
+                    }
+                    self.finish(JobState::Completed, Some(JobResult::Save(r)));
+                    false
+                }
+                Err(e) => {
+                    w.target = None;
+                    drop(work);
+                    lock(&self.info).error = Some(e.message);
+                    self.finish(JobState::Failed, None);
+                    false
+                }
+            };
+        }
         let (done, total, result) = match &mut *work {
+            Work::Save(_) => unreachable!("handled above"),
             Work::Check(w) => {
                 let (done, r) = self.check_step(w);
                 (done, None, r)
@@ -424,6 +525,36 @@ impl Job {
         };
         (done, Some(result))
     }
+}
+
+/// Write a few chunks; at the end commit the file and reopen the document.
+fn save_step(w: &mut SaveWork) -> Result<Option<SaveResult>, ApiError> {
+    for _ in 0..SAVE_CHUNKS {
+        let Some(chunk) = w.saver.next_chunk()? else {
+            let target = w
+                .target
+                .take()
+                .ok_or_else(|| ApiError::new(ErrorCode::Internal, "saved twice"))?;
+            let opened = target.commit()?;
+            let path = opened.path.clone().or_else(|| w.path.clone());
+            if let Some(reopen) = w.reopen.take() {
+                reopen(opened)?;
+            }
+            let r = w.saver.report();
+            return Ok(Some(SaveResult {
+                path,
+                bytes: r.bytes,
+                objects: r.objects,
+                warnings: r.warnings.clone(),
+            }));
+        };
+        let t = w
+            .target
+            .as_mut()
+            .ok_or_else(|| ApiError::new(ErrorCode::Internal, "no file to write"))?;
+        t.write(&chunk)?;
+    }
+    Ok(None)
 }
 
 /// Split classes by the schema type of their objects.

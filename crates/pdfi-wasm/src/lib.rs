@@ -14,7 +14,8 @@ use std::sync::{Arc, Mutex};
 
 use js_sys::Uint8Array;
 use pdfi_api::{
-    NoFilesystem, QueueExecutor, Reply, RequestId, Response, ResponseBody, ServerMessage, Session,
+    NoFilesystem, QueueExecutor, Reply, RequestId, Response, ResponseBody, SaveMode, SaveStream,
+    ServerMessage, Session,
 };
 use pdfi_syntax::ByteSource;
 use wasm_bindgen::prelude::*;
@@ -150,6 +151,12 @@ pub struct WasmSession {
     session: Session,
     exec: Arc<QueueExecutor>,
     events: Arc<Mutex<Vec<String>>>,
+    saves: RefCell<HashMap<u32, SaveStream>>,
+    next_save: u32,
+}
+
+fn js_err(e: impl std::fmt::Display) -> JsError {
+    JsError::new(&e.to_string())
 }
 
 impl Default for WasmSession {
@@ -176,6 +183,8 @@ impl WasmSession {
             session,
             exec,
             events,
+            saves: RefCell::default(),
+            next_save: 1,
         }
     }
 
@@ -197,6 +206,58 @@ impl WasmSession {
     ) -> WasmReply {
         let src: Arc<dyn ByteSource> = Arc::new(JsSource::new(source));
         let response = match self.session.open_source(src, name, password, recover) {
+            Ok(s) => Response::Ok(ResponseBody::Doc(s)),
+            Err(e) => Response::Err(e),
+        };
+        WasmReply::new(
+            id as RequestId,
+            Reply {
+                response,
+                blobs: Vec::new(),
+            },
+        )
+    }
+
+    /// Start writing a document with its edits (`mode`: a JSON `SaveMode`).
+    /// Returns a handle for `saveChunk`.
+    #[wasm_bindgen(js_name = saveBegin)]
+    pub fn save_begin(&mut self, doc: u32, mode: &str) -> Result<u32, JsError> {
+        let mode: SaveMode = serde_json::from_str(mode).map_err(js_err)?;
+        let stream = self.session.save_stream(doc, mode).map_err(js_err)?;
+        let id = self.next_save;
+        self.next_save += 1;
+        self.saves.borrow_mut().insert(id, stream);
+        Ok(id)
+    }
+
+    /// The next part of the file (about 1 MB), or `undefined` at the end.
+    #[wasm_bindgen(js_name = saveChunk)]
+    pub fn save_chunk(&self, save: u32) -> Result<Option<Uint8Array>, JsError> {
+        let mut saves = self.saves.borrow_mut();
+        let s = saves
+            .get_mut(&save)
+            .ok_or_else(|| JsError::new("no such save"))?;
+        Ok(s.next_chunk()
+            .map_err(js_err)?
+            .map(|c| Uint8Array::from(&c[..])))
+    }
+
+    /// Forget a save; returns its result (a JSON `SaveResult`).
+    #[wasm_bindgen(js_name = saveEnd)]
+    pub fn save_end(&self, save: u32) -> Result<String, JsError> {
+        let s = self
+            .saves
+            .borrow_mut()
+            .remove(&save)
+            .ok_or_else(|| JsError::new("no such save"))?;
+        serde_json::to_string(&s.result()).map_err(js_err)
+    }
+
+    /// Replace a document by the file it was saved to; answers request
+    /// `id` like `Request::Open`.
+    pub fn reload(&self, id: f64, doc: u32, source: JsByteSource, name: String) -> WasmReply {
+        let src: Arc<dyn ByteSource> = Arc::new(JsSource::new(source));
+        let response = match self.session.reload(doc, src, name) {
             Ok(s) => Response::Ok(ResponseBody::Doc(s)),
             Err(e) => Response::Err(e),
         };

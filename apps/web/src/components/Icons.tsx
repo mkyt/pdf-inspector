@@ -70,3 +70,22 @@ export function ForwardIcon() {
     </Icon>
   );
 }
+
+/** An arrow turning back to the left. */
+export function UndoIcon() {
+  return (
+    <Icon>
+      <path d="M5.5 4 2.5 7l3 3" />
+      <path d="M2.5 7h7a3.25 3.25 0 0 1 0 6.5H7" />
+    </Icon>
+  );
+}
+
+export function RedoIcon() {
+  return (
+    <Icon>
+      <path d="M10.5 4l3 3-3 3" />
+      <path d="M13.5 7h-7a3.25 3.25 0 0 0 0 6.5H9" />
+    </Icon>
+  );
+}

@@ -281,6 +281,8 @@ pub enum ObjLocation {
     /// Stored in an object stream; spans of its nodes refer to the decoded
     /// data of `stream`.
     ObjStm { stream: ObjId, index: u32 },
+    /// Made by an edit; its nodes have no spans.
+    Edited,
 }
 
 #[derive(Clone, PartialEq, Debug)]

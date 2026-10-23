@@ -719,3 +719,339 @@ fn font_uses_find_text_on_pages_and_in_forms() {
     let l = u.codes.iter().find(|c| c.bytes == "6C").unwrap();
     assert_eq!(l.count, 3);
 }
+
+/// Saves into memory; a committed file can be opened again.
+#[derive(Clone, Default)]
+struct MemFiles(Arc<Mutex<std::collections::HashMap<String, Vec<u8>>>>);
+
+struct MemTarget {
+    files: MemFiles,
+    path: String,
+    data: Vec<u8>,
+}
+
+impl SaveTarget for MemTarget {
+    fn write(&mut self, data: &[u8]) -> std::io::Result<()> {
+        self.data.extend_from_slice(data);
+        Ok(())
+    }
+
+    fn commit(self: Box<Self>) -> Result<Opened, ApiError> {
+        let data = self.data;
+        self.files
+            .0
+            .lock()
+            .unwrap()
+            .insert(self.path.clone(), data.clone());
+        Ok(Opened {
+            source: Arc::new(MemSource::new(data)),
+            name: self.path.clone(),
+            path: Some(self.path),
+        })
+    }
+}
+
+impl SourceProvider for MemFiles {
+    fn filesystem(&self) -> bool {
+        true
+    }
+
+    fn open(&self, source: &OpenSource) -> Result<Opened, ApiError> {
+        let OpenSource::Path { path } = source;
+        let data = match self.0.lock().unwrap().get(path) {
+            Some(d) => d.clone(),
+            None => fixture(path),
+        };
+        Ok(Opened {
+            source: Arc::new(MemSource::new(data)),
+            name: path.clone(),
+            path: Some(path.clone()),
+        })
+    }
+
+    fn create(&self, path: &str) -> Result<Box<dyn SaveTarget>, ApiError> {
+        Ok(Box::new(MemTarget {
+            files: self.clone(),
+            path: path.into(),
+            data: Vec::new(),
+        }))
+    }
+}
+
+fn apply(s: &Session, doc: DocId, commands: Vec<EditCommand>) -> ApplyResult {
+    match ok(s.dispatch(Request::Apply {
+        doc,
+        label: "test".into(),
+        commands,
+    }))
+    .0
+    {
+        ResponseBody::Applied(a) => a,
+        b => panic!("{b:?}"),
+    }
+}
+
+fn summary(s: &Session, doc: DocId) -> DocSummary {
+    match ok(s.dispatch(Request::Summary { doc })).0 {
+        ResponseBody::Doc(d) => d,
+        b => panic!("{b:?}"),
+    }
+}
+
+#[test]
+fn edit_undo_redo_and_save() {
+    let exec = Arc::new(QueueExecutor::default());
+    let files = MemFiles::default();
+    let s = Session::new("test", files.clone(), exec.clone());
+    let events = Arc::new(Mutex::new(Vec::new()));
+    {
+        let events = events.clone();
+        s.subscribe(move |e| events.lock().unwrap().push(e.clone()));
+    }
+    let doc = match ok(s.dispatch(Request::Open {
+        source: OpenSource::Path {
+            path: "model.pdf".into(),
+        },
+        password: None,
+        recover: false,
+    }))
+    .0
+    {
+        ResponseBody::Doc(d) => d.info.doc,
+        b => panic!("{b:?}"),
+    };
+    assert!(!summary(&s, doc).edit.dirty);
+    let r = apply(
+        &s,
+        doc,
+        vec![
+            EditCommand::DeletePages { pages: vec![0] },
+            EditCommand::SetEntry {
+                node: NodePath {
+                    root: NodeRoot::Object {
+                        id: ObjRef {
+                            num: 1,
+                            generation: 0,
+                        },
+                    },
+                    path: vec![],
+                },
+                key: "PageMode".into(),
+                // Not a page mode: the schema says so.
+                value: "/Sideways".into(),
+            },
+        ],
+    );
+    assert!(r.status.dirty);
+    assert_eq!(r.status.undo.as_deref(), Some("test"));
+    assert!(r.changed.contains(&1));
+    assert!(
+        r.issues.iter().any(|i| i.message.contains("Sideways")),
+        "{:?}",
+        r.issues
+    );
+    assert!(events.lock().unwrap().iter().any(|e| matches!(
+        e,
+        Event::DocChanged {
+            reason: ChangeReason::Edit,
+            ..
+        }
+    )));
+    let sum = summary(&s, doc);
+    assert_eq!(sum.pages, 4);
+    let o = match ok(s.dispatch(Request::Object {
+        doc,
+        id: ObjRef {
+            num: 1,
+            generation: 0,
+        },
+    }))
+    .0
+    {
+        ResponseBody::Object(o) => o,
+        b => panic!("{b:?}"),
+    };
+    assert_eq!(o.location, Location::Edited);
+    assert_eq!(o.span, None);
+
+    // A failing command leaves everything as it was.
+    let r = s.dispatch(Request::Apply {
+        doc,
+        label: "bad".into(),
+        commands: vec![
+            EditCommand::DeletePages { pages: vec![0] },
+            EditCommand::DeletePages { pages: vec![99] },
+        ],
+    });
+    assert!(matches!(r.response, Response::Err(e) if e.code == ErrorCode::BadRequest));
+    assert_eq!(summary(&s, doc).pages, 4);
+
+    let st = match ok(s.dispatch(Request::Undo { doc })).0 {
+        ResponseBody::Edit(st) => st,
+        b => panic!("{b:?}"),
+    };
+    assert!(!st.dirty);
+    assert_eq!(st.redo.as_deref(), Some("test"));
+    assert_eq!(summary(&s, doc).pages, 5);
+    ok(s.dispatch(Request::Redo { doc }));
+    assert_eq!(summary(&s, doc).pages, 4);
+
+    // Save as an update over the file, then it is reopened from there.
+    let (b, _) = ok(s.dispatch(Request::StartJob {
+        doc,
+        job: JobKind::Save {
+            path: None,
+            mode: SaveMode::Incremental,
+        },
+    }));
+    let ResponseBody::Job(j) = b else { panic!() };
+    exec.run_all();
+    let info = match ok(s.dispatch(Request::JobStatus { job: j.job })).0 {
+        ResponseBody::Job(i) => i,
+        b => panic!("{b:?}"),
+    };
+    assert_eq!(info.state, JobState::Completed, "{:?}", info.error);
+    let Some(JobResult::Save(r)) = info.result else {
+        panic!("{info:?}")
+    };
+    assert_eq!(r.path.as_deref(), Some("model.pdf"));
+    let saved = files.0.lock().unwrap()["model.pdf"].clone();
+    assert!(saved.starts_with(&fixture("model.pdf")));
+    assert_eq!(r.bytes, saved.len() as u64);
+    let sum = summary(&s, doc);
+    assert_eq!(sum.revisions.len(), 2);
+    assert_eq!(sum.pages, 4);
+    assert!(!sum.edit.dirty);
+    assert!(sum.edit.undo.is_none());
+    assert_eq!(sum.info.size, saved.len() as u64);
+    assert!(events.lock().unwrap().iter().any(|e| matches!(
+        e,
+        Event::DocChanged {
+            reason: ChangeReason::Saved,
+            info: Some(_),
+            ..
+        }
+    )));
+
+    // A full rewrite to another file.
+    let (b, _) = ok(s.dispatch(Request::StartJob {
+        doc,
+        job: JobKind::Save {
+            path: Some("copy.pdf".into()),
+            mode: SaveMode::Full {
+                xref_stream: true,
+                object_streams: true,
+                compress: true,
+                remove_unused: true,
+            },
+        },
+    }));
+    let ResponseBody::Job(j) = b else { panic!() };
+    exec.run_all();
+    let info = match ok(s.dispatch(Request::JobStatus { job: j.job })).0 {
+        ResponseBody::Job(i) => i,
+        b => panic!("{b:?}"),
+    };
+    assert_eq!(info.state, JobState::Completed, "{:?}", info.error);
+    let sum = summary(&s, doc);
+    assert_eq!(sum.info.path.as_deref(), Some("copy.pdf"));
+    assert_eq!(sum.revisions.len(), 1);
+    assert_eq!(sum.pages, 4);
+}
+
+#[test]
+fn browser_save_stream() {
+    let (s, _) = session();
+    let doc = open(&s, "aes-256.pdf", Some("user")).info.doc;
+    let st = summary(&s, doc).edit;
+    assert!(st.no_incremental.is_some());
+    assert!(s.save_stream(doc, SaveMode::Incremental).is_err());
+    let mut w = s
+        .save_stream(
+            doc,
+            SaveMode::Full {
+                xref_stream: false,
+                object_streams: false,
+                compress: false,
+                remove_unused: false,
+            },
+        )
+        .unwrap();
+    let mut out = Vec::new();
+    while let Some(c) = w.next_chunk().unwrap() {
+        out.extend(c);
+    }
+    assert_eq!(w.result().bytes, out.len() as u64);
+    let sum = s
+        .reload(doc, Arc::new(MemSource::new(out)), "saved.pdf")
+        .unwrap();
+    assert!(sum.encryption.is_none());
+    assert_eq!(sum.info.doc, doc);
+    assert_eq!(sum.pages, 3);
+}
+
+#[test]
+fn insert_pages_from_another_document() {
+    let (s, _) = session();
+    let a = open(&s, "model.pdf", None).info.doc;
+    let b = open(&s, "content.pdf", None).info.doc;
+    let r = apply(
+        &s,
+        a,
+        vec![EditCommand::InsertPages {
+            at: 0,
+            from: b,
+            pages: vec![0, 1],
+        }],
+    );
+    assert!(r.created.len() > 2);
+    assert_eq!(summary(&s, a).pages, 7);
+    let r = s.dispatch(Request::Apply {
+        doc: a,
+        label: "x".into(),
+        commands: vec![EditCommand::InsertPages {
+            at: 0,
+            from: 99,
+            pages: vec![0],
+        }],
+    });
+    assert!(matches!(r.response, Response::Err(e) if e.code == ErrorCode::NoSuchDoc));
+}
+
+#[test]
+fn node_syntax_round_trips() {
+    let (s, _) = session();
+    let doc = open(&s, "model.pdf", None).info.doc;
+    let path = NodePath {
+        root: NodeRoot::Object {
+            id: ObjRef {
+                num: 2,
+                generation: 0,
+            },
+        },
+        path: vec![],
+    };
+    let text = match ok(s.dispatch(Request::NodeSyntax {
+        doc,
+        path: path.clone(),
+    }))
+    .0
+    {
+        ResponseBody::Syntax { text, truncated } => {
+            assert!(!truncated);
+            text
+        }
+        b => panic!("{b:?}"),
+    };
+    assert!(text.starts_with("<<\n  /Type /Pages"), "{text}");
+    // Written back unchanged, the pages stay the same.
+    apply(
+        &s,
+        doc,
+        vec![EditCommand::SetValue {
+            node: path,
+            value: text,
+        }],
+    );
+    assert_eq!(summary(&s, doc).pages, 5);
+}

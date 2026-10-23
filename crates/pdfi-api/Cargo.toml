@@ -8,6 +8,7 @@ publish.workspace = true
 
 [dependencies]
 pdfi-content = { version = "0.1.0", path = "../pdfi-content" }
+pdfi-edit = { version = "0.1.0", path = "../pdfi-edit" }
 pdfi-model = { version = "0.1.0", path = "../pdfi-model" }
 pdfi-render = { version = "0.1.0", path = "../pdfi-render" }
 pdfi-schema = { version = "0.1.0", path = "../pdfi-schema" }

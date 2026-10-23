@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 12;
+pub const PROTOCOL_VERSION: u32 = 13;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct ClientMessage {
@@ -254,6 +254,25 @@ pub enum Request {
         job: JobId,
         range: Range,
     },
+    /// A node written in PDF syntax (multi-line), to edit it as text. A
+    /// stream is written as its dictionary.
+    NodeSyntax {
+        doc: DocId,
+        path: NodePath,
+    },
+    /// Apply edits as one undoable step: all of them or none.
+    Apply {
+        doc: DocId,
+        /// What `Undo` will say it reverts.
+        label: String,
+        commands: Vec<EditCommand>,
+    },
+    Undo {
+        doc: DocId,
+    },
+    Redo {
+        doc: DocId,
+    },
     /// Drop a request that has not started yet. Handled by the transport.
     Cancel {
         request: RequestId,
@@ -272,15 +291,20 @@ pub enum Response {
     Err(ApiError),
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ResponseBody {
     Hello(HelloInfo),
     Dir(DirListing),
     Doc(DocSummary),
-    Docs { docs: Vec<DocInfo> },
+    Docs {
+        docs: Vec<DocInfo>,
+    },
     Objects(Page<ObjectSummary>),
-    ObjectClasses { classes: Vec<ObjectClass> },
+    ObjectClasses {
+        classes: Vec<ObjectClass>,
+    },
     Object(ObjectView),
     Children(Page<NodeView>),
     Xref(Page<XrefRow>),
@@ -290,7 +314,9 @@ pub enum ResponseBody {
     Xmp(XmpView),
     Pages(Page<PageSummary>),
     PageDetail(PageDetail),
-    PageIndex { index: Option<u32> },
+    PageIndex {
+        index: Option<u32>,
+    },
     Annotations(Page<AnnotInfo>),
     Outline(Page<OutlineItem>),
     Fonts(Page<FontInfo>),
@@ -308,11 +334,28 @@ pub enum ResponseBody {
     ProgramGlyphs(Page<ProgramGlyph>),
     FontUses(FontUsesView),
     Bitmap(BitmapInfo),
-    Hits { ops: Vec<u32> },
+    Hits {
+        ops: Vec<u32>,
+    },
     Extract(ExtractInfo),
     Bytes(BytesInfo),
     Job(JobInfo),
-    Batch { responses: Vec<Response> },
+    Syntax {
+        text: String,
+        /// Longer than what is returned: not editable as text.
+        truncated: bool,
+    },
+    Applied(ApplyResult),
+    /// The browser's answer to saving through the Worker: the document as
+    /// reopened from the file, and what was written.
+    Saved {
+        summary: DocSummary,
+        result: SaveResult,
+    },
+    Edit(EditStatus),
+    Batch {
+        responses: Vec<Response>,
+    },
     Empty,
 }
 
@@ -412,6 +455,13 @@ pub enum Event {
     },
     JobDone {
         info: JobInfo,
+    },
+    /// The document changed: everything read from it before is stale.
+    DocChanged {
+        doc: DocId,
+        reason: ChangeReason,
+        /// The document as reopened (`Saved`).
+        info: Option<DocInfo>,
     },
 }
 

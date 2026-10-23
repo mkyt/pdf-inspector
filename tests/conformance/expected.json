@@ -4,7 +4,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 9, backend speaks 12"
+        "message": "client speaks protocol 9, backend speaks 13"
       }
     }
   },
@@ -13,7 +13,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 999, backend speaks 12"
+        "message": "client speaks protocol 999, backend speaks 13"
       }
     }
   },
@@ -22,6 +22,14 @@
     "response": {
       "ok": {
         "diagnostics": 0,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -68,6 +76,14 @@
     "response": {
       "ok": {
         "diagnostics": 0,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -1262,6 +1278,14 @@
     "response": {
       "ok": {
         "diagnostics": 0,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -1591,6 +1615,14 @@
     "response": {
       "ok": {
         "diagnostics": 0,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": "the file is encrypted: it can only be saved decrypted, as a full rewrite",
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": {
           "authenticated": true,
           "filter": "Standard",
@@ -1646,6 +1678,14 @@
     "response": {
       "ok": {
         "diagnostics": 0,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": "the file is encrypted: it can only be saved decrypted, as a full rewrite",
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": {
           "authenticated": true,
           "filter": "Standard",
@@ -1748,6 +1788,14 @@
     "response": {
       "ok": {
         "diagnostics": 1,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": "the file is encrypted: it can only be saved decrypted, as a full rewrite",
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": {
           "authenticated": false,
           "filter": "Standard",
@@ -1823,6 +1871,14 @@
     "response": {
       "ok": {
         "diagnostics": 0,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -1880,6 +1936,14 @@
     "response": {
       "ok": {
         "diagnostics": 0,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -2089,6 +2153,14 @@
     "response": {
       "ok": {
         "diagnostics": 1,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -2135,6 +2207,14 @@
     "response": {
       "ok": {
         "diagnostics": 1,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -2201,6 +2281,14 @@
     "response": {
       "ok": {
         "diagnostics": 1,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": "the file's cross-reference data is broken: save a full rewrite",
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -2247,6 +2335,14 @@
     "response": {
       "ok": {
         "diagnostics": 1,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": "the file's cross-reference data is broken: save a full rewrite",
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -2295,6 +2391,7 @@
         "info": {
           "doc": 1,
           "done": 11,
+          "error": null,
           "job": 1,
           "kind": {
             "decode_streams": true,
@@ -2320,6 +2417,7 @@
       "ok": {
         "doc": 1,
         "done": 0,
+        "error": null,
         "job": 1,
         "kind": {
           "decode_streams": true,
@@ -2338,6 +2436,7 @@
       "ok": {
         "doc": 1,
         "done": 11,
+        "error": null,
         "job": 1,
         "kind": {
           "decode_streams": true,
@@ -2366,6 +2465,7 @@
         "info": {
           "doc": 6,
           "done": 11,
+          "error": null,
           "job": 2,
           "kind": {
             "decode_streams": false,
@@ -2391,6 +2491,7 @@
       "ok": {
         "doc": 6,
         "done": 0,
+        "error": null,
         "job": 2,
         "kind": {
           "decode_streams": false,
@@ -2937,6 +3038,7 @@
         "info": {
           "doc": 1,
           "done": 12,
+          "error": null,
           "job": 3,
           "kind": {
             "kind": "validate",
@@ -2960,6 +3062,7 @@
       "ok": {
         "doc": 1,
         "done": 0,
+        "error": null,
         "job": 3,
         "kind": {
           "kind": "validate",
@@ -3171,6 +3274,7 @@
         "info": {
           "doc": 3,
           "done": 1,
+          "error": null,
           "job": 4,
           "kind": {
             "kind": "validate",
@@ -3197,6 +3301,7 @@
       "ok": {
         "doc": 3,
         "done": 0,
+        "error": null,
         "job": 4,
         "kind": {
           "kind": "validate",
@@ -3230,6 +3335,7 @@
         "info": {
           "doc": 6,
           "done": 12,
+          "error": null,
           "job": 5,
           "kind": {
             "kind": "validate",
@@ -3253,6 +3359,7 @@
       "ok": {
         "doc": 6,
         "done": 0,
+        "error": null,
         "job": 5,
         "kind": {
           "kind": "validate",
@@ -3290,6 +3397,14 @@
     "response": {
       "ok": {
         "diagnostics": 0,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -3336,6 +3451,14 @@
     "response": {
       "ok": {
         "diagnostics": 0,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -4699,6 +4822,7 @@
         "info": {
           "doc": 8,
           "done": 5,
+          "error": null,
           "job": 6,
           "kind": {
             "kind": "validate",
@@ -4722,6 +4846,7 @@
       "ok": {
         "doc": 8,
         "done": 0,
+        "error": null,
         "job": 6,
         "kind": {
           "kind": "validate",
@@ -4942,6 +5067,14 @@
     "response": {
       "ok": {
         "diagnostics": 0,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -4988,6 +5121,14 @@
     "response": {
       "ok": {
         "diagnostics": 0,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -6173,6 +6314,7 @@
         "info": {
           "doc": 9,
           "done": 85,
+          "error": null,
           "job": 7,
           "kind": {
             "kind": "inventory"
@@ -6198,6 +6340,7 @@
       "ok": {
         "doc": 9,
         "done": 0,
+        "error": null,
         "job": 7,
         "kind": {
           "kind": "inventory"
@@ -6736,6 +6879,14 @@
     "response": {
       "ok": {
         "diagnostics": 0,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -6791,6 +6942,14 @@
     "response": {
       "ok": {
         "diagnostics": 0,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -9644,6 +9803,14 @@
     "response": {
       "ok": {
         "diagnostics": 0,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -10003,6 +10170,14 @@
     "response": {
       "ok": {
         "diagnostics": 0,
+        "edit": {
+          "dirty": false,
+          "edited_objects": 0,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": null
+        },
         "encryption": null,
         "header_offset": 0,
         "info": {
@@ -11098,6 +11273,893 @@
           }
         ],
         "type": "docs"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "changed": [
+          1,
+          2,
+          3,
+          50,
+          80,
+          91,
+          92
+        ],
+        "created": [
+          {
+            "generation": 0,
+            "num": 91
+          },
+          {
+            "generation": 0,
+            "num": 92
+          }
+        ],
+        "issues": [],
+        "notes": [],
+        "status": {
+          "dirty": true,
+          "edited_objects": 7,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": "several edits"
+        },
+        "trailer_changed": false,
+        "type": "applied"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 0,
+        "edit": {
+          "dirty": true,
+          "edited_objects": 7,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": "several edits"
+        },
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 9,
+          "name": "model.pdf",
+          "path": null,
+          "size": 7314
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 80
+        },
+        "inventory": null,
+        "live_objects": 42,
+        "object_slots": 93,
+        "pages": 5,
+        "pdf_version": "1.7",
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 91,
+            "index": 0,
+            "kind": "table",
+            "offset": 5415,
+            "span": {
+              "end": 7292,
+              "start": 5415
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 93
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 91
+            },
+            "index": 0,
+            "label": "i",
+            "rotate": 270,
+            "size": {
+              "x0": 0.0,
+              "x1": 200.0,
+              "y0": 0.0,
+              "y1": 100.0
+            }
+          },
+          {
+            "annots": 4,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 10
+            },
+            "index": 1,
+            "label": "ii",
+            "rotate": 90,
+            "size": {
+              "x0": 10.0,
+              "x1": 602.0,
+              "y0": 10.0,
+              "y1": 782.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 12
+            },
+            "index": 2,
+            "label": "A-1",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 300.0,
+              "y0": 0.0,
+              "y1": 300.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 13
+            },
+            "index": 3,
+            "label": "A-2",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 14
+            },
+            "index": 4,
+            "label": "A-3",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          }
+        ],
+        "offset": 0,
+        "total": 5,
+        "type": "pages"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": [],
+        "id": {
+          "generation": 0,
+          "num": 1
+        },
+        "location": {
+          "kind": "edited"
+        },
+        "span": null,
+        "stream": null,
+        "type": "object",
+        "value": {
+          "len": 10,
+          "type": "dict",
+          "type_name": "Catalog"
+        }
+      }
+    }
+  },
+  {
+    "blobs": [
+      "68656c6c6f"
+    ],
+    "response": {
+      "ok": {
+        "eof": true,
+        "errors": [],
+        "len": 5,
+        "offset": 0,
+        "part": 0,
+        "stopped_at": null,
+        "total": 5,
+        "type": "bytes"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "free",
+              "next": 0
+            },
+            "error": null,
+            "kind": null,
+            "num": 88,
+            "schema_type": null,
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "free",
+              "next": 0
+            },
+            "error": null,
+            "kind": null,
+            "num": 89,
+            "schema_type": null,
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "inUse",
+              "offset": 5377
+            },
+            "error": null,
+            "kind": "string",
+            "num": 90,
+            "schema_type": null,
+            "subtype": null,
+            "type_name": null
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "edited"
+            },
+            "error": null,
+            "kind": "dictionary",
+            "num": 91,
+            "schema_type": "PageObject",
+            "subtype": null,
+            "type_name": "Page"
+          },
+          {
+            "entry": {
+              "generation": 0,
+              "kind": "edited"
+            },
+            "error": null,
+            "kind": "stream",
+            "num": 92,
+            "schema_type": null,
+            "subtype": null,
+            "type_name": "Example"
+          }
+        ],
+        "offset": 88,
+        "total": 93,
+        "type": "objects"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "badRequest",
+        "message": "\"<< /A\": the value is incomplete"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "dirty": false,
+        "edited_objects": 0,
+        "no_incremental": null,
+        "redo": "several edits",
+        "signatures": 0,
+        "type": "edit",
+        "undo": null
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "annots": 4,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 10
+            },
+            "index": 0,
+            "label": "i",
+            "rotate": 90,
+            "size": {
+              "x0": 10.0,
+              "x1": 602.0,
+              "y0": 10.0,
+              "y1": 782.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 11
+            },
+            "index": 1,
+            "label": "ii",
+            "rotate": 90,
+            "size": {
+              "x0": 10.0,
+              "x1": 602.0,
+              "y0": 10.0,
+              "y1": 782.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 12
+            },
+            "index": 2,
+            "label": "A-1",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 300.0,
+              "y0": 0.0,
+              "y1": 300.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 13
+            },
+            "index": 3,
+            "label": "A-2",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 14
+            },
+            "index": 4,
+            "label": "A-3",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          }
+        ],
+        "offset": 0,
+        "total": 5,
+        "type": "pages"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "dirty": true,
+        "edited_objects": 7,
+        "no_incremental": null,
+        "redo": null,
+        "signatures": 0,
+        "type": "edit",
+        "undo": "several edits"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "badRequest",
+        "message": "nothing to redo"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "changed": [
+          2,
+          3,
+          4,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100,
+          101,
+          102,
+          103,
+          104,
+          105,
+          106,
+          107,
+          108,
+          109,
+          110,
+          111,
+          112,
+          113,
+          114,
+          115,
+          116,
+          117,
+          118,
+          119,
+          120,
+          121,
+          122,
+          123,
+          124,
+          125,
+          126,
+          127,
+          128
+        ],
+        "created": [
+          {
+            "generation": 0,
+            "num": 93
+          },
+          {
+            "generation": 0,
+            "num": 94
+          },
+          {
+            "generation": 0,
+            "num": 95
+          },
+          {
+            "generation": 0,
+            "num": 96
+          },
+          {
+            "generation": 0,
+            "num": 97
+          },
+          {
+            "generation": 0,
+            "num": 98
+          },
+          {
+            "generation": 0,
+            "num": 99
+          },
+          {
+            "generation": 0,
+            "num": 100
+          },
+          {
+            "generation": 0,
+            "num": 101
+          },
+          {
+            "generation": 0,
+            "num": 102
+          },
+          {
+            "generation": 0,
+            "num": 103
+          },
+          {
+            "generation": 0,
+            "num": 104
+          },
+          {
+            "generation": 0,
+            "num": 105
+          },
+          {
+            "generation": 0,
+            "num": 106
+          },
+          {
+            "generation": 0,
+            "num": 107
+          },
+          {
+            "generation": 0,
+            "num": 108
+          },
+          {
+            "generation": 0,
+            "num": 109
+          },
+          {
+            "generation": 0,
+            "num": 110
+          },
+          {
+            "generation": 0,
+            "num": 111
+          },
+          {
+            "generation": 0,
+            "num": 112
+          },
+          {
+            "generation": 0,
+            "num": 113
+          },
+          {
+            "generation": 0,
+            "num": 114
+          },
+          {
+            "generation": 0,
+            "num": 115
+          },
+          {
+            "generation": 0,
+            "num": 116
+          },
+          {
+            "generation": 0,
+            "num": 117
+          },
+          {
+            "generation": 0,
+            "num": 118
+          },
+          {
+            "generation": 0,
+            "num": 119
+          },
+          {
+            "generation": 0,
+            "num": 120
+          },
+          {
+            "generation": 0,
+            "num": 121
+          },
+          {
+            "generation": 0,
+            "num": 122
+          },
+          {
+            "generation": 0,
+            "num": 123
+          },
+          {
+            "generation": 0,
+            "num": 124
+          },
+          {
+            "generation": 0,
+            "num": 125
+          },
+          {
+            "generation": 0,
+            "num": 126
+          },
+          {
+            "generation": 0,
+            "num": 127
+          },
+          {
+            "generation": 0,
+            "num": 128
+          }
+        ],
+        "issues": [],
+        "notes": [],
+        "status": {
+          "dirty": true,
+          "edited_objects": 44,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": "copy"
+        },
+        "trailer_changed": false,
+        "type": "applied"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "catalog": {
+          "generation": 0,
+          "num": 1
+        },
+        "features": [
+          {
+            "key": "Outlines",
+            "obj": {
+              "generation": 0,
+              "num": 30
+            },
+            "text": "2 top-level items"
+          },
+          {
+            "key": "PageMode",
+            "obj": null,
+            "text": "/UseOutlines"
+          },
+          {
+            "key": "Lang",
+            "obj": null,
+            "text": "en"
+          },
+          {
+            "key": "PageLabels",
+            "obj": null,
+            "text": "2 ranges"
+          },
+          {
+            "key": "Names/Dests",
+            "obj": {
+              "generation": 0,
+              "num": 40
+            },
+            "text": "2 entries"
+          },
+          {
+            "key": "OpenAction",
+            "obj": null,
+            "text": "page 3"
+          },
+          {
+            "key": "PageLayout",
+            "obj": null,
+            "text": "/OneColumn"
+          }
+        ],
+        "info": {
+          "generation": 0,
+          "num": 80
+        },
+        "info_entries": [
+          {
+            "date": null,
+            "key": "Title",
+            "text": "Conformance"
+          },
+          {
+            "date": null,
+            "key": "Author",
+            "text": "pdf-inspector"
+          },
+          {
+            "date": null,
+            "key": "Producer",
+            "text": "make.sh"
+          },
+          {
+            "date": "2024-01-31T12:34:56+09:00",
+            "key": "CreationDate",
+            "text": "D:20240131123456+09'00'"
+          },
+          {
+            "date": "2024-02-01T00:00:00Z",
+            "key": "ModDate",
+            "text": "D:20240201000000Z"
+          },
+          {
+            "date": null,
+            "key": "Trapped",
+            "text": "/False"
+          }
+        ],
+        "issues": [
+          {
+            "code": "InfoXmp",
+            "message": "/Info /Producer (make.sh) differs from XMP pdf:Producer (something else)",
+            "obj": {
+              "generation": 0,
+              "num": 50
+            },
+            "path": null,
+            "severity": "warning",
+            "span": null
+          },
+          {
+            "code": "InfoXmp",
+            "message": "/Info /ModDate (D:20240201000000Z) differs from XMP xmp:ModifyDate (2024-02-02T00:00:00Z)",
+            "obj": {
+              "generation": 0,
+              "num": 50
+            },
+            "path": null,
+            "severity": "warning",
+            "span": null
+          }
+        ],
+        "metadata": {
+          "generation": 0,
+          "num": 50
+        },
+        "pages": 6,
+        "type": "document"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 93
+            },
+            "index": 0,
+            "label": "i",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 91
+            },
+            "index": 1,
+            "label": "ii",
+            "rotate": 270,
+            "size": {
+              "x0": 0.0,
+              "x1": 200.0,
+              "y0": 0.0,
+              "y1": 100.0
+            }
+          },
+          {
+            "annots": 4,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 10
+            },
+            "index": 2,
+            "label": "A-1",
+            "rotate": 90,
+            "size": {
+              "x0": 10.0,
+              "x1": 602.0,
+              "y0": 10.0,
+              "y1": 782.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 12
+            },
+            "index": 3,
+            "label": "A-2",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 300.0,
+              "y0": 0.0,
+              "y1": 300.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 13
+            },
+            "index": 4,
+            "label": "A-3",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 14
+            },
+            "index": 5,
+            "label": "A-4",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          }
+        ],
+        "offset": 0,
+        "total": 6,
+        "type": "pages"
       }
     }
   }

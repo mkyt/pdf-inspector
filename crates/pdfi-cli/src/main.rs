@@ -11,6 +11,7 @@ use pdfi_syntax::{
 };
 
 mod content;
+mod edit;
 mod font;
 mod model;
 
@@ -191,6 +192,10 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Edit and save: Info entries, object entries, pages. Edits apply in
+    /// the order of the options' kinds as listed here; the result is an
+    /// incremental update unless a full rewrite is asked for.
+    Edit(Box<edit::EditArgs>),
     /// Rewrite as a plain file (object streams expanded, decrypted).
     Rewrite {
         #[command(flatten)]
@@ -296,6 +301,7 @@ fn main() -> Result<()> {
                 ObjLocation::ObjStm { stream, index } => {
                     println!("% {} in object stream {stream} (index {index})", o.id)
                 }
+                ObjLocation::Edited => println!("% {} (edited)", o.id),
             }
             println!("{}", write::pretty(&o.node.obj));
             if let Object::Stream(s) = &o.node.obj {
@@ -353,6 +359,7 @@ fn main() -> Result<()> {
                 !no_open,
             )
         }
+        Cmd::Edit(a) => edit::run(*a),
         Cmd::Rewrite {
             f,
             out,
@@ -477,6 +484,7 @@ fn xref(file: &PdfFile, rev: Option<usize>) -> Result<()> {
         XrefEntry::Compressed { stream, index } => {
             println!("{num:>8}     0 compressed in {stream} [{index}]")
         }
+        XrefEntry::Edited { generation } => println!("{num:>8} {generation:>5} edited"),
     };
     match rev {
         Some(i) => {
