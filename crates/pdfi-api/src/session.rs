@@ -1,6 +1,6 @@
 //! The session: open documents, jobs and the request dispatcher.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io::{self, Read};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
@@ -64,6 +64,8 @@ pub(crate) struct Doc {
     pub model: DocModel,
     /// Set by the inventory job.
     pub inventory: Mutex<Option<Arc<Inventory>>>,
+    /// Set by `FontUses` jobs, by font.
+    pub font_uses: Mutex<HashMap<syn::ObjId, Arc<font::FontUsage>>>,
     /// Object numbers the last `Objects` filter picked.
     filtered: Mutex<Option<(ObjectFilter, Arc<Vec<u32>>)>>,
     pub content: DocContent,
@@ -212,6 +214,7 @@ impl Session {
             schema: DocSchema::new(),
             model: DocModel::new(),
             inventory: Mutex::default(),
+            font_uses: Mutex::default(),
             filtered: Mutex::default(),
             content: DocContent::new(),
             render: DocRender::new(),
@@ -437,6 +440,11 @@ impl Session {
             Request::ProgramGlyphs { doc, id, range } => Ok(ResponseBody::ProgramGlyphs(
                 font::program_glyphs(&*self.doc(doc)?, id, range)?,
             )),
+            Request::FontUses { doc, id, range } => Ok(ResponseBody::FontUses(font::uses(
+                &*self.doc(doc)?,
+                id,
+                range,
+            ))),
             Request::Render {
                 doc,
                 content,

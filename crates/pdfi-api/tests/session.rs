@@ -660,3 +660,62 @@ fn program_glyphs_list_every_glyph_with_its_codes() {
     };
     assert_eq!(p.total, 0);
 }
+
+#[test]
+fn font_uses_find_text_on_pages_and_in_forms() {
+    let (s, exec) = session();
+    let doc = open(&s, "content.pdf", None).info.doc;
+    let id = ObjRef {
+        num: 20,
+        generation: 0,
+    };
+    let uses = || {
+        let (b, _) = ok(s.dispatch(Request::FontUses {
+            doc,
+            id,
+            range: all(),
+        }));
+        let ResponseBody::FontUses(u) = b else {
+            panic!("{b:?}")
+        };
+        u
+    };
+    assert!(!uses().scanned);
+
+    let (b, _) = ok(s.dispatch(Request::StartJob {
+        doc,
+        job: JobKind::FontUses { font: id },
+    }));
+    let ResponseBody::Job(info) = b else { panic!() };
+    exec.run_all();
+    let (b, _) = ok(s.dispatch(Request::JobStatus { job: info.job }));
+    let ResponseBody::Job(done) = b else { panic!() };
+    assert_eq!(
+        done.result,
+        Some(JobResult::FontUses {
+            scanned: 3,
+            pages: 1,
+            uses: 3
+        })
+    );
+
+    // Page 2 has the font in its resources but shows nothing with it.
+    let u = uses();
+    assert!(u.scanned);
+    assert_eq!((u.pages_scanned, u.pages), (3, 1));
+    let texts: Vec<_> = u.uses.items.iter().map(|x| x.text.as_str()).collect();
+    assert_eq!(texts, ["Hello", "W orld", "in form"]);
+    // Text in a form: at the page's Do, with the form's own operation.
+    let f = &u.uses.items[2];
+    assert_eq!(
+        f.form,
+        Some(ObjRef {
+            num: 31,
+            generation: 0
+        })
+    );
+    assert_eq!(f.form_op, Some(3));
+    assert!(f.bbox.is_some());
+    let l = u.codes.iter().find(|c| c.bytes == "6C").unwrap();
+    assert_eq!(l.count, 3);
+}

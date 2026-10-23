@@ -1,13 +1,16 @@
-import { Alert, Anchor, Badge, Button, Group, Loader, SegmentedControl, Stack, Table, Text, Title, Tooltip, UnstyledButton } from "@mantine/core";
+import { Alert, Anchor, Badge, Button, Group, Loader, Progress, SegmentedControl, Stack, Table, Text, Title, Tooltip, UnstyledButton } from "@mantine/core";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, useBackend } from "../api";
-import { bytesText, objText } from "../format";
+import { bytesText, objText, pageText } from "../format";
+import { useJob } from "../jobs";
 import { useNav } from "../nav";
-import type { FontDetail, GlyphSourceKind, GlyphView, ObjRef, ProgramGlyph } from "../protocol/generated";
+import type { FontDetail, FontUse, GlyphSourceKind, GlyphView, ObjRef, ProgramGlyph } from "../protocol/generated";
 import { ObjLink } from "./DocumentPanel";
 import { IssueList } from "./Issues";
+import { PagedList } from "./PagedList";
+import { Row } from "./Row";
 import classes from "./FontView.module.css";
 
 /** Glyphs fetched per request. */
@@ -68,7 +71,133 @@ export function FontView({ id }: { id: ObjRef }) {
         </Alert>
       )}
       <Properties f={f} />
+      <Uses f={f} />
       <Glyphs f={f} />
+    </Stack>
+  );
+}
+
+/** How often each code (by its bytes) is shown, once the text the font shows has been found. */
+function useShown(f: FontDetail): Map<string, number> | null {
+  const backend = useBackend();
+  const nav = useNav();
+  const q = useQuery({
+    queryKey: ["doc", nav.doc, "fontUses", f.id.num, f.id.generation, "summary"],
+    queryFn: ({ signal }) => api.fontUses(backend, nav.doc, f.id, { offset: 0, limit: 0 }, signal),
+  });
+  if (!q.data?.scanned) return null;
+  return new Map(q.data.codes.map((c) => [c.bytes, c.count]));
+}
+
+const USE_ROW = 26;
+
+/** The text the font shows, found by a job over the pages that use it. */
+function Uses({ f }: { f: FontDetail }) {
+  const backend = useBackend();
+  const nav = useNav();
+  const [job, setJob] = useJob(nav.doc);
+  const [error, setError] = useState<string | null>(null);
+  const q = useQuery({
+    queryKey: ["doc", nav.doc, "fontUses", f.id.num, f.id.generation, "summary"],
+    queryFn: ({ signal }) => api.fontUses(backend, nav.doc, f.id, { offset: 0, limit: 0 }, signal),
+  });
+  const u = q.data;
+  const running = job?.state === "running";
+  const start = () => {
+    setError(null);
+    api.startJob(backend, nav.doc, { kind: "fontUses", font: f.id }).then(setJob, (e) => setError(String(e)));
+  };
+  const open = (x: FontUse) => nav.open({ kind: "content", content: { kind: "page", index: x.page }, op: x.op });
+  const openForm = (x: FontUse) => x.form && nav.open({ kind: "content", content: { kind: "stream", id: x.form }, op: x.form_op });
+  const total = u?.uses.total ?? 0;
+  return (
+    <Stack gap={6}>
+      <Group gap="sm">
+        <Title order={6}>Text drawn with this font</Title>
+        {u?.scanned && (
+          <Text size="xs" c="dimmed">
+            {total.toLocaleString()} {total === 1 ? "operation" : "operations"} on {u.pages.toLocaleString()} of {u.pages_scanned.toLocaleString()} pages
+            {" · "}
+            {u.codes.length.toLocaleString()} distinct codes
+          </Text>
+        )}
+      </Group>
+      {u && !u.scanned && (
+        <Group gap={6}>
+          <Button size="compact-xs" variant="light" disabled={running} onClick={start}>
+            Find text
+          </Button>
+          <Text size="xs" c="dimmed">
+            Interprets the pages using the font (every page until the inventory is built), forms included.
+          </Text>
+          {running && (
+            <Button size="compact-xs" variant="subtle" color="red" onClick={() => void api.cancelJob(backend, job.job)}>
+              Cancel
+            </Button>
+          )}
+        </Group>
+      )}
+      {job && !u?.scanned && (
+        <>
+          <Progress size="sm" value={job.total ? (100 * job.done) / job.total : 100} animated={running} />
+          <Text size="xs" c="dimmed">
+            {job.done.toLocaleString()} / {job.total.toLocaleString()} pages
+            {job.state === "cancelled" && " · cancelled"}
+          </Text>
+        </>
+      )}
+      {error && (
+        <Text size="xs" c="red">
+          {error}
+        </Text>
+      )}
+      {u?.scanned && total > 0 && (
+        <div className={classes.uses} style={{ height: Math.min(total * USE_ROW, 8 * USE_ROW) + 2 }}>
+          <PagedList
+            total={total}
+            rowHeight={USE_ROW}
+            queryKey={["doc", nav.doc, "fontUses", f.id.num, f.id.generation, "uses"]}
+            fetchPage={async (range, signal) => (await api.fontUses(backend, nav.doc, f.id, range, signal)).uses}
+            renderRow={(x) => (
+              <Row onClick={() => open(x)}>
+                <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+                  <Text size="xs" c="dimmed" ff="monospace" style={{ flex: "none" }}>
+                    p. {pageText(x.page)} #{x.op}
+                  </Text>
+                  <Text size="xs" truncate="end" style={{ flex: 1, minWidth: 0 }} c={x.hidden ? "dimmed" : undefined}>
+                    {x.text || "(no text)"}
+                  </Text>
+                  {x.hidden && (
+                    <Badge size="xs" variant="light" color="gray" style={{ flex: "none" }}>
+                      invisible
+                    </Badge>
+                  )}
+                  {x.form && (
+                    <Tooltip label="The operation inside the form XObject">
+                      <Anchor
+                        component="span"
+                        size="xs"
+                        style={{ flex: "none" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openForm(x);
+                        }}
+                      >
+                        in form {objText(x.form)} #{x.form_op}
+                      </Anchor>
+                    </Tooltip>
+                  )}
+                </Group>
+              </Row>
+            )}
+          />
+        </div>
+      )}
+      {u?.scanned && total === 0 && (
+        <Text size="xs" c="dimmed">
+          No page shows text with it.
+        </Text>
+      )}
     </Stack>
   );
 }
@@ -174,6 +303,7 @@ function Glyphs({ f }: { f: FontDetail }) {
   const [cols, setCols] = useState(8);
   const [by, setBy] = useState<Entry["by"]>("code");
   const [picked, setPicked] = useState<Entry | null>(null);
+  const shown = useShown(f);
   useEffect(() => {
     const el = parent.current;
     if (!el) return;
@@ -236,13 +366,18 @@ function Glyphs({ f }: { f: FontDetail }) {
             ]}
           />
         )}
+        {shown && (
+          <Text size="xs" c="dimmed">
+            <span className={classes.shownMark} /> shown in the document ({shown.size.toLocaleString()} codes)
+          </Text>
+        )}
         <Text size="xs" c="dimmed">
           {listing === "code"
             ? `${programGlyphs > 0 ? "" : `${total.toLocaleString()} codes · `}code → glyph → text`
             : "glyph index → codes that select it · dimmed: no code selects it"}
         </Text>
       </Group>
-      {picked && <Picked f={f} e={picked} />}
+      {picked && <Picked f={f} e={picked} shown={timesShown(shown, picked)} />}
       <div ref={parent} className={classes.grid} style={{ height: Math.min(rows * CELL_H + 2, 560) }}>
         <div style={{ height: v.getTotalSize(), position: "relative" }}>
           {items.map((r) => (
@@ -252,7 +387,7 @@ function Glyphs({ f }: { f: FontDetail }) {
                 const e = entryAt(i);
                 return (
                   <div key={c} style={{ width: CELL_W, height: CELL_H }}>
-                    {e ? <Cell f={f} e={e} active={picked !== null && entryKey(picked) === entryKey(e)} onPick={() => setPicked(e)} /> : <Loader size={10} m={8} />}
+                    {e ? <Cell f={f} e={e} shown={timesShown(shown, e)} active={picked !== null && entryKey(picked) === entryKey(e)} onPick={() => setPicked(e)} /> : <Loader size={10} m={8} />}
                   </div>
                 );
               })}
@@ -264,14 +399,28 @@ function Glyphs({ f }: { f: FontDetail }) {
   );
 }
 
-function Cell({ f, e, active, onPick }: { f: FontDetail; e: Entry; active: boolean; onPick: () => void }) {
+/** How often the document shows an entry's code(s); `null` until that is known. */
+function timesShown(shown: Map<string, number> | null, e: Entry): number | null {
+  if (!shown) return null;
+  const codes = e.by === "code" ? [e.g.bytes] : e.g.codes;
+  return codes.reduce((n, c) => n + (shown.get(c) ?? 0), 0);
+}
+
+function Cell({ f, e, shown, active, onPick }: { f: FontDetail; e: Entry; shown: number | null; active: boolean; onPick: () => void }) {
   const g = e.g;
   const procedure = e.by === "code" ? e.g.procedure : null;
   // A program glyph no code selects cannot be shown by this font.
   const empty = (!g.outline && !procedure) || (e.by === "program" && e.g.codes.length === 0);
   const head = e.by === "code" ? e.g.bytes : `#${e.g.gid}${e.g.codes.length ? ` · ${e.g.codes[0]}${e.g.codes.length > 1 ? "+" : ""}` : ""}`;
   return (
-    <UnstyledButton className={classes.cell} data-active={active || undefined} data-empty={empty || undefined} onClick={onPick}>
+    <UnstyledButton
+      className={classes.cell}
+      data-active={active || undefined}
+      data-empty={empty || undefined}
+      data-shown={shown ? true : undefined}
+      title={shown ? `shown ${shown.toLocaleString()} times` : undefined}
+      onClick={onPick}
+    >
       <Text size="10px" ff="monospace" c="dimmed" lh={1.2} truncate="end" w="100%" ta="center">
         {head}
       </Text>
@@ -286,7 +435,7 @@ function Cell({ f, e, active, onPick }: { f: FontDetail; e: Entry; active: boole
 }
 
 /** The picked glyph, large, with everything known about it. */
-function Picked({ f, e }: { f: FontDetail; e: Entry }) {
+function Picked({ f, e, shown }: { f: FontDetail; e: Entry; shown: number | null }) {
   const nav = useNav();
   const g = e.g;
   const field = (k: string, v: ReactNode) => (
@@ -316,6 +465,7 @@ function Picked({ f, e }: { f: FontDetail; e: Entry }) {
             {field("codes", e.g.codes.length ? e.g.codes.map((c) => `<${c}>`).join(" ") : "none: the font cannot show it")}
           </>
         )}
+        {shown !== null && field("shown", shown ? `${shown.toLocaleString()} times` : "never")}
         {g.name !== null && field("name", `/${g.name}`)}
         {field("text", g.text ? `${JSON.stringify(g.text)} ${codepoints}` : "unknown")}
         {field("width", `${round(g.width)}${e.by === "program" ? " (program)" : ""}`)}

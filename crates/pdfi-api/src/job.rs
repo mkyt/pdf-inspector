@@ -12,6 +12,7 @@ use pdfi_syntax::{ObjId, ObjLocation, Object};
 
 use crate::convert;
 use crate::dto::{DiagnosticInfo, JobInfo, JobKind, JobResult, JobState};
+use crate::font::{self, FontUsage};
 use crate::protocol::Event;
 use crate::session::{Doc, EventBus, lock};
 
@@ -67,6 +68,8 @@ const STEP: usize = 256;
 const VALIDATE_STEP: usize = 32;
 /// Pages scanned per inventory step.
 const PAGE_STEP: usize = 32;
+/// Pages a `FontUses` step goes through.
+const FONT_PAGE_STEP: usize = 4;
 /// Issues a validation job keeps for `JobDiagnostics`.
 const MAX_KEPT: usize = 100_000;
 
@@ -83,6 +86,14 @@ enum Work {
     Check(CheckWork),
     Validate(ValidateWork),
     Inventory(InventoryWork),
+    FontUses(FontUsesWork),
+}
+
+struct FontUsesWork {
+    font: ObjId,
+    pages: Vec<u32>,
+    pos: usize,
+    usage: FontUsage,
 }
 
 /// Scanning every object and page, then typing what the trailer reaches to
@@ -148,6 +159,12 @@ impl Job {
             JobKind::Inventory => {
                 Work::Inventory(InventoryWork::Scan(Builder::new(&doc.model.on(&doc.file))))
             }
+            JobKind::FontUses { font } => Work::FontUses(FontUsesWork {
+                font: (*font).into(),
+                pages: font::pages_to_scan(&doc, (*font).into()),
+                pos: 0,
+                usage: FontUsage::default(),
+            }),
         };
         let total = match &work {
             Work::Check(w) => w.ids.len() as u64,
@@ -157,6 +174,7 @@ impl Job {
                 b.total() + doc.file.xref().live_ids().count() as u64
             }
             Work::Inventory(_) => 0,
+            Work::FontUses(w) => w.pages.len() as u64,
         };
         Self {
             info: Mutex::new(JobInfo {
@@ -212,6 +230,10 @@ impl Job {
                 (done, Some(total), r)
             }
             Work::Inventory(w) => self.inventory_step(w),
+            Work::FontUses(w) => {
+                let (done, r) = self.font_uses_step(w);
+                (done, None, r)
+            }
         };
         drop(work);
         let total = {
@@ -333,6 +355,27 @@ impl Job {
             }
             InventoryWork::Done => (0, None, None),
         }
+    }
+
+    fn font_uses_step(&self, w: &mut FontUsesWork) -> (u64, Option<JobResult>) {
+        let d = &self.doc;
+        let end = (w.pos + FONT_PAGE_STEP).min(w.pages.len());
+        for &p in &w.pages[w.pos..end] {
+            w.usage.scan_page(d, w.font, p);
+        }
+        w.pos = end;
+        let done = w.pos as u64;
+        if w.pos < w.pages.len() {
+            return (done, None);
+        }
+        let usage = std::mem::take(&mut w.usage);
+        let result = JobResult::FontUses {
+            scanned: usage.scanned.into(),
+            pages: usage.pages.into(),
+            uses: usage.uses.len() as u64,
+        };
+        lock(&d.font_uses).insert(w.font, Arc::new(usage));
+        (done, Some(result))
     }
 
     fn check_step(&self, w: &mut CheckWork) -> (u64, Option<JobResult>) {

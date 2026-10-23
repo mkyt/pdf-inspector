@@ -26,7 +26,7 @@ pub use pdfi_font as font;
 use crate::device::Device;
 use crate::font::Font;
 use crate::geom::IDENTITY;
-use crate::interp::{Element, Env, GState, Interp, Kind, Rec, Resources, State};
+use crate::interp::{Element, Env, GState, Interp, Kind, Rec, Resources, Show, State};
 use crate::op::{ContentSource, Op, OpOrigin};
 use crate::parse::{OpReader, ReadPoint, SourceData};
 
@@ -170,6 +170,9 @@ pub struct Analysis {
     pub depth: Vec<u16>,
     /// Decoded text of the text-showing operations, by operation.
     pub texts: Vec<(u32, String)>,
+    /// What each text-showing operation shows, by operation (text inside
+    /// forms at the `Do` that paints them).
+    pub shows: Vec<Show>,
     /// The visible area of a page, or a form's `/BBox` (also the initial
     /// clip).
     pub bounds: Option<Rect>,
@@ -315,6 +318,16 @@ impl<'a> Content<'a> {
 
     /// Parse and interpret a content (cached).
     pub fn analyze(&self, t: Target) -> Result<Arc<Analysis>, String> {
+        self.analyze_with(t, true)
+    }
+
+    /// Like [`Content::analyze`], without keeping the result: for going
+    /// through many contents without pushing out those being viewed.
+    pub fn analyze_once(&self, t: Target) -> Result<Arc<Analysis>, String> {
+        self.analyze_with(t, false)
+    }
+
+    fn analyze_with(&self, t: Target, keep: bool) -> Result<Arc<Analysis>, String> {
         let file = self.m.file;
         let key = match t {
             Target::Page(i) => Key::Page(self.m.page(i)?.id),
@@ -427,6 +440,7 @@ impl<'a> Content<'a> {
             mut issues,
             elements,
             texts,
+            shows,
             approximate,
             ..
         } = rec;
@@ -459,6 +473,7 @@ impl<'a> Content<'a> {
             elements,
             depth,
             texts,
+            shows,
             bounds,
             rotate,
             resources,
@@ -470,6 +485,9 @@ impl<'a> Content<'a> {
                 .collect(),
             checkpoints,
         });
+        if !keep {
+            return Ok(a);
+        }
         let mut g = lock(&self.c.analyses);
         g.retain(|(k, _)| *k != key);
         if g.len() >= ANALYSES {

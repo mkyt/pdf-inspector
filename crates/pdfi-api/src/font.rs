@@ -1,14 +1,17 @@
 //! Requests about fonts (pdfi-font): the dictionaries, the program and the
 //! glyph each code selects.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use pdfi_content::Target;
 use pdfi_content::font::{self as pf, CidToGid, Code, Font, GlyphSource, Outline};
 use pdfi_syntax::{self as syn, DictExt, ObjId};
 
 use crate::dto::*;
+use crate::model::rect;
 use crate::protocol::{ApiError, ErrorCode};
-use crate::session::{Doc, page};
+use crate::session::{Doc, lock, page};
 
 /// Glyph space units per em in `GlyphView` outlines.
 const UNITS: f32 = 1000.0;
@@ -233,4 +236,94 @@ pub fn program_glyphs(d: &Doc, id: ObjRef, range: Range) -> Result<Page<ProgramG
             })
             .collect()
     }))
+}
+
+/// Characters of text kept per use.
+const MAX_USE_TEXT: usize = 300;
+
+/// The text a font shows, gathered page by page by a `FontUses` job.
+#[derive(Default)]
+pub(crate) struct FontUsage {
+    pub scanned: u32,
+    pub pages: u32,
+    pub uses: Vec<FontUse>,
+    /// By (length, code).
+    pub codes: BTreeMap<(u8, u32), u64>,
+}
+
+impl FontUsage {
+    /// Add what `font` shows on a page (also inside its form XObjects).
+    pub fn scan_page(&mut self, d: &Doc, font: ObjId, index: u32) {
+        self.scanned += 1;
+        let Ok(a) = d
+            .content
+            .on(d.model.on(&d.file))
+            .analyze_once(Target::Page(index.into()))
+        else {
+            return;
+        };
+        let before = self.uses.len();
+        for sh in a.shows.iter().filter(|sh| sh.font == Some(font)) {
+            for c in &sh.codes {
+                *self.codes.entry(c.key()).or_default() += 1;
+            }
+            let mut text = sh.text.clone();
+            if let Some((cut, _)) = text.char_indices().nth(MAX_USE_TEXT) {
+                text.truncate(cut);
+                text.push('…');
+            }
+            self.uses.push(FontUse {
+                page: index,
+                op: sh.op,
+                form: sh.inner.map(|(id, _)| id.into()),
+                form_op: sh.inner.map(|(_, op)| op),
+                text,
+                codes: sh.codes.len() as u32,
+                bbox: sh.bbox.map(rect),
+                hidden: sh.hidden,
+            });
+        }
+        if self.uses.len() > before {
+            self.pages += 1;
+        }
+    }
+}
+
+/// Pages a `FontUses` job goes through: those the inventory found using
+/// the font, or every page.
+pub(crate) fn pages_to_scan(d: &Doc, font: ObjId) -> Vec<u32> {
+    if let Some(inv) = lock(&d.inventory).clone() {
+        if let Some(f) = inv.fonts.iter().find(|f| f.id == font) {
+            return f.pages.clone();
+        }
+    }
+    let n = d.model.on(&d.file).page_count().min(u32::MAX.into()) as u32;
+    (0..n).collect()
+}
+
+pub fn uses(d: &Doc, id: ObjRef, range: Range) -> FontUsesView {
+    let u = lock(&d.font_uses).get(&id.into()).cloned();
+    let Some(u) = u else {
+        return FontUsesView {
+            scanned: false,
+            pages_scanned: 0,
+            pages: 0,
+            codes: Vec::new(),
+            uses: page(0, range, |_, _| Vec::new()),
+        };
+    };
+    FontUsesView {
+        scanned: true,
+        pages_scanned: u.scanned,
+        pages: u.pages,
+        codes: u
+            .codes
+            .iter()
+            .map(|(&(len, code), &count)| CodeCount {
+                bytes: Code { code, len }.hex(),
+                count,
+            })
+            .collect(),
+        uses: page(u.uses.len() as u64, range, |o, n| u.uses[o..o + n].to_vec()),
+    }
 }

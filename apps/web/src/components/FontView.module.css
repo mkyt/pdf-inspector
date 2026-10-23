@@ -22,6 +22,10 @@
     opacity: 0.45;
   }
 
+  &[data-shown] {
+    box-shadow: inset 0 3px 0 var(--mantine-color-teal-5);
+  }
+
   &[data-active] {
     background: var(--mantine-primary-color-light);
     opacity: 1;
@@ -40,4 +44,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.shownMark {
+  display: inline-block;
+  width: 10px;
+  height: 3px;
+  margin-right: 2px;
+  vertical-align: middle;
+  background: var(--mantine-color-teal-5);
+}
+
+.uses {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-sm);
 }

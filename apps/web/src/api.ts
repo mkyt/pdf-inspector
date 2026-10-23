@@ -18,6 +18,7 @@ import type {
   DocumentView,
   FontDetail,
   FontInfo,
+  FontUsesView,
   GlyphView,
   ProgramGlyph,
   ImageInfo,
@@ -161,6 +162,8 @@ export const api = {
     (await call(b, "font", { op: "font", doc, id })).body,
   glyphs: async (b: Backend, doc: DocId, id: ObjRef, range: Range, signal?: AbortSignal): Promise<Page<GlyphView>> =>
     (await call(b, "glyphs", { op: "glyphs", doc, id, range }, signal)).body,
+  fontUses: async (b: Backend, doc: DocId, id: ObjRef, range: Range, signal?: AbortSignal): Promise<FontUsesView> =>
+    (await call(b, "fontUses", { op: "fontUses", doc, id, range }, signal)).body,
   programGlyphs: async (b: Backend, doc: DocId, id: ObjRef, range: Range, signal?: AbortSignal): Promise<Page<ProgramGlyph>> =>
     (await call(b, "programGlyphs", { op: "programGlyphs", doc, id, range }, signal)).body,
   opState: async (b: Backend, doc: DocId, content: ContentRef, index: number): Promise<OpState> =>

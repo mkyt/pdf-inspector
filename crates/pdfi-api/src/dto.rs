@@ -435,6 +435,9 @@ pub enum JobKind {
     /// results are read with `Fonts`, `Images`, `Referrers` and
     /// `Unreferenced`.
     Inventory,
+    /// Go through the pages using a font (all pages without the
+    /// inventory) for the text it shows; read with `FontUses`.
+    FontUses { font: ObjRef },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -478,6 +481,13 @@ pub enum JobResult {
         kept: u64,
     },
     Inventory(InventoryStats),
+    FontUses {
+        /// Pages gone through, and those the font shows text on.
+        scanned: u64,
+        pages: u64,
+        /// Text-showing operations.
+        uses: u64,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -922,6 +932,50 @@ pub struct ProgramGlyph {
     /// SVG path data of the outline, 1000 units per em, y up.
     pub outline: Option<String>,
     pub bbox: Option<Rect>,
+}
+
+/// Text a font shows: one text-showing operation.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct FontUse {
+    /// 0-based page index.
+    pub page: u32,
+    /// The page's operation (for text inside a form XObject, the `Do`
+    /// that paints the form).
+    pub op: u32,
+    /// Inside a form XObject: the innermost form and the operation in it.
+    pub form: Option<ObjRef>,
+    pub form_op: Option<u32>,
+    /// Decoded text (U+FFFD for codes without text), shortened.
+    pub text: String,
+    /// Codes shown.
+    pub codes: u32,
+    /// On the page, in default user space.
+    pub bbox: Option<Rect>,
+    /// Text render mode 3 or 7.
+    pub hidden: bool,
+}
+
+/// How often a code is shown.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct CodeCount {
+    /// The code's bytes in hex, as `GlyphView.bytes`.
+    pub bytes: String,
+    pub count: u64,
+}
+
+/// The text a font shows, once a `FontUses` job has gone through the
+/// document.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct FontUsesView {
+    /// A `FontUses` job has finished for the font (otherwise the rest is
+    /// empty).
+    pub scanned: bool,
+    /// Pages gone through, and those the font shows text on.
+    pub pages_scanned: u32,
+    pub pages: u32,
+    /// Every code shown, ascending.
+    pub codes: Vec<CodeCount>,
+    pub uses: Page<FontUse>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]

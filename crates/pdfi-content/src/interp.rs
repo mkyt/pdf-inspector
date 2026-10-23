@@ -20,7 +20,7 @@ use pdfi_model::{Rect, resolve};
 use pdfi_syntax::{Dict, DictExt, Name, Node, ObjId, Object, PdfFile, Severity, Stream};
 
 use crate::device::{ClipPath, Device, Glyph, GlyphRun, Group, ImageData, PathEl, SoftMask};
-use crate::font::{Font, FontKind};
+use crate::font::{Code, Font, FontKind};
 use crate::geom::{
     IDENTITY, Matrix, add_point, apply, grow, intersect, mul, scale_of, transform, translate,
     union, unit_square,
@@ -336,6 +336,25 @@ impl Resources {
     }
 }
 
+/// Text shown by one operation.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Show {
+    /// The operation of the content (for text inside a form XObject, the
+    /// `Do` that paints the form).
+    pub op: u32,
+    /// Inside a form XObject: the innermost form and the operation in it.
+    pub inner: Option<(ObjId, u32)>,
+    /// The font dictionary.
+    pub font: Option<ObjId>,
+    pub codes: Vec<Code>,
+    /// Decoded text (U+FFFD for codes without text).
+    pub text: String,
+    /// In the content's space.
+    pub bbox: Option<Rect>,
+    /// Text render mode 3 or 7.
+    pub hidden: bool,
+}
+
 /// Where problems, painted elements and drawing go.
 pub struct Rec<'d> {
     pub issues: Issues,
@@ -345,6 +364,8 @@ pub struct Rec<'d> {
     pub record: bool,
     pub elements: Vec<Element>,
     pub texts: Vec<(u32, String)>,
+    /// Every text-showing operation (also those inside forms).
+    pub shows: Vec<Show>,
     /// Some text bounding box used guessed widths.
     pub approximate: bool,
     /// Paint here (forms are followed for it).
@@ -360,6 +381,7 @@ impl<'d> Rec<'d> {
             record: true,
             elements: Vec::new(),
             texts: Vec::new(),
+            shows: Vec::new(),
             approximate: false,
             device: None,
         }
@@ -1324,6 +1346,7 @@ impl<'r> Interp<'r> {
         let mut decoded = false;
         let drawing = rec.drawing();
         let mut glyphs = Vec::new();
+        let mut codes = Vec::new();
         for p in pieces {
             match p {
                 Piece::Adjust(n) => {
@@ -1338,6 +1361,9 @@ impl<'r> Interp<'r> {
                 }
                 Piece::Str(s) => {
                     for c in f.codes(s) {
+                        if rec.record {
+                            codes.push(c);
+                        }
                         let w0 = f.advance(c);
                         let spacing =
                             t.char_spacing + if f.is_space(c) { t.word_spacing } else { 0.0 };
@@ -1419,6 +1445,15 @@ impl<'r> Interp<'r> {
                 }
                 rec.approximate |= f.approximate;
             }
+            rec.shows.push(Show {
+                op: i,
+                inner: None,
+                font: font.id,
+                codes,
+                text: text.clone(),
+                bbox: bbox.map(|b| transform(&b, &m)),
+                hidden: invisible,
+            });
             if decoded {
                 rec.texts.push((i, text));
             }
@@ -1987,6 +2022,13 @@ impl<'r> Interp<'r> {
             sub.step(env, k, &op, &mut srec);
         }
         env.active.pop();
+        if kind == Kind::Form {
+            rec.shows.extend(srec.shows.drain(..).map(|mut sh| {
+                sh.inner = sh.inner.or(Some((id, sh.op)));
+                sh.op = i;
+                sh
+            }));
+        }
         let approximate = srec.approximate;
         let inner = srec
             .elements
