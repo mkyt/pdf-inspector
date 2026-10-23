@@ -10648,7 +10648,7 @@
             "code": 5,
             "gid": 1,
             "name": "A",
-            "outline": "M100 0L100 700L600 700L600 0L100 0Z",
+            "outline": "M100 0L100 700L600 700L600 0Z",
             "procedure": null,
             "text": "X",
             "width": 700.0

@@ -9,7 +9,7 @@ PDF の内部構造を調べ、編集するためのツール群。設計は [do
 | `crates/pdfi-syntax` | ByteSource、lexer / parser、xref（table / stream / hybrid / Prev チェーン）、ObjStm、filters、暗号（RC4 / AES-128 / AES-256）、破損時の復旧、書き出し |
 | `crates/pdfi-schema` | Arlington PDF Model（`schema/arlington/` に vendoring）を build 時に静的テーブル化。参照を辿る型推論と validation |
 | `crates/pdfi-model` | 意味層: ページ（`/Count` による index 引き・継承属性とその出所・ボックス・ラベル）、Info / XMP（不一致の検出）、しおり、注釈、リンク先、フォント・画像・被参照グラフのインベントリ（ジョブ） |
-| `crates/pdfi-font` | フォント: 符号の切り分け（定義済み・埋め込み CMap）、幅（`/Widths`・`/W`・標準 14 フォントの AFM）、テキスト（`/ToUnicode`・エンコーディング + Adobe Glyph List）、埋め込みプログラム（TrueType / OpenType は `ttf-parser`、CFF / Type 1 は `hayro-font`）のグリフ選択とアウトライン、埋め込まれていない単純フォントの代替（PDFium の Foxit フォントを内蔵）、Type 3 のグリフ手続き |
+| `crates/pdfi-font` | フォント: 符号の切り分け（定義済み・埋め込み CMap）、幅（`/Widths`・`/W`・標準 14 フォントの AFM）、テキスト（`/ToUnicode`・エンコーディング + Adobe Glyph List）、埋め込みプログラム（TrueType / OpenType は `skrifa`、CFF / Type 1 は `hayro-font`）のグリフ選択とアウトライン、埋め込まれていない単純フォントの代替（PDFium の Foxit フォントを内蔵）、Type 3 のグリフ手続き |
 | `crates/pdfi-content` | content stream: 命令列（演算子表・複数ストリームの連結・インライン画像）、validation（オペランド・ネスト・配置・リソース・色）、グラフィックス状態を追うインタプリタと描画要素の bbox（フォーム XObject を辿る）。命令はチェックポイントから読み直して範囲取得。範囲の切り出し（範囲内を描く命令だけを元のバイト列のまま残し、状態・クリップは保持、部分的に掛かるフォームは中身を切る。使うリソースだけを符号化されたまま複製） |
 | `crates/pdfi-render` | 自作ラスタライザ（tiny-skia）: パス・塗り・線（線幅・端・結合・ダッシュ）・クリップ・画像（1–16 bit、Gray / RGB / CMYK / Indexed / Lab / ICCBased / Separation・DeviceN、JPEG、ステンシル、SMask、色キー）、文字（グリフのアウトライン、Type 3 はグリフ手続き、描画モードの塗り・線・クリップ）。タイル描画、ステップ実行、ハイライト層、ヒットテスト |
 | `crates/pdfi-api` | フロントとの境界。`Session` が `Request` → `Response` / `Event` を処理（範囲 API、ジョブ、Batch、バイナリ別フレーム）。TS 型を生成 |

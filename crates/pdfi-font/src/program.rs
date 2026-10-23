@@ -1,4 +1,4 @@
-//! Font programs: TrueType and OpenType (`ttf-parser`), bare CFF and
+//! Font programs: TrueType and OpenType (`skrifa`), bare CFF and
 //! Type 1 (`hayro-font`). The format is told from the data, not from the
 //! key that holds it (`/FontFile3 /Subtype /Type1C` streams that hold
 //! OpenType are common).
@@ -11,9 +11,12 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use hayro_font::{cff, type1};
-use ttf_parser::gsub::{SingleSubstitution, SubstitutionSubtable};
-use ttf_parser::opentype_layout::Coverage;
-use ttf_parser::{Face, GlyphId, PlatformId, Tag};
+use skrifa::instance::{LocationRef, Size};
+use skrifa::outline::DrawSettings;
+use skrifa::raw::TableProvider;
+use skrifa::raw::tables::cmap::PlatformId;
+use skrifa::raw::tables::gsub::{SingleSubst, SubstitutionSubtables};
+use skrifa::{FontRef, GlyphId, MetadataProvider, Tag};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Format {
@@ -159,7 +162,7 @@ impl Builder {
     }
 }
 
-impl ttf_parser::OutlineBuilder for Builder {
+impl skrifa::outline::OutlinePen for Builder {
     fn move_to(&mut self, x: f32, y: f32) {
         Builder::move_to(self, x, y);
     }
@@ -234,40 +237,35 @@ impl std::fmt::Debug for Program {
 }
 
 const OTTO: &[u8] = b"OTTO";
+const CFF: Tag = Tag::new(b"CFF ");
 
 impl Program {
     /// Parse a program, telling its format from the data.
     pub fn parse(data: Cow<'static, [u8]>) -> Result<Program, String> {
         let head = data.get(..4).unwrap_or(&[]);
         if head == [0, 1, 0, 0] || head == b"true" || head == OTTO || head == b"ttcf" {
-            let face = match Face::parse(&data, 0) {
-                Ok(f) => f,
-                Err(e) => {
-                    // OpenType subsets in PDFs often lack tables a font
-                    // needs (`head`, `hhea`, `maxp`): read their CFF alone.
-                    let cff = ttf_parser::RawFace::parse(&data, 0)
-                        .ok()
-                        .and_then(|r| r.table(Tag::from_bytes(b"CFF ")))
-                        .map(<[u8]>::to_vec);
-                    return match cff {
-                        Some(c) => Program::parse(Cow::Owned(c)),
-                        None => Err(format!("not a valid sfnt font: {e}")),
-                    };
-                }
+            let raw =
+                FontRef::from_index(&data, 0).map_err(|e| format!("not a valid sfnt font: {e}"))?;
+            let (Ok(head), Ok(maxp), Ok(_)) = (raw.head(), raw.maxp(), raw.hhea()) else {
+                // OpenType subsets in PDFs often lack tables a font
+                // needs (`head`, `hhea`, `maxp`): read their CFF alone.
+                return match raw.table_data(CFF) {
+                    Some(c) => Program::parse(Cow::Owned(c.as_bytes().to_vec())),
+                    None => Err("not a valid sfnt font: a required table is missing".into()),
+                };
             };
-            let upem = face.units_per_em().max(1);
-            let format = if face.tables().cff.is_some() {
+            let upem = head.units_per_em().max(1);
+            let cff_table = raw
+                .table_data(CFF)
+                .and_then(|c| cff::Table::parse(c.as_bytes()));
+            let format = if cff_table.is_some() {
                 Format::OpenType
             } else {
                 Format::TrueType
             };
-            let glyphs = Some(u32::from(face.number_of_glyphs()));
+            let glyphs = Some(u32::from(maxp.num_glyphs()));
             let k = 1.0 / f64::from(upem);
-            let cid_keyed = face
-                .raw_face()
-                .table(Tag::from_bytes(b"CFF "))
-                .and_then(cff::Table::parse)
-                .is_some_and(|t| t.is_cid());
+            let cid_keyed = cff_table.is_some_and(|t| t.is_cid());
             return Ok(Program {
                 format,
                 glyphs,
@@ -324,19 +322,19 @@ impl Program {
         self.data.is_empty()
     }
 
-    fn face(&self) -> Option<Face<'_>> {
-        Face::parse(&self.data, 0).ok()
+    /// The sfnt (TrueType and OpenType only).
+    fn font(&self) -> Option<FontRef<'_>> {
+        match self.format {
+            Format::TrueType | Format::OpenType => FontRef::from_index(&self.data, 0).ok(),
+            _ => None,
+        }
     }
 
     /// The CFF table: the whole program, or an OpenType font's `CFF `.
     fn cff(&self) -> Option<cff::Table<'_>> {
         match self.format {
             Format::Cff => cff::Table::parse(&self.data),
-            Format::OpenType => self
-                .face()?
-                .raw_face()
-                .table(Tag::from_bytes(b"CFF "))
-                .and_then(cff::Table::parse),
+            Format::OpenType => cff::Table::parse(self.font()?.table_data(CFF)?.as_bytes()),
             _ => None,
         }
     }
@@ -354,19 +352,25 @@ impl Program {
 
     fn vertical_alternates(&self) -> HashMap<u16, u16> {
         let mut m = HashMap::new();
-        let Some(gsub) = self.face().and_then(|f| f.tables().gsub) else {
+        let Some(gsub) = self.font().and_then(|f| f.gsub().ok()) else {
+            return m;
+        };
+        let (Ok(features), Ok(lookups)) = (gsub.feature_list(), gsub.lookup_list()) else {
             return m;
         };
         for tag in [b"vrt2", b"vert"] {
-            let features = gsub.features.into_iter();
-            for f in features.filter(|f| f.tag == Tag::from_bytes(tag)) {
-                for li in f.lookup_indices {
-                    let Some(l) = gsub.lookups.get(li) else {
+            let records = features.feature_records().iter();
+            for r in records.filter(|r| r.feature_tag() == Tag::new(tag)) {
+                let Ok(f) = r.feature(features.offset_data()) else {
+                    continue;
+                };
+                for li in f.lookup_list_indices() {
+                    let Ok(l) = lookups.lookups().get(usize::from(li.get())) else {
                         continue;
                     };
-                    for st in l.subtables.into_iter::<SubstitutionSubtable>() {
-                        if let SubstitutionSubtable::Single(s) = st {
-                            single(&s, &mut m);
+                    if let Ok(SubstitutionSubtables::Single(sts)) = l.subtables() {
+                        for st in sts.iter().flatten() {
+                            single(&st, &mut m);
                         }
                     }
                 }
@@ -382,9 +386,12 @@ impl Program {
     pub fn outline(&self, gid: u16) -> Option<Outline> {
         match self.format {
             Format::TrueType | Format::OpenType => {
-                let face = self.face()?;
+                let font = self.font()?;
                 let mut b = Builder::new(self.m);
-                face.outline_glyph(GlyphId(gid), &mut b);
+                if let Some(g) = font.outline_glyphs().get(GlyphId::from(gid)) {
+                    let settings = DrawSettings::unhinted(Size::unscaled(), LocationRef::default());
+                    let _ = g.draw(settings, &mut b);
+                }
                 Some(b.finish())
             }
             Format::Cff => {
@@ -419,9 +426,12 @@ impl Program {
 
     pub fn gid_by_name(&self, name: &str) -> Option<u16> {
         match self.format {
-            Format::TrueType | Format::OpenType => {
-                self.face()?.glyph_index_by_name(name).map(|g| g.0)
-            }
+            Format::TrueType | Format::OpenType => self
+                .font()?
+                .glyph_names()
+                .iter()
+                .find(|(_, n)| !n.is_synthesized() && n.as_str() == name)
+                .and_then(|(g, _)| u16::try_from(g.to_u32()).ok()),
             Format::Cff => self.cff()?.glyph_index_by_name(name).map(|g| g.0),
             Format::Type1 => None,
         }
@@ -429,9 +439,12 @@ impl Program {
 
     pub fn glyph_name(&self, gid: u16) -> Option<String> {
         match self.format {
-            Format::TrueType | Format::OpenType => {
-                self.face()?.glyph_name(GlyphId(gid)).map(String::from)
-            }
+            Format::TrueType | Format::OpenType => self
+                .font()?
+                .glyph_names()
+                .get(GlyphId::from(gid))
+                .filter(|n| !n.is_synthesized())
+                .map(|n| n.as_str().to_owned()),
             Format::Cff => self
                 .cff()?
                 .glyph_name(hayro_font::GlyphId(gid))
@@ -462,32 +475,30 @@ impl Program {
 
     /// Whether the sfnt has a cmap subtable for (platform, encoding).
     pub fn has_cmap(&self, platform: u16, encoding: u16) -> bool {
-        self.face().is_some_and(|f| {
-            f.tables().cmap.is_some_and(|c| {
-                c.subtables
-                    .into_iter()
-                    .any(|s| platform_id(s.platform_id) == platform && s.encoding_id == encoding)
-            })
+        self.font().and_then(|f| f.cmap().ok()).is_some_and(|c| {
+            c.encoding_records()
+                .iter()
+                .any(|r| platform_id(r.platform_id()) == platform && r.encoding_id() == encoding)
         })
     }
 
     /// Look a code up in the cmap subtable (platform, encoding).
     pub fn cmap(&self, platform: u16, encoding: u16, code: u32) -> Option<u16> {
-        let f = self.face()?;
-        let c = f.tables().cmap?;
-        c.subtables
-            .into_iter()
-            .filter(|s| platform_id(s.platform_id) == platform && s.encoding_id == encoding)
-            .find_map(|s| s.glyph_index(code))
-            .map(|g| g.0)
+        let c = self.font()?.cmap().ok()?;
+        c.encoding_records()
+            .iter()
+            .filter(|r| platform_id(r.platform_id()) == platform && r.encoding_id() == encoding)
+            .filter_map(|r| r.subtable(c.offset_data()).ok())
+            .find_map(|s| s.map_codepoint(code))
+            .and_then(|g| u16::try_from(g.to_u32()).ok())
             .filter(|&g| g != 0)
     }
 
     /// Whether the sfnt has a cmap at all.
     pub fn has_any_cmap(&self) -> bool {
-        self.face()
-            .and_then(|f| f.tables().cmap)
-            .is_some_and(|c| !c.subtables.is_empty())
+        self.font()
+            .and_then(|f| f.cmap().ok())
+            .is_some_and(|c| !c.encoding_records().is_empty())
     }
 
     /// The glyph of a CID: the charset of CID-keyed CFF fonts, the CID
@@ -506,8 +517,10 @@ impl Program {
     pub fn advance(&self, gid: u16) -> Option<f64> {
         match self.format {
             Format::TrueType | Format::OpenType => {
-                let f = self.face()?;
-                let w = f.glyph_hor_advance(GlyphId(gid))?;
+                let f = self.font()?;
+                f.hmtx().ok()?;
+                let metrics = f.glyph_metrics(Size::unscaled(), LocationRef::default());
+                let w = metrics.advance_width(GlyphId::from(gid))?;
                 Some(f64::from(w) * self.m[0])
             }
             Format::Cff => {
@@ -523,43 +536,38 @@ fn platform_id(p: PlatformId) -> u16 {
     match p {
         PlatformId::Unicode => 0,
         PlatformId::Macintosh => 1,
-        PlatformId::Iso => 2,
+        PlatformId::ISO => 2,
         PlatformId::Windows => 3,
         PlatformId::Custom => 4,
+        _ => u16::MAX,
     }
 }
 
 /// Add the substitutions of a single-substitution subtable (the first
 /// one found for a glyph wins).
-fn single(s: &SingleSubstitution<'_>, m: &mut HashMap<u16, u16>) {
-    let coverage = match s {
-        SingleSubstitution::Format1 { coverage, .. }
-        | SingleSubstitution::Format2 { coverage, .. } => coverage,
-    };
-    let mut add = |i: u16, g: GlyphId| {
-        let to = match s {
-            SingleSubstitution::Format1 { delta, .. } => {
-                Some(GlyphId(g.0.wrapping_add(*delta as u16)))
-            }
-            SingleSubstitution::Format2 { substitutes, .. } => substitutes.get(i),
+fn single(s: &SingleSubst<'_>, m: &mut HashMap<u16, u16>) {
+    let mut add = |g: GlyphId, to: Option<u32>| {
+        let (Ok(g), Some(Ok(to))) = (u16::try_from(g.to_u32()), to.map(u16::try_from)) else {
+            return;
         };
-        if let Some(to) = to {
-            m.entry(g.0).or_insert(to.0);
-        }
+        m.entry(g).or_insert(to);
     };
-    match coverage {
-        Coverage::Format1 { glyphs } => {
-            for (i, g) in glyphs.into_iter().enumerate() {
-                add(i as u16, g);
+    match s {
+        SingleSubst::Format1(t) => {
+            let Ok(coverage) = t.coverage() else { return };
+            let delta = t.delta_glyph_id() as u16;
+            for g in coverage.iter() {
+                add(g, Some(u32::from((g.to_u32() as u16).wrapping_add(delta))));
             }
         }
-        Coverage::Format2 { records } => {
-            for r in records.into_iter() {
-                for g in r.start.0..=r.end.0 {
-                    add(r.value.wrapping_add(g - r.start.0), GlyphId(g));
-                }
+        SingleSubst::Format2(t) => {
+            let Ok(coverage) = t.coverage() else { return };
+            let subs = t.substitute_glyph_ids();
+            for (i, g) in coverage.iter().enumerate() {
+                add(g, subs.get(i).map(|s| u32::from(s.get().to_u16())));
             }
         }
+        _ => {}
     }
 }
 
