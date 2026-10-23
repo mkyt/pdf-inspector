@@ -814,6 +814,50 @@ for n in range(1, size):
 out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (size, xref)
 open("paint.pdf", "wb").write(out)
 PY
+python3 -I - <<'PY'
+# Annotations (pdfi-model, pdfi-render): appearance streams put on the
+# page by /Matrix and the fit of /BBox to /Rect (same box, a 10x scale, a
+# 90-degree turn), a state chosen by /AS, a hidden one, one without an
+# appearance and one whose state cannot be chosen; markup entries.
+objs, streams = {}, {}
+objs[1] = b"<< /Type /Catalog /Pages 2 0 R >>"
+objs[2] = b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 400 400] >>"
+objs[3] = b"<< /Type /Page /Parent 2 0 R /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> /Annots [10 0 R 11 0 R 12 0 R 13 0 R 14 0 R 15 0 R 16 0 R 17 0 R] >>"
+streams[4] = (b"<< /Length %d >>", b"0.8 g 40 40 320 80 re f BT /F1 24 Tf 44 340 Td (Annotated) Tj ET\n")
+objs[5] = b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+objs[10] = b"<< /Type /Annot /Subtype /Highlight /Rect [40 330 200 370] /QuadPoints [40 370 200 370 40 330 200 330] /C [1 1 0] /CA 0.5 /T (Alice) /M (D:20240131123456Z) /Contents (Check this) /NM (hl-1) /F 4 /Popup 11 0 R /AP << /N 20 0 R >> >>"
+objs[11] = b"<< /Type /Annot /Subtype /Popup /Rect [220 300 380 380] /Parent 10 0 R >>"
+objs[12] = b"<< /Type /Annot /Subtype /Square /Rect [50 200 150 300] /C [1 0 0] /BS << /W 2 >> /AP << /N 21 0 R >> >>"
+objs[13] = b"<< /Type /Annot /Subtype /FreeText /Rect [200 150 240 290] /DA (/Helv 12 Tf 0 g) /AP << /N 22 0 R >> >>"
+objs[14] = b"<< /Type /Annot /Subtype /Widget /FT /Btn /Rect [300 200 340 240] /AS /On /AP << /N << /On 23 0 R /Off 24 0 R >> >> >>"
+objs[15] = b"<< /Type /Annot /Subtype /Ink /F 2 /Rect [260 40 380 120] /InkList [[270 50 300 100 330 60 370 110]] /AP << /N 25 0 R >> >>"
+objs[16] = b"<< /Type /Annot /Subtype /Text /Rect [20 20 40 40] /Contents (Note) >>"
+objs[17] = b"<< /Type /Annot /Subtype /Widget /FT /Btn /Rect [340 340 380 380] /AP << /N << /On 23 0 R >> >> >>"
+form = b"<< /Type /XObject /Subtype /Form /BBox [%s]%s /Length %%d >>"
+streams[20] = (form % (b"40 330 200 370", b""), b"1 1 0 rg 40 330 160 40 re f\n")
+streams[21] = (form % (b"0 0 10 10", b""), b"1 0 0 rg 0 0 10 10 re f\n")
+streams[22] = (form % (b"0 0 140 40", b" /Matrix [0 1 -1 0 0 0]"), b"0 0 1 rg 0 0 140 40 re f\n")
+streams[23] = (form % (b"0 0 40 40", b""), b"0 1 0 rg 0 0 40 40 re f\n")
+streams[24] = (form % (b"0 0 40 40", b""), b"")
+streams[25] = (form % (b"260 40 380 120", b""), b"1 0 1 RG 4 w 270 50 m 300 100 l 330 60 l 370 110 l S\n")
+out = bytearray(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")
+offsets = {}
+for n in sorted(set(objs) | set(streams)):
+    offsets[n] = len(out)
+    if n in streams:
+        d, data = streams[n]
+        out += b"%d 0 obj\n" % n + d % len(data) + b"\nstream\n" + data + b"\nendstream\nendobj\n"
+    else:
+        out += b"%d 0 obj\n" % n + objs[n] + b"\nendobj\n"
+size = max(offsets) + 1
+xref = len(out)
+out += b"xref\n0 %d\n0000000000 65535 f\r\n" % size
+for n in range(1, size):
+    out += (b"%010d 00000 n\r\n" % offsets[n]) if n in offsets else b"0000000000 00000 f\r\n"
+out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (size, xref)
+open("annots.pdf", "wb").write(out)
+PY
+
 qpdf --object-streams=generate base.pdf objstm.pdf
 qpdf --linearize base.pdf linearized.pdf
 qpdf --allow-weak-crypto --encrypt user owner 40 -- base.pdf rc4-40.pdf

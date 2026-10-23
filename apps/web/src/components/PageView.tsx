@@ -13,7 +13,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { api, useBackend } from "../api";
 import { useDoc } from "../doc";
 import { bytesText, originText, pageText, rectText, sizeText } from "../format";
@@ -21,6 +21,7 @@ import { contentKey, useNav } from "../nav";
 import type { AttrOrigin, PageDetail } from "../protocol/generated";
 import { ObjLink } from "./DocumentPanel";
 import { IssueList } from "./Issues";
+import { annotColor } from "./AnnotOverlay";
 import { LinkView } from "./LinkView";
 import { RenderView } from "./RenderView";
 
@@ -55,6 +56,9 @@ export function PageView({ index }: { index: number }) {
     queryFn: () => api.page(backend, nav.doc, index),
   });
   const step = (d: number) => nav.open({ kind: "page", index: index + d });
+  // The annotation selected on the rendering and in the table.
+  const [annot, setAnnot] = useState<number | null>(null);
+  useEffect(() => setAnnot(null), [index]);
   return (
     <Stack p="sm" gap="sm">
       <Group gap="sm">
@@ -105,14 +109,22 @@ export function PageView({ index }: { index: number }) {
         </Alert>
       )}
       {!q.data && !q.error && <Loader size="sm" />}
-      {q.data && <Rendering index={index} />}
-      {q.data && <Detail p={q.data} />}
+      {q.data && <Rendering index={index} annot={annot} onAnnot={setAnnot} />}
+      {q.data && <Detail p={q.data} annot={annot} onAnnot={setAnnot} />}
     </Stack>
   );
 }
 
 /** The page rendered; clicking opens the operation painting there. */
-function Rendering({ index }: { index: number }) {
+function Rendering({
+  index,
+  annot,
+  onAnnot,
+}: {
+  index: number;
+  annot: number | null;
+  onAnnot: (i: number | null) => void;
+}) {
   const backend = useBackend();
   const nav = useNav();
   const content = { kind: "page", index } as const;
@@ -136,12 +148,22 @@ function Rendering({ index }: { index: number }) {
         step={false}
         onPick={(op) => nav.open({ kind: "content", content, op })}
         height="min(60vh, 720px)"
+        annot={annot}
+        onAnnot={onAnnot}
       />
     </div>
   );
 }
 
-function Detail({ p }: { p: PageDetail }) {
+function Detail({
+  p,
+  annot,
+  onAnnot,
+}: {
+  p: PageDetail;
+  annot: number | null;
+  onAnnot: (i: number | null) => void;
+}) {
   const nav = useNav();
   return (
     <>
@@ -291,7 +313,7 @@ function Detail({ p }: { p: PageDetail }) {
 
       <Section title={`Annotations (${p.annots.toLocaleString()})`}>
         {p.annots > 0 ? (
-          <Annotations page={p.index} />
+          <Annotations page={p.index} annot={annot} onAnnot={onAnnot} />
         ) : (
           <Text size="xs" c="dimmed">
             None.
@@ -316,7 +338,15 @@ function Section({ title, right, children }: { title: string; right?: ReactNode;
   );
 }
 
-function Annotations({ page }: { page: number }) {
+function Annotations({
+  page,
+  annot,
+  onAnnot,
+}: {
+  page: number;
+  annot: number | null;
+  onAnnot: (i: number | null) => void;
+}) {
   const backend = useBackend();
   const nav = useNav();
   const q = useInfiniteQuery({
@@ -339,9 +369,13 @@ function Annotations({ page }: { page: number }) {
       <Table withRowBorders verticalSpacing={2} horizontalSpacing={6} fz="xs">
         <Table.Tbody>
           {items.map((a) => (
-            <Table.Tr key={a.index}>
-              <Table.Td c="dimmed" w={36}>
-                [{a.index}]
+            <Table.Tr key={a.index} bg={a.index === annot ? "var(--mantine-color-blue-light)" : undefined}>
+              <Table.Td w={36}>
+                <Tooltip label="Show it on the page">
+                  <Anchor size="xs" c="dimmed" onClick={() => onAnnot(a.index === annot ? null : a.index)}>
+                    [{a.index}]
+                  </Anchor>
+                </Tooltip>
               </Table.Td>
               <Table.Td w={90}>
                 {a.id ? (
@@ -358,9 +392,16 @@ function Annotations({ page }: { page: number }) {
                     {a.error}
                   </Text>
                 ) : (
-                  <Badge size="xs" variant="light" tt="none">
-                    {a.subtype ?? "?"}
-                  </Badge>
+                  <Group gap={4} wrap="nowrap">
+                    {annotColor(a.color) && (
+                      <span
+                        style={{ display: "inline-block", width: 8, height: 8, background: annotColor(a.color)!, border: "1px solid #0003" }}
+                      />
+                    )}
+                    <Badge size="xs" variant="light" tt="none" color={a.shown ? undefined : "gray"}>
+                      {a.subtype ?? "?"}
+                    </Badge>
+                  </Group>
                 )}
               </Table.Td>
               <Table.Td ff="monospace" c="dimmed">
@@ -368,10 +409,27 @@ function Annotations({ page }: { page: number }) {
               </Table.Td>
               <Table.Td style={{ wordBreak: "break-word" }}>
                 {a.link && <LinkView link={a.link} />}
+                {a.author && (
+                  <Text span size="xs" fw={600}>
+                    {a.author}:{" "}
+                  </Text>
+                )}
                 {a.contents && (
                   <Text span size="xs">
                     {a.link && " · "}
                     {a.contents}
+                  </Text>
+                )}
+                {!a.shown && (
+                  <Text span size="xs" c="dimmed">
+                    {" "}
+                    · not shown ({a.flag_names.filter((f) => ["Invisible", "Hidden", "NoView"].includes(f)).join(", ")})
+                  </Text>
+                )}
+                {a.appearance?.error && (
+                  <Text span size="xs" c="orange.8">
+                    {" "}
+                    · {a.appearance.error}
                   </Text>
                 )}
                 {a.parent && (

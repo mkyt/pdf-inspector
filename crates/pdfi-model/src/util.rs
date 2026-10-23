@@ -68,6 +68,17 @@ pub fn text(file: &PdfFile, d: &pdfi_syntax::Dict, key: &str) -> Option<String> 
     get(file, d, key).and_then(|v| v.as_string().map(|s| crate::text::decode(&s.bytes)))
 }
 
+/// An array of numbers (`None` if it is not one, or any item is not a
+/// number).
+pub fn numbers(file: &PdfFile, o: &Object) -> Option<Vec<f64>> {
+    resolve(file, o)
+        .1
+        .as_array()?
+        .iter()
+        .map(|n| number(file, &n.obj))
+        .collect()
+}
+
 /// A rectangle, normalized so that `x0 <= x1` and `y0 <= y1`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rect {

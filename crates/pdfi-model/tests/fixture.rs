@@ -222,3 +222,60 @@ fn simple_file() {
     assert!(m.issues().is_empty());
     assert_eq!(m.outline_children(None).len(), 0);
 }
+
+#[test]
+fn annotation_appearances() {
+    let f = open("annots.pdf");
+    let dm = DocModel::new();
+    let m = dm.on(&f);
+    let (n, a) = m.annots(0, 0, 100).unwrap();
+    assert_eq!(n, 8);
+    // Markup entries; the appearance's box is the /Rect itself.
+    let hl = &a[0];
+    assert_eq!(hl.subtype.as_deref(), Some("Highlight"));
+    assert_eq!(hl.author.as_deref(), Some("Alice"));
+    assert_eq!(hl.modified.as_deref(), Some("2024-01-31T12:34:56Z"));
+    assert_eq!(hl.color.as_deref(), Some(&[1.0, 1.0, 0.0][..]));
+    assert_eq!(hl.opacity, Some(0.5));
+    assert_eq!(
+        hl.quads,
+        [[40.0, 370.0, 200.0, 370.0, 40.0, 330.0, 200.0, 330.0]]
+    );
+    assert_eq!(hl.popup, Some(id(11)));
+    assert_eq!(hl.paint(), Some((id(20), [1.0, 0.0, 0.0, 1.0, 0.0, 0.0])));
+    // A pop-up has no appearance; it is not painted.
+    assert_eq!((a[1].appearance.as_ref(), a[1].paint()), (None, None));
+    // A 10 × 10 /BBox fit to a 100 × 100 /Rect.
+    assert_eq!(a[2].border, Some(2.0));
+    assert_eq!(
+        a[2].paint(),
+        Some((id(21), [10.0, 0.0, 0.0, 10.0, 50.0, 200.0]))
+    );
+    // /Matrix turns the box a quarter; then it is moved onto /Rect.
+    let ft = a[3].appearance.as_ref().unwrap();
+    assert_eq!(ft.matrix, [0.0, 1.0, -1.0, 0.0, 0.0, 0.0]);
+    assert_eq!(ft.to_page, Some([0.0, 1.0, -1.0, 0.0, 240.0, 150.0]));
+    // The state is chosen by /AS.
+    let w = a[4].appearance.as_ref().unwrap();
+    assert_eq!(
+        (w.state.as_deref(), &w.states[..]),
+        (Some("On"), &["On".to_string(), "Off".to_string()][..])
+    );
+    assert_eq!(w.id, Some(id(23)));
+    // Hidden: not shown.
+    assert_eq!(
+        a[5].paths,
+        [vec![
+            (270.0, 50.0),
+            (300.0, 100.0),
+            (330.0, 60.0),
+            (370.0, 110.0)
+        ]]
+    );
+    assert!(!a[5].shown() && a[5].paint().is_none());
+    assert!(a[6].appearance.is_none() && a[6].shown());
+    // States without /AS.
+    let e = a[7].appearance.as_ref().unwrap();
+    assert!(e.error.as_deref().unwrap().contains("no /AS"), "{e:?}");
+    assert!(a[7].paint().is_none());
+}

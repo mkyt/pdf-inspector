@@ -252,23 +252,55 @@ pub fn annotations(d: &Doc, page_index: u32, range: Range) -> Result<Page<AnnotI
     Ok(Page {
         total: total as u64,
         offset: (offset.min(total)) as u64,
-        items: items
-            .into_iter()
-            .map(|a| AnnotInfo {
-                index: a.index as u32,
-                id: a.id.map(Into::into),
-                subtype: a.subtype,
-                rect: a.rect.map(rect),
-                contents: a.contents,
-                name: a.name,
-                flags: a.flags,
-                appearance: a.appearance,
-                link: a.link.map(link),
-                parent: a.parent.map(Into::into),
-                error: a.error,
-            })
-            .collect(),
+        items: items.into_iter().map(annot_info).collect(),
     })
+}
+
+fn annot_info(a: pdfi_model::annot::Annot) -> AnnotInfo {
+    let shown = a.shown();
+    AnnotInfo {
+        index: a.index as u32,
+        id: a.id.map(Into::into),
+        subtype: a.subtype,
+        rect: a.rect.map(rect),
+        contents: a.contents,
+        name: a.name,
+        flags: a.flags,
+        flag_names: pdfi_model::annot::FLAG_NAMES
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| a.flags & (1 << i) != 0)
+            .map(|(_, n)| (*n).into())
+            .collect(),
+        shown,
+        author: a.author,
+        subject: a.subject,
+        modified: a.modified,
+        color: a.color,
+        interior: a.interior,
+        opacity: a.opacity,
+        border: a.border,
+        quads: a.quads.iter().map(|q| q.to_vec()).collect(),
+        paths: a
+            .paths
+            .iter()
+            .map(|p| p.iter().flat_map(|&(x, y)| [x, y]).collect())
+            .collect(),
+        appearances: a.appearances,
+        appearance: a.appearance.map(|p| AppearanceInfo {
+            id: p.id.map(Into::into),
+            state: p.state,
+            states: p.states,
+            bbox: p.bbox.map(rect),
+            matrix: p.matrix.to_vec(),
+            to_page: p.to_page.map(|m| m.to_vec()),
+            error: p.error,
+        }),
+        link: a.link.map(link),
+        parent: a.parent.map(Into::into),
+        popup: a.popup.map(Into::into),
+        error: a.error,
+    }
 }
 
 pub fn outline(d: &Doc, parent: Option<ObjRef>, range: Range) -> Page<OutlineItem> {

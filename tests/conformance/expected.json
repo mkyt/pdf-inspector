@@ -5,7 +5,7 @@
       "ok": {
         "backend": null,
         "filesystem": null,
-        "protocol": 7,
+        "protocol": 8,
         "type": "hello",
         "version": "0.1.0"
       }
@@ -16,7 +16,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 999, backend speaks 7"
+        "message": "client speaks protocol 999, backend speaks 8"
       }
     }
   },
@@ -4604,12 +4604,18 @@
       "ok": {
         "items": [
           {
-            "appearance": false,
+            "appearance": null,
+            "appearances": [],
+            "author": null,
+            "border": null,
+            "color": null,
             "contents": null,
             "error": null,
+            "flag_names": [],
             "flags": 0,
             "id": null,
             "index": 0,
+            "interior": null,
             "link": {
               "dest": {
                 "error": null,
@@ -4629,83 +4635,134 @@
               },
               "kind": "dest"
             },
+            "modified": null,
             "name": null,
+            "opacity": null,
             "parent": null,
+            "paths": [],
+            "popup": null,
+            "quads": [],
             "rect": {
               "x0": 72.0,
               "x1": 200.0,
               "y0": 700.0,
               "y1": 720.0
             },
+            "shown": true,
+            "subject": null,
             "subtype": "Link"
           },
           {
-            "appearance": false,
+            "appearance": null,
+            "appearances": [],
+            "author": null,
+            "border": null,
+            "color": null,
             "contents": null,
             "error": null,
+            "flag_names": [],
             "flags": 0,
             "id": {
               "generation": 0,
               "num": 70
             },
             "index": 1,
+            "interior": null,
             "link": {
               "kind": "uri",
               "uri": "https://example.com/"
             },
+            "modified": null,
             "name": null,
+            "opacity": null,
             "parent": null,
+            "paths": [],
+            "popup": null,
+            "quads": [],
             "rect": {
               "x0": 72.0,
               "x1": 200.0,
               "y0": 650.0,
               "y1": 670.0
             },
+            "shown": true,
+            "subject": null,
             "subtype": "Link"
           },
           {
-            "appearance": false,
+            "appearance": null,
+            "appearances": [],
+            "author": null,
+            "border": null,
+            "color": null,
             "contents": "Note",
             "error": null,
+            "flag_names": [
+              "Print"
+            ],
             "flags": 4,
             "id": {
               "generation": 0,
               "num": 71
             },
             "index": 2,
+            "interior": null,
             "link": null,
+            "modified": null,
             "name": "note-1",
+            "opacity": null,
             "parent": null,
+            "paths": [],
+            "popup": {
+              "generation": 0,
+              "num": 72
+            },
+            "quads": [],
             "rect": {
               "x0": 300.0,
               "x1": 320.0,
               "y0": 700.0,
               "y1": 720.0
             },
+            "shown": true,
+            "subject": null,
             "subtype": "Text"
           },
           {
-            "appearance": false,
+            "appearance": null,
+            "appearances": [],
+            "author": null,
+            "border": null,
+            "color": null,
             "contents": null,
             "error": null,
+            "flag_names": [],
             "flags": 0,
             "id": {
               "generation": 0,
               "num": 72
             },
             "index": 3,
+            "interior": null,
             "link": null,
+            "modified": null,
             "name": null,
+            "opacity": null,
             "parent": {
               "generation": 0,
               "num": 71
             },
+            "paths": [],
+            "popup": null,
+            "quads": [],
             "rect": {
               "x0": 320.0,
               "x1": 500.0,
               "y0": 600.0,
               "y1": 700.0
             },
+            "shown": true,
+            "subject": null,
             "subtype": "Popup"
           }
         ],

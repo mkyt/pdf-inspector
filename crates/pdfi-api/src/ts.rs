@@ -52,6 +52,7 @@ pub fn typescript() -> String {
         LinkTarget::decl(&cfg),
         OutlineItem::decl(&cfg),
         AnnotInfo::decl(&cfg),
+        AppearanceInfo::decl(&cfg),
         InfoEntry::decl(&cfg),
         Feature::decl(&cfg),
         DocumentView::decl(&cfg),

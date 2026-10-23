@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use pdfi_content::{DocContent, Target};
 use pdfi_model::DocModel;
-use pdfi_render::{DocRender, Layer, Options, Output, Tile, hit_test, render, view};
+use pdfi_render::{AnnotPaint, DocRender, Layer, Options, Output, Tile, hit_test, render, view};
 use pdfi_syntax::{MemSource, OpenOptions, PdfFile};
 
 fn open(name: &str) -> PdfFile {
@@ -627,4 +627,46 @@ fn image_codecs() {
     assert!(near(px(&o, 20, 275), WHITE, 4));
     assert!(px(&o, 80, 275)[..3].iter().all(|&c| c < 64));
     assert!(o.notes.is_empty(), "{:?}", o.notes);
+}
+
+#[test]
+fn annotation_layer() {
+    let d = Doc::new("annots.pdf");
+    let (_, annots) = d.model.on(&d.file).annots(0, 0, 100).unwrap();
+    let list = annots
+        .iter()
+        .filter_map(|a| {
+            let (id, matrix) = a.paint()?;
+            Some(AnnotPaint {
+                id,
+                matrix,
+                opacity: a.opacity.unwrap_or(1.0),
+            })
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(list.len(), 4);
+    let o = d.render(
+        Target::Page(0),
+        &Options {
+            layer: Layer::Annots(list),
+            ..opts(1.0)
+        },
+    );
+    // On transparent: the highlight at /CA 0.5.
+    assert!(
+        near(px(&o, 120, 50), [255, 255, 0, 128], 2),
+        "{:?}",
+        px(&o, 120, 50)
+    );
+    // Scaled from a 10-point box, turned a quarter, a state by /AS.
+    assert_eq!(px(&o, 100, 150), [255, 0, 0, 255]);
+    assert_eq!(px(&o, 220, 180), [0, 0, 255, 255]);
+    assert_eq!(px(&o, 320, 180), [0, 255, 0, 255]);
+    // Not turned it would be here; hidden ink and the unchosen state.
+    assert_eq!(px(&o, 300, 230)[3], 0);
+    assert_eq!(px(&o, 270, 350)[3], 0);
+    assert_eq!(px(&o, 360, 40)[3], 0);
+    // The content layer has none of them.
+    let c = d.render(Target::Page(0), &opts(1.0));
+    assert_eq!(px(&c, 100, 150), WHITE);
 }

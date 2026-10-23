@@ -626,20 +626,68 @@ pub struct OutlineItem {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct AnnotInfo {
-    /// Position in the page's `/Annots`.
+    /// Position in the page's `/Annots` (also the order they are painted
+    /// in, over the content).
     pub index: u32,
     pub id: Option<ObjRef>,
     pub subtype: Option<String>,
+    /// In the page's default space.
     pub rect: Option<Rect>,
     pub contents: Option<String>,
     /// `/NM`.
     pub name: Option<String>,
     pub flags: i64,
-    /// Has a normal appearance stream.
-    pub appearance: bool,
+    /// Names of the `/F` bits set.
+    pub flag_names: Vec<String>,
+    /// Shown on screen (not Hidden or NoView; Invisible without an
+    /// appearance).
+    pub shown: bool,
+    /// `/T`.
+    pub author: Option<String>,
+    /// `/Subj`.
+    pub subject: Option<String>,
+    /// `/M`, ISO 8601 when it is a PDF date.
+    pub modified: Option<String>,
+    /// `/C` as written: 0, 1 (gray), 3 (RGB) or 4 (CMYK) components.
+    pub color: Option<Vec<f64>>,
+    /// `/IC`.
+    pub interior: Option<Vec<f64>>,
+    /// `/CA`.
+    pub opacity: Option<f64>,
+    pub border: Option<f64>,
+    /// `/QuadPoints`, 8 numbers each, in the page's default space.
+    pub quads: Vec<Vec<f64>>,
+    /// Ink paths, polygon vertices or a line: `[x0, y0, x1, y1, ...]`.
+    pub paths: Vec<Vec<f64>>,
+    /// The `/AP` entries present (`N`, `R`, `D`).
+    pub appearances: Vec<String>,
+    /// The normal appearance.
+    pub appearance: Option<AppearanceInfo>,
     pub link: Option<LinkTarget>,
     /// `/Parent` of a pop-up, `/IRT` of a reply.
     pub parent: Option<ObjRef>,
+    /// `/Popup`.
+    pub popup: Option<ObjRef>,
+    pub error: Option<String>,
+}
+
+/// An annotation's normal appearance stream and how it is put on the page
+/// (ISO 32000-2 12.5.5).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+pub struct AppearanceInfo {
+    /// The form XObject (open it as a `stream` content).
+    pub id: Option<ObjRef>,
+    /// The `/AS` state chosen, when `/N` has states.
+    pub state: Option<String>,
+    pub states: Vec<String>,
+    /// The form's `/BBox`, in form space.
+    pub bbox: Option<Rect>,
+    /// The form's `/Matrix`.
+    pub matrix: Vec<f64>,
+    /// Form space to the page's default space: `/Matrix`, then the fit
+    /// of the transformed `/BBox` to `/Rect`.
+    pub to_page: Option<Vec<f64>>,
+    /// Why it is not painted.
     pub error: Option<String>,
 }
 
@@ -993,6 +1041,10 @@ pub enum RenderLayer {
     Content,
     /// Only these operations, in one opaque color on transparent.
     Highlight { ops: Vec<u32> },
+    /// A page's annotation appearances (those shown, or only these
+    /// `/Annots` indices) on transparent, instead of the content: they are
+    /// painted over it in this order.
+    Annots { only: Option<Vec<u32>> },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]

@@ -18,6 +18,8 @@ use crate::session::{Doc, page, push_part};
 const MAX_OPERAND: usize = 200;
 /// Operands shown per operation.
 const MAX_OPERANDS: usize = 32;
+/// Annotations of a page painted.
+const MAX_ANNOTS: usize = 10_000;
 
 fn target(c: ContentRef) -> Target {
     match c {
@@ -143,6 +145,7 @@ pub fn render(
         layer: match layer {
             RenderLayer::Content => pdfi_render::Layer::Content,
             RenderLayer::Highlight { ops } => pdfi_render::Layer::Highlight(ops),
+            RenderLayer::Annots { only } => annot_layer(d, c, only)?,
         },
     };
     let content = d.content.on(d.model.on(&d.file));
@@ -178,6 +181,39 @@ pub fn render(
             .map(|(message, count)| RenderNote { message, count })
             .collect(),
     }))
+}
+
+/// The appearances of a page's annotations to paint, in `/Annots` order.
+fn annot_layer(
+    d: &Doc,
+    c: ContentRef,
+    only: Option<Vec<u32>>,
+) -> Result<pdfi_render::Layer, ApiError> {
+    let ContentRef::Page { index } = c else {
+        return Err(ApiError::new(
+            ErrorCode::BadRequest,
+            "only pages have annotations",
+        ));
+    };
+    let (_, annots) = d
+        .model
+        .on(&d.file)
+        .annots(index.into(), 0, MAX_ANNOTS)
+        .map_err(|e| ApiError::new(ErrorCode::NotFound, e))?;
+    Ok(pdfi_render::Layer::Annots(
+        annots
+            .iter()
+            .filter(|a| only.as_ref().is_none_or(|o| o.contains(&(a.index as u32))))
+            .filter_map(|a| {
+                let (id, matrix) = a.paint()?;
+                Some(pdfi_render::AnnotPaint {
+                    id,
+                    matrix,
+                    opacity: a.opacity.unwrap_or(1.0),
+                })
+            })
+            .collect(),
+    ))
 }
 
 pub fn hit_test(

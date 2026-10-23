@@ -118,6 +118,20 @@ pub enum Layer {
     Content,
     /// Only these operations, in one opaque color on transparent.
     Highlight(Vec<u32>),
+    /// Annotation appearances on transparent, in this order (a page's
+    /// `/Annots` order: later ones on top), instead of the content.
+    Annots(Vec<AnnotPaint>),
+}
+
+/// An annotation's appearance stream (a form XObject) put on the page.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AnnotPaint {
+    pub id: ObjId,
+    /// Form space to the page's default space (`/Matrix` and the fit to
+    /// `/Rect`).
+    pub matrix: Matrix,
+    /// `/CA`.
+    pub opacity: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -290,7 +304,7 @@ pub fn render(
     // paper (blend modes see nothing where nothing was painted).
     let paper = o.layer == Layer::Content && a.kind == Kind::Page;
     let mode = match &o.layer {
-        Layer::Content => Mode::Paint,
+        Layer::Content | Layer::Annots(_) => Mode::Paint,
         Layer::Highlight(ops) => {
             let mut ops = ops.clone();
             ops.sort_unstable();
@@ -302,7 +316,10 @@ pub fn render(
         &translate(MARGIN as f64 - t.x as f64, MARGIN as f64 - t.y as f64),
     );
     let mut dev = Raster::new(content, cache, cancel, pix, base, MARGIN, mode);
-    let drawn = content.draw(a, o.until, &mut dev, cancel);
+    let drawn = match &o.layer {
+        Layer::Annots(list) => draw_annots(content, list, &mut dev, cancel),
+        _ => content.draw(a, o.until, &mut dev, cancel),
+    };
     let notes = dev.notes.into_iter().collect();
     if paper {
         for p in dev.pix.pixels_mut() {
@@ -334,6 +351,96 @@ pub fn render(
         cancelled: drawn.cancelled,
         notes,
     })
+}
+
+/// Paint annotation appearances, each clipped to its transformed `/BBox`
+/// and composited as a group when it has an opacity or a transparency
+/// group of its own (ISO 32000-2 12.5.5).
+fn draw_annots(
+    content: &Content<'_>,
+    list: &[AnnotPaint],
+    dev: &mut Raster<'_>,
+    cancel: &dyn Fn() -> bool,
+) -> pdfi_content::Drawn {
+    use pdfi_content::device::{ClipPath, Device, Group, PathEl};
+    use pdfi_content::geom::transform;
+    use pdfi_content::interp::GState;
+    use pdfi_syntax::DictExt;
+
+    let file = content.file();
+    let mut ops = 0;
+    for p in list {
+        if cancel() {
+            return pdfi_content::Drawn {
+                ops,
+                cancelled: true,
+            };
+        }
+        let Ok(held) = file.get(p.id) else { continue };
+        let Some(s) = held.node.obj.as_stream() else {
+            continue;
+        };
+        let Some(bbox) = s.dict.get_key("BBox").and_then(|b| Rect::read(file, b)) else {
+            continue;
+        };
+        let clip = transform(&bbox, &p.matrix);
+        let mut g = GState::new(p.matrix, Some(clip));
+        g.clip_path = Some(Arc::new(ClipPath {
+            path: vec![
+                PathEl::Move(clip.x0, clip.y0),
+                PathEl::Line(clip.x1, clip.y0),
+                PathEl::Line(clip.x1, clip.y1),
+                PathEl::Line(clip.x0, clip.y1),
+                PathEl::Close,
+            ],
+            even_odd: false,
+            parent: None,
+        }));
+        let own = s
+            .dict
+            .get_key("Group")
+            .and_then(|gr| pdfi_model::resolve(file, gr).1.as_dict().cloned())
+            .filter(|gr| gr.get_name("S").is_some_and(|n| n == "Transparency"));
+        let opacity = p.opacity.clamp(0.0, 1.0);
+        let group = (opacity < 1.0 || own.is_some()).then(|| {
+            let flag = |k: &str| {
+                own.as_ref().is_some_and(|gr| {
+                    gr.get_key(k).is_some_and(|v| {
+                        matches!(
+                            &*pdfi_model::resolve(file, v).1,
+                            pdfi_syntax::Object::Bool(true)
+                        )
+                    })
+                })
+            };
+            Group {
+                // Over nothing: an annotation group starts transparent.
+                isolated: true,
+                knockout: flag("K"),
+            }
+        });
+        let mut outer = GState::new(pdfi_content::geom::IDENTITY, None);
+        outer.fill_alpha = opacity;
+        outer.stroke_alpha = opacity;
+        if let Some(gr) = &group {
+            dev.begin_group(gr, &outer);
+        }
+        let d = content.draw_stream(p.id, s, g, Kind::Form, dev, cancel);
+        if group.is_some() {
+            dev.end_group(&outer);
+        }
+        ops += d.ops;
+        if d.cancelled {
+            return pdfi_content::Drawn {
+                ops,
+                cancelled: true,
+            };
+        }
+    }
+    pdfi_content::Drawn {
+        ops,
+        cancelled: false,
+    }
 }
 
 /// Operations that paint within `radius` of view point `(x, y)`, topmost

@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 7;
+pub const PROTOCOL_VERSION: u32 = 8;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct ClientMessage {

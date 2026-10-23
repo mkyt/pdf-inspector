@@ -1,6 +1,6 @@
 // Generated from crates/pdfi-api by `UPDATE_TS=1 cargo test -p pdfi-api`. Do not edit.
 
-export const PROTOCOL_VERSION = 7;
+export const PROTOCOL_VERSION = 8;
 
 export type DocId = number;
 export type JobId = number;
@@ -262,21 +262,102 @@ color: Array<number> | null, };
 
 export type AnnotInfo = { 
 /**
- * Position in the page's `/Annots`.
+ * Position in the page's `/Annots` (also the order they are painted
+ * in, over the content).
  */
-index: number, id: ObjRef | null, subtype: string | null, rect: Rect | null, contents: string | null, 
+index: number, id: ObjRef | null, subtype: string | null, 
+/**
+ * In the page's default space.
+ */
+rect: Rect | null, contents: string | null, 
 /**
  * `/NM`.
  */
 name: string | null, flags: number, 
 /**
- * Has a normal appearance stream.
+ * Names of the `/F` bits set.
  */
-appearance: boolean, link: LinkTarget | null, 
+flag_names: Array<string>, 
+/**
+ * Shown on screen (not Hidden or NoView; Invisible without an
+ * appearance).
+ */
+shown: boolean, 
+/**
+ * `/T`.
+ */
+author: string | null, 
+/**
+ * `/Subj`.
+ */
+subject: string | null, 
+/**
+ * `/M`, ISO 8601 when it is a PDF date.
+ */
+modified: string | null, 
+/**
+ * `/C` as written: 0, 1 (gray), 3 (RGB) or 4 (CMYK) components.
+ */
+color: Array<number> | null, 
+/**
+ * `/IC`.
+ */
+interior: Array<number> | null, 
+/**
+ * `/CA`.
+ */
+opacity: number | null, border: number | null, 
+/**
+ * `/QuadPoints`, 8 numbers each, in the page's default space.
+ */
+quads: Array<Array<number>>, 
+/**
+ * Ink paths, polygon vertices or a line: `[x0, y0, x1, y1, ...]`.
+ */
+paths: Array<Array<number>>, 
+/**
+ * The `/AP` entries present (`N`, `R`, `D`).
+ */
+appearances: Array<string>, 
+/**
+ * The normal appearance.
+ */
+appearance: AppearanceInfo | null, link: LinkTarget | null, 
 /**
  * `/Parent` of a pop-up, `/IRT` of a reply.
  */
-parent: ObjRef | null, error: string | null, };
+parent: ObjRef | null, 
+/**
+ * `/Popup`.
+ */
+popup: ObjRef | null, error: string | null, };
+
+export type AppearanceInfo = { 
+/**
+ * The form XObject (open it as a `stream` content).
+ */
+id: ObjRef | null, 
+/**
+ * The `/AS` state chosen, when `/N` has states.
+ */
+state: string | null, states: Array<string>, 
+/**
+ * The form's `/BBox`, in form space.
+ */
+bbox: Rect | null, 
+/**
+ * The form's `/Matrix`.
+ */
+matrix: Array<number>, 
+/**
+ * Form space to the page's default space: `/Matrix`, then the fit
+ * of the transformed `/BBox` to `/Rect`.
+ */
+to_page: Array<number> | null, 
+/**
+ * Why it is not painted.
+ */
+error: string | null, };
 
 export type InfoEntry = { key: string, text: string, 
 /**
@@ -526,7 +607,7 @@ matrix: Array<number>, rotate: number, };
 
 export type PixelRect = { x: number, y: number, width: number, height: number, };
 
-export type RenderLayer = { "kind": "content" } | { "kind": "highlight", ops: Array<number>, };
+export type RenderLayer = { "kind": "content" } | { "kind": "highlight", ops: Array<number>, } | { "kind": "annots", only: Array<number> | null, };
 
 export type RenderNote = { 
 /**

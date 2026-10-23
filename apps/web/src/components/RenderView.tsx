@@ -1,9 +1,10 @@
-import { ActionIcon, Group, Loader, Text, Tooltip } from "@mantine/core";
+import { ActionIcon, Button, Group, Loader, Text, Tooltip } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { api, useBackend } from "../api";
 import { contentKey, useNav } from "../nav";
-import type { ContentRef, ContentSummary, PixelRect, Rect, RenderNote, ViewInfo } from "../protocol/generated";
+import type { ContentRef, ContentSummary, PixelRect, RenderLayer, RenderNote } from "../protocol/generated";
+import { AnnotCard, AnnotOverlay, annotsAt, toView } from "./AnnotOverlay";
 import classes from "./RenderView.module.css";
 
 /** Side of a rendered tile, in device pixels. */
@@ -12,27 +13,13 @@ const TILE = 512;
 const HIT_RADIUS = 4;
 /** Largest highlight bitmap side; beyond it only the visible part is asked for. */
 const MAX_HIGHLIGHT = 2048;
+/** Annotations of a page fetched for the overlay. */
+const MAX_ANNOTS = 2000;
+const ANNOTS_LAYER: RenderLayer = { kind: "annots", only: null };
 const ZOOMS = [0.1, 0.17, 0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8, 12, 16];
 
 /** Bitmap size in device pixels, as the backend computes it. */
 const pixels = (v: number, scale: number) => Math.max(1, Math.ceil(v * scale));
-
-/** A rectangle of the content's space in view points. */
-function toView(r: Rect, v: ViewInfo) {
-  const [a, b, c, d, e, f] = v.matrix;
-  const xs: number[] = [];
-  const ys: number[] = [];
-  for (const [x, y] of [
-    [r.x0, r.y0],
-    [r.x1, r.y0],
-    [r.x0, r.y1],
-    [r.x1, r.y1],
-  ]) {
-    xs.push(a * x + c * y + e);
-    ys.push(b * x + d * y + f);
-  }
-  return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
-}
 
 function sameNotes(a: RenderNote[] | null, b: RenderNote[]) {
   return a !== null && a.length === b.length && a.every((n, i) => n.message === b[i].message && n.count === b[i].count);
@@ -50,7 +37,9 @@ function paint(canvas: HTMLCanvasElement | null, data: Uint8Array, w: number, h:
  * A rendered content, drawn in tiles of the visible area. Clicking selects
  * the topmost operation painting there (again: the one below it); the
  * selected operation is highlighted; with `step`, only the operations up
- * to the selected one are drawn.
+ * to the selected one are drawn. A page's annotations can be shown over
+ * it: their appearance streams (painted after the content, in `/Annots`
+ * order) and outlines of where they are; a label selects one.
  */
 export function RenderView({
   content,
@@ -59,6 +48,8 @@ export function RenderView({
   step,
   onPick,
   height,
+  annot: annotProp,
+  onAnnot,
 }: {
   content: ContentRef;
   summary: ContentSummary;
@@ -67,6 +58,9 @@ export function RenderView({
   onPick: (op: number) => void;
   /** CSS height of the scrolling area. */
   height: number | string;
+  /** The selected annotation (by `/Annots` index), when the parent keeps it. */
+  annot?: number | null;
+  onAnnot?: (index: number | null) => void;
 }) {
   const backend = useBackend();
   const nav = useNav();
@@ -79,6 +73,19 @@ export function RenderView({
   const [hint, setHint] = useState<string | null>(null);
   const last = useRef<{ x: number; y: number; ops: number[] } | null>(null);
   const dpr = window.devicePixelRatio || 1;
+  const [ownAnnot, setOwnAnnot] = useState<number | null>(null);
+  const annot = annotProp !== undefined ? annotProp : ownAnnot;
+  const setAnnot = onAnnot ?? setOwnAnnot;
+  const [showAp, setShowAp] = useState(true);
+  const [showOutlines, setShowOutlines] = useState(true);
+  const page = content.kind === "page" ? content.index : null;
+  const annotsQ = useQuery({
+    queryKey: ["doc", nav.doc, "annots", page, "overlay"],
+    queryFn: () => api.annotations(backend, nav.doc, page!, { offset: 0, limit: MAX_ANNOTS }),
+    enabled: page !== null,
+  });
+  const annots = annotsQ.data?.items ?? [];
+  const selAnnot = annots.find((a) => a.index === annot) ?? null;
 
   const measure = useCallback(() => {
     const el = box.current;
@@ -151,21 +158,31 @@ export function RenderView({
     const cx = e.clientX - r.left;
     const cy = e.clientY - r.top;
     const ops = await api.hitTest(backend, nav.doc, content, cx / z, cy / z, HIT_RADIUS / z, until);
+    // The click in the page's default space, for the annotations there.
+    const [a, b, c, d, e2, f] = v.matrix;
+    const det = a * d - b * c;
+    const vx = cx / z - e2;
+    const vy = cy / z - f;
+    const over = showOutlines || showAp ? annotsAt(annots, (d * vx - c * vy) / det, (a * vy - b * vx) / det) : [];
+    const overText =
+      over.length > 0
+        ? ` Over annotation${over.length > 1 ? "s" : ""} ${over.map((x) => `[${x.index}] ${x.subtype ?? "?"}`).join(", ")} (select one by its label).`
+        : "";
     const prev = last.current;
     const again =
       prev && Math.abs(prev.x - cx) <= 3 && Math.abs(prev.y - cy) <= 3 && prev.ops.join() === ops.join();
     last.current = { x: cx, y: cy, ops };
     if (ops.length === 0) {
-      setHint("Nothing is painted here.");
+      setHint(`Nothing in the content is painted here.${overText}`);
       return;
     }
     const k = again && op !== null && ops.includes(op) ? (ops.indexOf(op) + 1) % ops.length : 0;
     onPick(ops[k]);
-    setHint(
+    const more =
       ops.length > 1
         ? `${ops.length} operations paint here (${ops.map((o) => `#${o}`).join(", ")}, topmost first); click again for the next.`
-        : null,
-    );
+        : "";
+    setHint((more + overText).trim() || null);
   };
 
   const step2 = (d: number) => {
@@ -200,6 +217,20 @@ export function RenderView({
             1:1
           </ActionIcon>
         </Tooltip>
+        {annots.length > 0 && (
+          <>
+            <Tooltip label="Paint the annotations' appearance streams over the content">
+              <Button size="compact-xs" variant={showAp ? "light" : "subtle"} ml="xs" onClick={() => setShowAp(!showAp)}>
+                Appearances
+              </Button>
+            </Tooltip>
+            <Tooltip label="Outline each annotation's /Rect, /QuadPoints and paths">
+              <Button size="compact-xs" variant={showOutlines ? "light" : "subtle"} onClick={() => setShowOutlines(!showOutlines)}>
+                Outlines ({annots.length.toLocaleString()})
+              </Button>
+            </Tooltip>
+          </>
+        )}
         <Text size="xs" c="dimmed" style={{ marginLeft: "auto" }}>
           {Math.round(v.width)} × {Math.round(v.height)} pt{v.rotate ? ` · /Rotate ${v.rotate}` : ""}
         </Text>
@@ -242,6 +273,20 @@ export function RenderView({
               onNotes={onNotes}
             />
           ))}
+          {showAp &&
+            annots.some((a) => a.appearance?.to_page) &&
+            tiles.map((t) => (
+              <Tile
+                key={`a${t.x},${t.y}`}
+                content={content}
+                scale={scale}
+                until={null}
+                tile={t}
+                dpr={dpr}
+                layer={ANNOTS_LAYER}
+                onNotes={onNotes}
+              />
+            ))}
           {hl?.tile && op !== null && <Highlight content={content} scale={scale} until={until} op={op} tile={hl.tile} dpr={dpr} />}
           {hl && (
             <div
@@ -256,8 +301,25 @@ export function RenderView({
               }}
             />
           )}
+          {(showOutlines || selAnnot) && (
+            <AnnotOverlay
+              annots={showOutlines ? annots : selAnnot ? [selAnnot] : []}
+              view={v}
+              zoom={z}
+              selected={annot}
+              onSelect={(i) => setAnnot(i === annot ? null : i)}
+            />
+          )}
         </div>
       </div>
+      {selAnnot && (
+        <AnnotCard
+          a={selAnnot}
+          total={annotsQ.data?.total ?? annots.length}
+          contentOps={summary.ops}
+          onClose={() => setAnnot(null)}
+        />
+      )}
       {hint && (
         <Text size="xs" c="dimmed" mt={4}>
           {hint}
@@ -272,12 +334,15 @@ export function RenderView({
   );
 }
 
+const CONTENT_LAYER: RenderLayer = { kind: "content" };
+
 function Tile({
   content,
   scale,
   until,
   tile,
   dpr,
+  layer = CONTENT_LAYER,
   onNotes,
 }: {
   content: ContentRef;
@@ -285,14 +350,15 @@ function Tile({
   until: number | null;
   tile: PixelRect;
   dpr: number;
+  layer?: RenderLayer;
   onNotes: (n: RenderNote[]) => void;
 }) {
   const backend = useBackend();
   const nav = useNav();
   const canvas = useRef<HTMLCanvasElement>(null);
   const q = useQuery({
-    queryKey: ["doc", nav.doc, "content", ...contentKey(content), "render", scale, until, tile.x, tile.y, tile.width, tile.height],
-    queryFn: ({ signal }) => api.render(backend, nav.doc, content, scale, tile, until, { kind: "content" }, signal),
+    queryKey: ["doc", nav.doc, "content", ...contentKey(content), "render", layer.kind, scale, until, tile.x, tile.y, tile.width, tile.height],
+    queryFn: ({ signal }) => api.render(backend, nav.doc, content, scale, tile, until, layer, signal),
     // Keep showing the previous bitmap while a new one (step, zoom) renders.
     placeholderData: (prev) => prev,
     gcTime: 60_000,
