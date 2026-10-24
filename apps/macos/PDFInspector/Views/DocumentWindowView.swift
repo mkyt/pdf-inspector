@@ -57,7 +57,8 @@ struct TargetView: View {
             NotPorted("Content operations", web: "ContentView.tsx, OpEditor.tsx, RenderView.tsx")
                 .id(content)
         case .font(let id):
-            NotPorted("Font \(id.refText)", web: "FontView.tsx")
+            FontView(model: model, id: id)
+                .id(id)
         }
     }
 }

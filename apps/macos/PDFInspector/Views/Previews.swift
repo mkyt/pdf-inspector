@@ -41,4 +41,14 @@ private func previewWindow(
 #Preview("Overview") {
     previewWindow("schema.pdf", .document, bytes: false)
 }
+
+#Preview("Font") {
+    FontView(model: previewModel("fonts.pdf", .document), id: ObjRef(num: 21, generation: 0))
+        .frame(width: 900, height: 800)
+}
+
+#Preview("Overview pane") {
+    OverviewView(model: previewModel("model.pdf", .document))
+        .frame(width: 900, height: 800)
+}
 #endif
