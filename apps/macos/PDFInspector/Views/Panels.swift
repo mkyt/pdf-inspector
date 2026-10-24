@@ -90,36 +90,6 @@ struct PagesPanel: View {
     }
 }
 
-struct ObjectsPanel: View {
-    let model: DocumentModel
-
-    var body: some View {
-        let doc = model.doc
-        let backend = model.backend
-        PagedRows<ObjectSummaryPage, _>(
-            model: model, total: Int(model.summary.xrefEntries),
-            fetch: { try await backend.objects(doc, range: $0) }
-        ) { o, _ in
-            let id = ObjRef(num: o.num, generation: o.entry.generation)
-            Button {
-                model.nav.open(.object(id))
-            } label: {
-                HStack {
-                    Text("\(o.num) \(id.generation)").monospaced().frame(width: 72, alignment: .trailing)
-                    Text(o.typeName.map { "/\($0)" } ?? o.kind ?? "")
-                    if let st = o.schemaType { Text(st).foregroundStyle(.secondary) }
-                    if let e = o.error { Text(e).foregroundStyle(.red).lineLimit(1) }
-                    Spacer()
-                    Text(o.entry.text).foregroundStyle(.secondary).monospaced()
-                }
-                .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .font(.callout)
-        }
-    }
-}
-
 extension XrefEntry {
     var generation: UInt16 {
         switch self {

@@ -9,6 +9,7 @@ final class WindowLayout {
     var schema = false
     var bytes = false
     var tab: SidebarTab = .pages
+    var objectPicks = ObjectPicks()
 }
 
 /// A document window: the SwiftUI `DocumentWindowView` in AppKit, with the menu

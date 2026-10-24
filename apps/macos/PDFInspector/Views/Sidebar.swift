@@ -63,12 +63,12 @@ struct Sidebar: View {
     @ViewBuilder private var panel: some View {
         switch layout.tab {
         case .pages: PagesPanel(model: model)
-        case .outline: NotPorted("Outline", web: "OutlinePanel.tsx")
+        case .outline: OutlinePanel(model: model)
         case .fonts: FontsPanel(model: model)
         case .images: ImagesPanel(model: model)
-        case .objects: ObjectsPanel(model: model)
-        case .xref: NotPorted("Cross-reference", web: "XrefPanel.tsx")
-        case .validate: NotPorted("Validation", web: "ValidatePanel.tsx")
+        case .objects: ObjectsPanel(model: model, layout: layout)
+        case .xref: XrefPanel(model: model)
+        case .validate: ValidatePanel(model: model)
         case .diagnostics: DiagnosticsPanel(model: model)
         }
     }
