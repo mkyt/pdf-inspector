@@ -47,6 +47,25 @@ private func previewWindow(
         .frame(width: 900, height: 800)
 }
 
+#Preview("Page") {
+    PageView(model: previewModel("annots.pdf", .document), index: 0)
+        .frame(width: 1200, height: 800)
+}
+
+#Preview("Render") {
+    @Previewable @State var annot: UInt32? = 2
+    let model = previewModel("annots.pdf", .document)
+    let content = ContentRef.page(index: 0)
+    guard case .content(let s) = try! Backend.shared.sendNow(.content(doc: model.doc, content: content)).body
+    else { fatalError() }
+    return RenderView(model: model, content: content, summary: s, op: 1, step: false, onPick: { _ in }, annot: $annot)
+        .frame(width: 700, height: 800)
+}
+
+#Preview("Content") {
+    previewWindow("content.pdf", .content(.page(index: 0), op: 3), bytes: false)
+}
+
 #Preview("Overview pane") {
     OverviewView(model: previewModel("model.pdf", .document))
         .frame(width: 900, height: 800)

@@ -291,6 +291,7 @@ struct SplitPane<First: View, Second: View>: View {
     let max: Double
     @AppStorage private var size: Double
     @State private var start: Double?
+    @State private var length = Double.infinity
     @ViewBuilder let first: () -> First
     @ViewBuilder let second: () -> Second
 
@@ -307,17 +308,27 @@ struct SplitPane<First: View, Second: View>: View {
         self.second = second
     }
 
+    /// Room left for `first`, whatever `second` asks for.
+    private static var firstMin: Double { 120 }
+
     var body: some View {
         let layout = axis == .vertical ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
-        let s = Swift.min(max, Swift.max(min, size))
+        // The size asked for, within what the pane has.
+        let s = Swift.max(40, Swift.min(Swift.min(max, Swift.max(min, size)), length - Self.firstMin))
         layout {
             first()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .topLeading)
+                .clipped()
             if showSecond {
                 divider
                 second()
                     .frame(width: axis == .horizontal ? s : nil, height: axis == .vertical ? s : nil)
+                    .clipped()
             }
+        }
+        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+        .onGeometryChange(for: Double.self, of: { axis == .vertical ? $0.size.height : $0.size.width }) {
+            length = $0
         }
     }
 

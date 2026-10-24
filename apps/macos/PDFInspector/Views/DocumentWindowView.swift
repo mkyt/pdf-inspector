@@ -18,9 +18,14 @@ struct DocumentWindowView: View {
             } second: {
                 HexView(model: model)
             }
+            // A fixed minimum: the split view lays out again whenever the
+            // detail's minimum changes, and what it shows changes with it.
+            .frame(minWidth: 360, maxWidth: .infinity, minHeight: 300, maxHeight: .infinity)
+            .clipped()
         }
         .inspector(isPresented: $layout.schema) {
             SchemaPane(model: model)
+                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
                 .inspectorColumnWidth(min: 200, ideal: 300, max: 800)
         }
         .toolbar { DocumentToolbar(model: model, layout: layout) }
@@ -53,8 +58,8 @@ struct TargetView: View {
         case .page(let index):
             PageView(model: model, index: index)
                 .id(index)
-        case .content(let content, _):
-            NotPorted("Content operations", web: "ContentView.tsx, OpEditor.tsx, RenderView.tsx")
+        case .content(let content, let op):
+            ContentView(model: model, content: content, op: op)
                 .id(content)
         case .font(let id):
             FontView(model: model, id: id)
