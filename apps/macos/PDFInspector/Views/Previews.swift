@@ -70,4 +70,15 @@ private func previewWindow(
     OverviewView(model: previewModel("model.pdf", .document))
         .frame(width: 900, height: 800)
 }
+
+#Preview("Save options") {
+    let m = previewModel("base.pdf", .document)
+    let o = SaveOptions(status: m.edit)
+    o.full = true
+    return SaveOptionsView(options: o) { _ in }
+}
+
+#Preview("Reopen") {
+    ReopenSheet(model: previewModel("aes-128.pdf", .document))
+}
 #endif

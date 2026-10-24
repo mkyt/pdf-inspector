@@ -31,6 +31,7 @@ enum MainMenu {
             item("Save", #selector(NSDocument.save(_:)), "s"),
             item("Save As…", #selector(NSDocument.saveAs(_:)), "s", [.command, .shift]),
             item("Revert to Saved", #selector(NSDocument.revertToSaved(_:))),
+            item("Reopen with Options…", #selector(DocumentWindowController.reopenWithOptions(_:))),
         ])
 
         main.addSubmenu("Edit", [

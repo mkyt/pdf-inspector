@@ -205,3 +205,18 @@ extension [DiagnosticInfo] {
     /// The most severe, if any.
     public var worst: Severity? { map(\.severity).max { $0.rank < $1.rank } }
 }
+
+/// `1-3, 7` (1-based) as 0-based page indices; `nil` if malformed or out
+/// of `1...count`.
+public func parsePages(_ s: String, count: UInt32) -> [UInt32]? {
+    var out: [UInt32] = []
+    for part in s.split(separator: ",").map({ $0.trimmingCharacters(in: .whitespaces) }) where !part.isEmpty {
+        let ends = part.split(separator: "-", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        guard ends.count <= 2, let a = UInt32(ends[0]) else { return nil }
+        let b = ends.count == 2 ? UInt32(ends[1]) : a
+        guard let b, a >= 1, b >= a, b <= count else { return nil }
+        out += (a...b).map { $0 - 1 }
+    }
+    return out.isEmpty ? nil : out
+}

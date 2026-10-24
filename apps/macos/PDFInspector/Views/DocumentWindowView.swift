@@ -14,7 +14,12 @@ struct DocumentWindowView: View {
                 .navigationSplitViewColumnWidth(min: 260, ideal: 380, max: 700)
         } detail: {
             SplitPane(.vertical, key: "hex", size: 280, min: 100, max: 1200, showSecond: layout.bytes) {
-                TargetView(model: model)
+                VStack(spacing: 0) {
+                    Breadcrumbs(model: model)
+                    Divider()
+                    TargetView(model: model)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             } second: {
                 HexView(model: model)
             }
@@ -31,6 +36,7 @@ struct DocumentWindowView: View {
         .toolbar { DocumentToolbar(model: model, layout: layout) }
         .overlay(alignment: .bottomLeading) { MessagesOverlay(model: model) }
         .onChange(of: model.nav.bytesRequest) { layout.bytes = true }
+        .sheet(isPresented: $layout.reopening) { ReopenSheet(model: model) }
         .frame(minWidth: 800, minHeight: 500)
     }
 
@@ -109,25 +115,6 @@ extension Target {
         case .content(.page(let i), _): "Page \(i + 1) · operations"
         case .content(.stream(let id), _): "\(id.objText) · operations"
         case .font(let id): "Font \(id.refText)"
-        }
-    }
-}
-
-/// A screen the web UI has and this app does not yet.
-struct NotPorted: View {
-    let title: String
-    let web: String
-
-    init(_ title: String, web: String) {
-        self.title = title
-        self.web = web
-    }
-
-    var body: some View {
-        ContentUnavailableView {
-            Label(title, systemImage: "hammer")
-        } description: {
-            Text("Not ported yet (web: \(web)).")
         }
     }
 }

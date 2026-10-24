@@ -327,7 +327,9 @@ struct SplitPane<First: View, Second: View>: View {
             }
         }
         .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
-        .onGeometryChange(for: Double.self, of: { axis == .vertical ? $0.size.height : $0.size.width }) {
+        .onGeometryChange(for: Double.self, of: { [vertical = axis == .vertical] in
+            vertical ? $0.size.height : $0.size.width
+        }) {
             length = $0
         }
     }

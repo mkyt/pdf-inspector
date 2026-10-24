@@ -26,6 +26,13 @@ open apps/macos/PDFInspector.xcodeproj       # または xcodebuild -project …
 
 Rust のプロトコルを変えたら `build-core.sh` をやり直す。
 
+SwiftUI のプレビュー（`PDFInspector/Views/Previews.swift` など）はテスト用 PDF を開く。アプリはサンドボックスなので、先にコンテナへコピーしておく:
+
+```sh
+mkdir -p ~/Library/Containers/com.juzbox.pdf-inspector/Data/Library/Caches/fixtures
+cp tests/fixtures/*.pdf ~/Library/Containers/com.juzbox.pdf-inspector/Data/Library/Caches/fixtures
+```
+
 ## Web UI との対応
 
 | Web（`apps/web/src/components`） | macOS | 状態 |
@@ -34,22 +41,22 @@ Rust のプロトコルを変えたら `build-core.sh` をやり直す。
 | SummaryCard（概要・Check objects ジョブ） | `SummaryCard` / `CheckObjects` | ✅ |
 | Landmarks | `Landmarks` | ✅ |
 | 戻る・進む（`route.ts` の履歴） | `Navigation`・Go メニュー | ✅ |
-| Breadcrumbs | ウィンドウのサブタイトルのみ | ⬜ |
-| PageList（行の取得・移動） | `PagesPanel` | ✅（ページ操作の Add… は ⬜） |
-| OutlinePanel | — | ⬜ |
-| InventoryPanels（Fonts / Images、InventoryGate） | `FontsPanel` / `ImagesPanel` / `InventoryGate` | ✅（一覧のみ。画像プレビューは ⬜） |
-| ObjectList（クラス絞り込み・未参照） | `ObjectsPanel` | 一覧のみ |
-| XrefPanel | — | ⬜ |
-| ValidatePanel | — | ⬜ |
+| Breadcrumbs | `Breadcrumbs`（詳細の上）・ウィンドウのサブタイトル | ✅ |
+| PageList（行の取得・移動・ページ操作・Add…） | `PagesPanel`（行のコンテキストメニュー・`AddPages`） | ✅ |
+| OutlinePanel | `OutlinePanel` | ✅ |
+| InventoryPanels（Fonts / Images、InventoryGate） | `FontsPanel` / `ImagesPanel` / `InventoryGate` | ✅ |
+| ObjectList（クラス絞り込み・未参照） | `ObjectsPanel` | ✅ |
+| XrefPanel | `XrefPanel` | ✅ |
+| ValidatePanel | `ValidatePanel` | ✅ |
 | DiagnosticsPanel | `DiagnosticsPanel` | ✅ |
-| DocumentPanel（Info / カタログ / XMP / Info 編集） | `OverviewView` | Info・カタログ・問題のみ |
-| Inspector / Tree / ValueEditor / Referrers / StreamPanel / ImagePreview | `NodeListView`（1 階層の表示） | ⬜ |
-| PageView / RenderView / AnnotOverlay / RegionCut | `PageView`（全体を 1 枚で描画・ページ情報） | タイル・ズーム・ヒットテスト・注釈・切り出しは ⬜ |
-| ContentView / OpStatePanel / ContentDiagram / OperatorDoc | — | ⬜ |
-| OpEditor / ContentText（CodeMirror） | — | ⬜ |
-| FontView | — | ⬜ |
-| SchemaPanel | インスペクタ枠のみ | ⬜ |
-| HexView | 下部ペインの枠のみ | ⬜ |
-| edit.tsx（apply / undo / redo・メッセージ） | `InspectorDocument.perform`・NSUndoManager | 経路のみ（編集 UI は各画面と一緒に） |
-| SaveDialog（incremental / full のオプション） | NSDocument の保存（incremental、不可なら full） | オプションの UI は ⬜ |
-| OpenDialog（パスワード・recover） | — | ⬜ |
+| DocumentPanel（Info / カタログ / XMP / Info 編集） | `OverviewView` | ✅ |
+| Inspector / Tree / ValueEditor / Referrers / StreamPanel / ImagePreview | `InspectorView` / `NodeChildren` / `ValueEditor` / `Referrers` / `StreamPanel` / `ImagePreview`（JPEG・JPEG 2000 は ImageIO） | ✅ |
+| PageView / RenderView / AnnotOverlay / RegionCut | `PageView` / `RenderView`（タイル・ズーム・ヒットテスト・注釈・切り出し） | ✅ |
+| ContentView / OpStatePanel / ContentDiagram / OperatorDoc | `ContentView` / `OpStatePanel` / `ContentDiagram` / `OperatorDoc`（説明は Web の表から `scripts/operator-docs.mjs` で `Resources/OperatorDocs.json` に） | ✅ |
+| OpEditor / ContentText（CodeMirror） | `OpEditor`（List・折りたたみ・キー操作・コピー/ペースト）/ `ContentTextEditor`（NSTextView） | 補完・入力中の問題表示・カーソルと選択の連動は ⬜ |
+| FontView | `FontView` | ✅ |
+| SchemaPanel | `SchemaPane`（インスペクタ） | ✅ |
+| HexView | `HexView`（表示行だけ取得、対象オブジェクトに追従） | ✅ |
+| edit.tsx（apply / undo / redo・メッセージ） | `InspectorDocument.perform`・NSUndoManager・`MessagesOverlay` | ✅ |
+| SaveDialog（incremental / full のオプション） | 保存パネルのアクセサリ（`SaveOptionsView`）、⌘S は incremental（不可なら full） | ✅ |
+| OpenDialog（パスワード・recover） | File > Reopen with Options…（`ReopenSheet`）、壊れた xref は開くときに自動で recover | ✅ |

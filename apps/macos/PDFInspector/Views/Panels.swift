@@ -50,46 +50,6 @@ struct PagedRows<P: ListPage, Row: View>: View {
     }
 }
 
-struct PagesPanel: View {
-    let model: DocumentModel
-
-    var body: some View {
-        let doc = model.doc
-        let backend = model.backend
-        PagedRows<PageSummaryPage, _>(
-            model: model, total: Int(model.summary.pages), empty: "No pages.",
-            fetch: { try await backend.pages(doc, range: $0) }
-        ) { p, _ in
-            Button {
-                model.nav.open(.page(p.index))
-            } label: {
-                HStack {
-                    Text(pageText(p.index, label: p.label))
-                        .frame(width: 72, alignment: .trailing)
-                        .fontWeight(.medium)
-                    if let e = p.error {
-                        Text(e).foregroundStyle(.red).lineLimit(1)
-                    } else {
-                        Text(p.id.map { "\($0.num) \($0.generation)" } ?? "")
-                            .monospaced().foregroundStyle(.secondary)
-                        if let r = p.size {
-                            Text("\(Int(r.x1 - r.x0)) × \(Int(r.y1 - r.y0))")
-                                .foregroundStyle(.secondary)
-                        }
-                        if p.rotate != 0 { Text("↻\(p.rotate)°").foregroundStyle(.secondary) }
-                        if p.annots > 0 { Text("\(p.annots) annots").foregroundStyle(.secondary) }
-                    }
-                    Spacer()
-                }
-                .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .font(.callout)
-            .listRowBackground(model.nav.target == .page(p.index) ? Color.accentColor.opacity(0.2) : nil)
-        }
-    }
-}
-
 extension XrefEntry {
     var generation: UInt16 {
         switch self {

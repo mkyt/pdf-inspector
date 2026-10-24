@@ -10,19 +10,43 @@ final class WindowLayout {
     var bytes = false
     var tab: SidebarTab = .pages
     var objectPicks = ObjectPicks()
+    /// The sheet reopening the file with a password or recovery is shown.
+    var reopening = false
+}
+
+/// The document as the window shows it: replaced when the file is reopened
+/// (with a password, or recovered).
+@MainActor @Observable
+final class ModelBox {
+    var model: DocumentModel
+
+    init(_ model: DocumentModel) {
+        self.model = model
+    }
+}
+
+private struct DocumentRoot: View {
+    let box: ModelBox
+    let layout: WindowLayout
+
+    var body: some View {
+        DocumentWindowView(model: box.model, layout: layout)
+            .id(ObjectIdentifier(box.model))
+    }
 }
 
 /// A document window: the SwiftUI `DocumentWindowView` in AppKit, with the menu
 /// commands of the window (navigation, panes) on the responder chain.
 final class DocumentWindowController: NSWindowController, NSMenuItemValidation {
-    let model: DocumentModel
+    let box: ModelBox
     let layout: WindowLayout
+    var model: DocumentModel { box.model }
 
-    init(document: InspectorDocument, model: DocumentModel) {
+    init(document: InspectorDocument, box: ModelBox) {
         let layout = WindowLayout()
-        self.model = model
+        self.box = box
         self.layout = layout
-        let root = DocumentWindowView(model: model, layout: layout)
+        let root = DocumentRoot(box: box, layout: layout)
             .environment(\.inspectorDocument, document)
         let hosting = NSHostingController(rootView: root)
         hosting.sceneBridgingOptions = [.toolbars]
@@ -33,14 +57,16 @@ final class DocumentWindowController: NSWindowController, NSMenuItemValidation {
         window.tabbingMode = .preferred
         super.init(window: window)
         shouldCascadeWindows = true
-        // Where the window is, under the document's name.
-        // TODO: breadcrumbs (Breadcrumbs.tsx).
+        // Where the window is, under the document's name (the breadcrumbs
+        // tell the whole path).
         Task { [weak window] in
-            for await t in Observations({ model.nav.target.title(in: model.summary) }) {
+            for await t in Observations({ box.model.nav.target.title(in: box.model.summary) }) {
                 window?.subtitle = t
             }
         }
     }
+
+    @objc func reopenWithOptions(_ sender: Any?) { layout.reopening = true }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {

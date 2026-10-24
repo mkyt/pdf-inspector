@@ -40,7 +40,7 @@ struct Sidebar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SummaryCard(model: model)
+            SummaryCard(model: model, layout: layout)
             Divider()
             Landmarks(model: model)
             Divider()
@@ -77,6 +77,7 @@ struct Sidebar: View {
 /// The file at a glance, and checking its objects (the web `SummaryCard`).
 struct SummaryCard: View {
     let model: DocumentModel
+    let layout: WindowLayout
 
     var body: some View {
         let s = model.summary
@@ -86,10 +87,13 @@ struct SummaryCard: View {
                 .help(s.info.path ?? "")
             FlowBadges(items: badges(s))
             if let e = s.encryption, !e.authenticated {
-                Label("Encrypted; reopen with the password to see strings and streams.",
-                      systemImage: "lock")
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                HStack {
+                    Label("Encrypted; reopen with the password to see strings and streams.",
+                          systemImage: "lock")
+                        .foregroundStyle(.red)
+                    LinkButton("Password…") { layout.reopening = true }
+                }
+                .font(.caption)
             }
             CheckObjects(model: model)
         }

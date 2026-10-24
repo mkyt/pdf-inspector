@@ -22,6 +22,16 @@ import Testing
         #expect(Rect(x0: 0, y0: 0, x1: 612, y1: 792).sizeText == "612 × 792 pt")
     }
 
+    @Test func pageRangesParse() {
+        #expect(parsePages("1-3, 7", count: 10) == [0, 1, 2, 6])
+        #expect(parsePages(" 2 ", count: 2) == [1])
+        #expect(parsePages("3-2", count: 10) == nil)
+        #expect(parsePages("0", count: 10) == nil)
+        #expect(parsePages("11", count: 10) == nil)
+        #expect(parsePages("a", count: 10) == nil)
+        #expect(parsePages("", count: 10) == nil)
+    }
+
     @Test func glyphPathParsesTheBackendsOutlines() throws {
         let p = try #require(glyphPath("M0 0C2 2 4 2 6 0ZM10 -5L20 -5L20 1.5Z"))
         let box = p.boundingBoxOfPath
