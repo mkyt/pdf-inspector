@@ -15,6 +15,9 @@ public final class DocumentModel {
     public let nav = Navigation()
     /// Jobs started from this window, by id, as their events report them.
     public private(set) var jobs: [JobId: JobInfo] = [:]
+    /// Reports about edits and saves, newest last.
+    public private(set) var messages: [Message] = []
+    @ObservationIgnored private var nextMessage = 1
     @ObservationIgnored private var events: Task<Void, Never>?
 
     public init(backend: Backend = .shared, summary: DocSummary) {
@@ -95,13 +98,25 @@ public final class DocumentModel {
 
     // MARK: Editing
 
-    /// Apply commands as one undoable step.
+    /// Apply commands as one undoable step; reports the notes and the
+    /// schema problems of the changed objects.
     @discardableResult
     public func apply(_ label: String, _ commands: [EditCommand]) async throws -> ApplyResult {
         let r = try await backend.apply(doc, label: label, commands: commands)
         summary = try await backend.summary(doc)
+        if !r.notes.isEmpty { report(.info, label, r.notes) }
+        if !r.issues.isEmpty {
+            var lines = r.issues.prefix(Self.issueLines).map { i in
+                (i.obj.map { "\($0.num) \($0.generation): " } ?? "") + (i.path.map { "\($0): " } ?? "")
+                    + i.message
+            }
+            if r.issues.count > Self.issueLines { lines.append("… \(r.issues.count - Self.issueLines) more") }
+            report(.warning, "\(label): the changed objects have schema problems", lines)
+        }
         return r
     }
+
+    private static let issueLines = 6
 
     public func undo() async throws {
         _ = try await backend.undo(doc)
@@ -111,6 +126,33 @@ public final class DocumentModel {
     public func redo() async throws {
         _ = try await backend.redo(doc)
         summary = try await backend.summary(doc)
+    }
+
+    // MARK: Messages
+
+    /// Something to tell about an edit or a save. Errors stay until
+    /// dismissed, the others fade.
+    public struct Message: Identifiable, Sendable {
+        public enum Kind: Sendable { case info, warning, error }
+        public let id: Int
+        public let kind: Kind
+        public let title: String
+        public let lines: [String]
+    }
+
+    public func report(_ kind: Message.Kind, _ title: String, _ lines: [String] = []) {
+        let id = nextMessage
+        nextMessage += 1
+        messages = messages.suffix(3) + [Message(id: id, kind: kind, title: title, lines: lines)]
+        guard kind != .error else { return }
+        Task {
+            try? await Task.sleep(for: .seconds(8))
+            self.dismiss(id)
+        }
+    }
+
+    public func dismiss(_ id: Int) {
+        messages.removeAll { $0.id == id }
     }
 
     /// The document was saved and reopened from the file (fresh history).

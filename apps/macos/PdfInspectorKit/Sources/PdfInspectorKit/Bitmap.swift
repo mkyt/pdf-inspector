@@ -6,6 +6,11 @@ public struct Bitmap: Sendable {
     public let info: BitmapInfo
     public let data: Data
 
+    public init(info: BitmapInfo, data: Data) {
+        self.info = info
+        self.data = data
+    }
+
     public var width: Int { Int(info.rect.width) }
     public var height: Int { Int(info.rect.height) }
 

@@ -13,13 +13,10 @@ struct DocumentWindowView: View {
             Sidebar(model: model, layout: layout)
                 .navigationSplitViewColumnWidth(min: 260, ideal: 380, max: 700)
         } detail: {
-            VSplitView {
+            SplitPane(.vertical, key: "hex", size: 280, min: 100, max: 1200, showSecond: layout.bytes) {
                 TargetView(model: model)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                if layout.bytes {
-                    BytesPane(model: model)
-                        .frame(minHeight: 100, idealHeight: 280)
-                }
+            } second: {
+                HexView(model: model)
             }
         }
         .inspector(isPresented: $layout.schema) {
@@ -27,6 +24,8 @@ struct DocumentWindowView: View {
                 .inspectorColumnWidth(min: 200, ideal: 300, max: 800)
         }
         .toolbar { DocumentToolbar(model: model, layout: layout) }
+        .overlay(alignment: .bottomLeading) { MessagesOverlay(model: model) }
+        .onChange(of: model.nav.bytesRequest) { layout.bytes = true }
         .frame(minWidth: 800, minHeight: 500)
     }
 
@@ -48,9 +47,9 @@ struct TargetView: View {
         case .document:
             OverviewView(model: model)
         case .trailer:
-            NodeListView(model: model, root: .trailer)
+            InspectorView(model: model, root: .trailer)
         case .object(let id):
-            NodeListView(model: model, root: .object(id: id))
+            InspectorView(model: model, root: .object(id: id))
         case .page(let index):
             PageView(model: model, index: index)
                 .id(index)

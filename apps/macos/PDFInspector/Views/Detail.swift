@@ -57,52 +57,6 @@ struct OverviewView: View {
     }
 }
 
-/// One level of an object or the trailer (the web `Inspector` has the full
-/// tree, editing, streams and referrers).
-struct NodeListView: View {
-    let model: DocumentModel
-    let root: NodeRoot
-
-    var body: some View {
-        let doc = model.doc
-        let backend = model.backend
-        let path = NodePath(root: root, path: [])
-        VStack(spacing: 0) {
-            PagedRows<NodeViewPage, _>(
-                model: model, total: 1, empty: "Empty.",
-                fetch: { try await backend.children(doc, path: path, range: $0) }
-            ) { n, _ in
-                NodeRow(model: model, node: n)
-            }
-            .id(root)
-            Divider()
-            NotPorted("Structure tree, editing, streams", web: "Inspector.tsx, Tree.tsx, StreamPanel.tsx")
-                .frame(height: 120)
-        }
-    }
-}
-
-struct NodeRow: View {
-    let model: DocumentModel
-    let node: NodeView
-
-    var body: some View {
-        HStack {
-            Text(node.key.map { "/\($0)" } ?? "[\(node.index)]")
-                .monospaced()
-                .frame(minWidth: 120, alignment: .leading)
-            if case .ref(let id) = node.value {
-                Button(id.refText) { model.nav.open(.object(id)) }.buttonStyle(.link)
-            } else {
-                Text(node.value.text).monospaced().lineLimit(1).textSelection(.enabled)
-            }
-            Spacer()
-            if let t = node.schema?.valueType { Text(t).foregroundStyle(.secondary) }
-        }
-        .font(.callout)
-    }
-}
-
 /// A page: its rendering and what it inherits (the web `PageView` also
 /// has tiles, zoom, hit testing, annotations and region cuts).
 struct PageView: View {
@@ -114,7 +68,7 @@ struct PageView: View {
     @Environment(\.displayScale) private var displayScale
 
     var body: some View {
-        HSplitView {
+        SplitPane(.horizontal, key: "pageInfo", size: 280, min: 200, max: 500) {
             GeometryReader { geo in
                 ScrollView([.horizontal, .vertical]) {
                     if let image {
@@ -132,6 +86,7 @@ struct PageView: View {
                 }
             }
             .frame(minWidth: 300)
+        } second: {
             Form {
                 if let d = detail {
                     LabeledContent("Page") { Text(pageText(d.index, label: d.label)) }
@@ -148,7 +103,6 @@ struct PageView: View {
                 }
             }
             .formStyle(.grouped)
-            .frame(minWidth: 220, idealWidth: 280, maxWidth: 400)
         }
         .task(id: model.generation) {
             detail = try? await model.backend.page(model.doc, index: index)
@@ -176,21 +130,5 @@ struct PageView: View {
         } catch {
             self.error = error.localizedDescription
         }
-    }
-}
-
-struct SchemaPane: View {
-    let model: DocumentModel
-
-    var body: some View {
-        NotPorted("Schema", web: "SchemaPanel.tsx")
-    }
-}
-
-struct BytesPane: View {
-    let model: DocumentModel
-
-    var body: some View {
-        NotPorted("File bytes", web: "HexView.tsx")
     }
 }
