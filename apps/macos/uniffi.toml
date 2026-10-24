@@ -1,0 +1,21 @@
+# Swift bindings of pdfi-ffi (and the pdfi-api types it uses), passed to
+# uniffi-bindgen-swift by scripts/build-core.sh.
+
+# One file per crate, compiled together into the PdfiCore Swift module over
+# one C module (PdfiCoreFFI, a header per crate).
+[defaults.bindings.swift]
+ffi_module_name = "PdfiCoreFFI"
+generate_immutable_records = true
+
+[crates.pdfi_api.bindings.swift]
+ffi_module_filename = "pdfi_apiFFI"
+
+[crates.pdfi_ffi.bindings.swift]
+ffi_module_filename = "pdfi_ffiFFI"
+# PdfInspectorKit describes PdfiError with its message.
+omit_localized_error_conformance = true
+
+# Names the Swift standard library already uses.
+[crates.pdfi_api.bindings.swift.rename]
+Range = "ListRange"
+Span = "ByteSpan"

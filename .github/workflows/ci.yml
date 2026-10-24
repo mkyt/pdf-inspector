@@ -54,6 +54,20 @@ jobs:
       # The conformance scenario through the Worker host and the wasm build.
       - run: npm run test:conformance
 
+  macos:
+    # The app targets the newest macOS (docs/DESIGN.md §4.10): needs Xcode 27.
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: apps/macos
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: scripts/build-core.sh --debug
+      - run: swift test --package-path PdfInspectorKit
+      - run: xcodebuild -project PDFInspector.xcodeproj -scheme PDFInspector -configuration Debug CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual build
+
   deny:
     runs-on: ubuntu-latest
     steps:

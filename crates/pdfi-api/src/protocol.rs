@@ -13,12 +13,14 @@ use crate::dto::*;
 pub const PROTOCOL_VERSION: u32 = 14;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ClientMessage {
     pub id: RequestId,
     pub request: Request,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "op", rename_all = "camelCase")]
 pub enum Request {
     Hello {
@@ -304,6 +306,7 @@ pub enum Request {
 // Responses are short-lived and moved once; boxing would only add noise.
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(rename_all = "camelCase")]
 pub enum Response {
     Ok(ResponseBody),
@@ -312,6 +315,7 @@ pub enum Response {
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ResponseBody {
     Hello(HelloInfo),
@@ -320,35 +324,35 @@ pub enum ResponseBody {
     Docs {
         docs: Vec<DocInfo>,
     },
-    Objects(Page<ObjectSummary>),
+    Objects(ObjectSummaryPage),
     ObjectClasses {
         classes: Vec<ObjectClass>,
     },
     Object(ObjectView),
-    Children(Page<NodeView>),
-    Xref(Page<XrefRow>),
-    Diagnostics(Page<DiagnosticInfo>),
+    Children(NodeViewPage),
+    Xref(XrefRowPage),
+    Diagnostics(DiagnosticInfoPage),
     Schema(ObjectSchema),
     Document(DocumentView),
     Xmp(XmpView),
-    Pages(Page<PageSummary>),
+    Pages(PageSummaryPage),
     PageDetail(PageDetail),
     PageIndex {
         index: Option<u32>,
     },
-    Annotations(Page<AnnotInfo>),
-    Outline(Page<OutlineItem>),
-    Fonts(Page<FontInfo>),
-    Images(Page<ImageInfo>),
-    Referrers(Page<Referrer>),
+    Annotations(AnnotInfoPage),
+    Outline(OutlineItemPage),
+    Fonts(FontInfoPage),
+    Images(ImageInfoPage),
+    Referrers(ReferrerPage),
     RefPath(RefPath),
-    ObjRefs(Page<ObjRef>),
+    ObjRefs(ObjRefPage),
     Content(ContentSummary),
-    Ops(Page<OpView>),
-    ContentIssues(Page<ContentIssue>),
+    Ops(OpViewPage),
+    ContentIssues(ContentIssuePage),
     OpText(OpText),
     Blocks {
-        blocks: Vec<[u32; 2]>,
+        blocks: Vec<BlockSpan>,
         /// More blocks than returned.
         truncated: bool,
     },
@@ -356,11 +360,11 @@ pub enum ResponseBody {
         items: Vec<ResourceItem>,
         truncated: bool,
     },
-    Elements(Page<ElementView>),
+    Elements(ElementViewPage),
     OpState(Box<OpState>),
     Font(Box<FontDetail>),
-    Glyphs(Page<GlyphView>),
-    ProgramGlyphs(Page<ProgramGlyph>),
+    Glyphs(GlyphViewPage),
+    ProgramGlyphs(ProgramGlyphPage),
     FontUses(FontUsesView),
     Bitmap(BitmapInfo),
     Hits {
@@ -389,6 +393,7 @@ pub enum ResponseBody {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct HelloInfo {
     pub protocol: u32,
     pub backend: String,
@@ -398,6 +403,7 @@ pub struct HelloInfo {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(rename_all = "camelCase")]
 pub enum ErrorCode {
     BadRequest,
@@ -417,6 +423,7 @@ pub enum ErrorCode {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ApiError {
     pub code: ErrorCode,
     pub message: String,
@@ -461,6 +468,7 @@ impl From<std::io::Error> for ApiError {
 // Like `Response`: built once and moved straight to the transport.
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ServerMessage {
     Response { id: RequestId, response: Response },
@@ -468,6 +476,7 @@ pub enum ServerMessage {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Event {
     DocOpened {

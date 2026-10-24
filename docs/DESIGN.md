@@ -13,6 +13,7 @@
 > - v2.8: M8 実装で確定した事項を §4.6 / §4.8 / §4.9 / §8 に追記（ラスタライザは tiny-skia、Device による描画、ビュー座標、タイルと余白、ハイライト層とヒットテスト、プロトコル v5、サーバーでの並列描画）
 > - v2.9: M9 実装で確定した事項を §4.4 / §4.5 / §4.6 / §4.8 / §8 に追記（pdfi-font の形、ttf-parser と hayro-font、グリフ選択、Foxit 代替フォントと AFM 幅、Type 3 の手続き実行、テキストのクリップ、プロトコル v6）
 > - v2.10: M10 実装で確定した事項を §4.1 / §4.7 / §4.8 / §4.9 / §5.3 に追記（スナップショットとしての編集レイヤ、コマンドとトランザクション、undo / redo、ページ操作、Info と XMP の同期、チャンク単位の書き出し、保存ジョブと Worker からの保存、プロトコル v13）
+> - v2.12: M4（macOS）の着手で確定した事項を §4.10 に追記（単一の型付き dispatch、DTO の UniFFI 対応、スレッド、保存と undo の経路）
 > - v2.11: M11 実装で確定した事項を §4.5 / §4.8 / §6 / §8 に追記（命令列の差分適用と元バイトの再利用、ストリームの割り当て、折りたたみのブロック、プロトコル v14、命令列エディタの表とテキストモード、CodeMirror 6）
 
 ## 1. ゴール
@@ -451,6 +452,13 @@ pub trait EventListener: Send + Sync {          // Swift 側で実装
 - **キャンセル**: Swift Task のキャンセルが Rust 側に確実に伝わる保証に依存せず、明示的な `CancelToken` を渡す。Kit 側で `withTaskCancellationHandler` と接続
 - **バイナリ**: `Vec<u8>` → `Data`（コピー 1 回）
 - **ずれ防止**: Rust API を単一の真実とし、プロトコルの `dispatch` と pdfi-ffi はどちらもその関数を機械的に呼ぶだけにする
+
+- **M4 着手で確定した形**: pdfi-ffi はリクエストごとの関数を持たず、**型付きの `dispatch(Request) -> Reply { body: ResponseBody, blobs: [Data] }`** を 1 つ公開する（プロトコルの `dispatch` と同じ経路なので、ずれる余地がない）。ほかは `dispatch_cancellable`（`CancelToken`）、`subscribe(EventListener)`、`save_to`（新しいファイルに書く。置き換えは NSDocument）、`reload`、`protocol_version`。型付きの個別メソッドは Kit 側（`apps/web/src/api.ts` と同じ形）
+  - DTO は pdfi-api の `ffi` feature で `cfg_attr` derive。`Page<T>` はマクロで具体型（`ObjectSummaryPage` など、JSON・TS は同じ）、`[u32; 2]` は `BlockSpan`（JSON・TS は組のまま）。`generated.ts` は変わらない
+  - Swift のモジュールは 2 crate を 1 つの `PdfiCore` に（C モジュール `PdfiCoreFFI` にヘッダ 2 つ）。Swift 標準と衝突する `Range` / `Span` は `ListRange` / `ByteSpan` に改名（`apps/macos/uniffi.toml`）
+  - ファイルは `SourceProvider` がどのパスでも開く（何を開けるかはアプリとサンドボックスが決める）。ジョブはスレッドごと（`ThreadExecutor`、サーバーと共通）
+  - Swift から Rust の同期呼び出しは 8 MiB スタックのスレッドで行う。GCD のスレッド（512 KiB）ではデバッグビルドの moxcms がスタックを溢れる
+  - 適合テストは `cargo test -p pdfi-ffi`（パスで開き、スレッドのジョブ、リスナーのイベント）。Swift 側は Swift Testing のスモークテスト
 
 #### Swift 側（PdfInspectorKit）
 

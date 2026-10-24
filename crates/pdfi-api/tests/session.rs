@@ -1148,7 +1148,7 @@ fn edit_operations_of_a_content() {
         ResponseBody::Blocks { blocks, .. } => blocks,
         b => panic!("{b:?}"),
     };
-    assert_eq!(blocks, [[0, n + 1]]);
+    assert_eq!(blocks, [BlockSpan::from([0, n + 1])]);
 
     // Move the closing Q to the front, then undo.
     apply(

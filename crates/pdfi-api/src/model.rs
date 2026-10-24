@@ -150,7 +150,7 @@ pub fn xmp(d: &Doc, range: Range) -> Result<XmpView, ApiError> {
     })
 }
 
-pub fn pages(d: &Doc, range: Range) -> Page<PageSummary> {
+pub fn pages(d: &Doc, range: Range) -> PageSummaryPage {
     let m = d.model.on(&d.file);
     page(m.page_count(), range, |o, n| {
         (o..o + n)
@@ -250,14 +250,14 @@ pub fn page_index(d: &Doc, id: ObjRef) -> Option<u32> {
     d.model.on(&d.file).page_index(id.into()).map(index32)
 }
 
-pub fn annotations(d: &Doc, page_index: u32, range: Range) -> Result<Page<AnnotInfo>, ApiError> {
+pub fn annotations(d: &Doc, page_index: u32, range: Range) -> Result<AnnotInfoPage, ApiError> {
     let m = d.model.on(&d.file);
     let limit = range.limit.min(crate::MAX_PAGE) as usize;
     let offset = range.offset.min(usize::MAX as u64) as usize;
     let (total, items) = m
         .annots(page_index as u64, offset, limit)
         .map_err(not_found)?;
-    Ok(Page {
+    Ok(AnnotInfoPage {
         total: total as u64,
         offset: (offset.min(total)) as u64,
         items: items.into_iter().map(annot_info).collect(),
@@ -318,7 +318,7 @@ fn annot_info(a: pdfi_model::annot::Annot) -> AnnotInfo {
     }
 }
 
-pub fn outline(d: &Doc, parent: Option<ObjRef>, range: Range) -> Page<OutlineItem> {
+pub fn outline(d: &Doc, parent: Option<ObjRef>, range: Range) -> OutlineItemPage {
     let m = d.model.on(&d.file);
     let ids = m.outline_children(parent.map(Into::into));
     page(ids.len() as u64, range, |o, n| {
@@ -367,7 +367,7 @@ fn usage(pages: &[u32]) -> (u32, Vec<u32>) {
     )
 }
 
-pub fn fonts(d: &Doc, range: Range) -> Result<Page<FontInfo>, ApiError> {
+pub fn fonts(d: &Doc, range: Range) -> Result<FontInfoPage, ApiError> {
     let inv = inventory(d)?;
     Ok(page(inv.fonts.len() as u64, range, |o, n| {
         inv.fonts[o..o + n]
@@ -393,7 +393,7 @@ pub fn fonts(d: &Doc, range: Range) -> Result<Page<FontInfo>, ApiError> {
     }))
 }
 
-pub fn images(d: &Doc, range: Range) -> Result<Page<ImageInfo>, ApiError> {
+pub fn images(d: &Doc, range: Range) -> Result<ImageInfoPage, ApiError> {
     let inv = inventory(d)?;
     Ok(page(inv.images.len() as u64, range, |o, n| {
         inv.images[o..o + n]
@@ -420,7 +420,7 @@ pub fn images(d: &Doc, range: Range) -> Result<Page<ImageInfo>, ApiError> {
     }))
 }
 
-pub fn referrers(d: &Doc, id: ObjRef, range: Range) -> Result<Page<Referrer>, ApiError> {
+pub fn referrers(d: &Doc, id: ObjRef, range: Range) -> Result<ReferrerPage, ApiError> {
     let inv = inventory(d)?;
     let target: ObjId = id.into();
     let srcs = inv.refs.referrers(id.num);
@@ -462,7 +462,7 @@ pub fn referrers(d: &Doc, id: ObjRef, range: Range) -> Result<Page<Referrer>, Ap
     }))
 }
 
-pub fn unreferenced(d: &Doc, range: Range) -> Result<Page<ObjRef>, ApiError> {
+pub fn unreferenced(d: &Doc, range: Range) -> Result<ObjRefPage, ApiError> {
     let inv = inventory(d)?;
     let ids = &inv.unreferenced;
     Ok(page(ids.len() as u64, range, |o, n| {

@@ -30,8 +30,8 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response as HttpResponse};
 use axum::routing::get;
 use pdfi_api::{
-    ApiError, ClientMessage, ErrorCode, Executor, OpenSource, Request, Response, ServerMessage,
-    Session, Task,
+    ApiError, ClientMessage, ErrorCode, OpenSource, Request, Response, ServerMessage, Session,
+    ThreadExecutor,
 };
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
@@ -58,15 +58,6 @@ pub struct ServeOptions {
 #[folder = "../../apps/web/dist"]
 #[allow_missing = true]
 struct Assets;
-
-/// Runs each job on its own thread.
-struct ThreadExecutor;
-
-impl Executor for ThreadExecutor {
-    fn spawn(&self, mut task: Task) {
-        std::thread::spawn(move || while task() {});
-    }
-}
 
 #[derive(Clone)]
 struct AppState {

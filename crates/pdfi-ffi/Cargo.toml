@@ -1,0 +1,29 @@
+[package]
+name = "pdfi-ffi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+# staticlib: linked into the macOS app (apps/macos/scripts/build-core.sh).
+crate-type = ["staticlib", "lib"]
+
+[features]
+# The Swift binding generator (`uniffi-bindgen-swift`).
+bindgen = ["uniffi/cli"]
+
+[dependencies]
+pdfi-api = { version = "0.1.0", path = "../pdfi-api", features = ["ffi"] }
+pdfi-syntax = { version = "0.1.0", path = "../pdfi-syntax" }
+thiserror = "2.0.21"
+uniffi = "0.32.2"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "uniffi-bindgen-swift"
+path = "src/bin/uniffi-bindgen-swift.rs"
+required-features = ["bindgen"]

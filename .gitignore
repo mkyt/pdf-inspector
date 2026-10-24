@@ -9,3 +9,8 @@
 /apps/web/dist/
 /apps/web/*.tsbuildinfo
 /apps/web/src/wasm/
+/apps/macos/PdfInspectorKit/.build/
+/apps/macos/PdfInspectorKit/Frameworks/
+/apps/macos/PdfInspectorKit/Sources/PdfiCore/
+/apps/macos/PDFInspector.xcodeproj/project.xcworkspace/
+/apps/macos/PDFInspector.xcodeproj/xcuserdata/

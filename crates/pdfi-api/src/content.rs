@@ -443,7 +443,7 @@ fn op_view(file: &syn::PdfFile, a: &Analysis, i: usize, op: &Op) -> OpView {
     }
 }
 
-pub fn ops(d: &Doc, c: ContentRef, range: Range) -> Result<Page<OpView>, ApiError> {
+pub fn ops(d: &Doc, c: ContentRef, range: Range) -> Result<OpViewPage, ApiError> {
     let a = analysis(d, c)?;
     Ok(page(a.ops as u64, range, |o, n| {
         a.read_ops(o, n)
@@ -481,8 +481,11 @@ pub fn blocks(d: &Doc, c: ContentRef, depth: u32) -> Result<ResponseBody, ApiErr
                 .get(b.0 as usize)
                 .is_some_and(|&x| u32::from(x) == depth)
         })
-        .map(|b| [b.0, b.1]);
-    let items: Vec<[u32; 2]> = blocks.by_ref().take(MAX_BLOCKS).collect();
+        .map(|b| BlockSpan {
+            opener: b.0,
+            last: b.1,
+        });
+    let items: Vec<BlockSpan> = blocks.by_ref().take(MAX_BLOCKS).collect();
     Ok(ResponseBody::Blocks {
         blocks: items,
         truncated: blocks.next().is_some(),
@@ -495,14 +498,14 @@ pub fn resources(d: &Doc, c: ContentRef) -> Result<ResponseBody, ApiError> {
     Ok(ResponseBody::Resources { items, truncated })
 }
 
-pub fn issues(d: &Doc, c: ContentRef, range: Range) -> Result<Page<ContentIssue>, ApiError> {
+pub fn issues(d: &Doc, c: ContentRef, range: Range) -> Result<ContentIssuePage, ApiError> {
     let a = analysis(d, c)?;
     Ok(page(a.issues.len() as u64, range, |o, n| {
         a.issues[o..o + n].iter().map(issue).collect()
     }))
 }
 
-pub fn elements(d: &Doc, c: ContentRef, range: Range) -> Result<Page<ElementView>, ApiError> {
+pub fn elements(d: &Doc, c: ContentRef, range: Range) -> Result<ElementViewPage, ApiError> {
     let a = analysis(d, c)?;
     Ok(page(a.elements.len() as u64, range, |o, n| {
         a.elements[o..o + n].iter().map(element).collect()

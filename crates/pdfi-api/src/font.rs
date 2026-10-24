@@ -186,7 +186,7 @@ fn glyph(d: &Doc, f: &Font, c: Code) -> GlyphView {
     }
 }
 
-pub fn glyphs(d: &Doc, id: ObjRef, range: Range) -> Result<Page<GlyphView>, ApiError> {
+pub fn glyphs(d: &Doc, id: ObjRef, range: Range) -> Result<GlyphViewPage, ApiError> {
     let f = load(d, id)?;
     let codes = f.listed_codes(&d.file);
     Ok(page(codes.len() as u64, range, |o, n| {
@@ -194,7 +194,7 @@ pub fn glyphs(d: &Doc, id: ObjRef, range: Range) -> Result<Page<GlyphView>, ApiE
     }))
 }
 
-pub fn program_glyphs(d: &Doc, id: ObjRef, range: Range) -> Result<Page<ProgramGlyph>, ApiError> {
+pub fn program_glyphs(d: &Doc, id: ObjRef, range: Range) -> Result<ProgramGlyphPage, ApiError> {
     let f = load(d, id)?;
     let file = &d.file;
     let p = match &f.glyphs(file).source {

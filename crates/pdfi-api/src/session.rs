@@ -261,6 +261,13 @@ impl Session {
         )
     }
 
+    /// Like [`Session::reload`], taking the path from `opened` (the file was
+    /// saved somewhere else).
+    pub fn reload_from(&self, doc: DocId, opened: Opened) -> Result<DocSummary, ApiError> {
+        self.doc(doc)?;
+        reload(&self.docs, &self.bus, doc, opened)
+    }
+
     /// Start writing a document with its edits; the caller takes the
     /// chunks and puts them where they go (the browser's file handle).
     pub fn save_stream(&self, doc: DocId, mode: SaveMode) -> Result<SaveStream, ApiError> {
@@ -690,7 +697,7 @@ impl Session {
             Request::JobDiagnostics { job, range } => {
                 let j = self.job(job)?;
                 let (total, items) = j.diagnostics(range.offset, range.limit.min(MAX_PAGE));
-                Ok(ResponseBody::Diagnostics(Page {
+                Ok(ResponseBody::Diagnostics(DiagnosticInfoPage {
                     total,
                     offset: range.offset.min(total),
                     items,
@@ -753,11 +760,11 @@ fn push_blob(blobs: &mut Vec<Vec<u8>>, data: Vec<u8>, mut info: BytesInfo) -> Re
     ResponseBody::Bytes(info)
 }
 
-pub(crate) fn page<T>(
+pub(crate) fn page<T, P: From<Page<T>>>(
     total: u64,
     range: Range,
     items: impl FnOnce(usize, usize) -> Vec<T>,
-) -> Page<T> {
+) -> P {
     let offset = range.offset.min(total);
     let n = (total - offset).min(range.limit.min(MAX_PAGE) as u64) as usize;
     Page {
@@ -765,6 +772,7 @@ pub(crate) fn page<T>(
         offset,
         items: items(offset as usize, n),
     }
+    .into()
 }
 
 fn summary(d: &Doc) -> DocSummary {
@@ -912,7 +920,7 @@ fn objects(
     d: &Doc,
     range: Range,
     filter: Option<&ObjectFilter>,
-) -> Result<Page<ObjectSummary>, ApiError> {
+) -> Result<ObjectSummaryPage, ApiError> {
     let filtered;
     let nums: &[u32] = match filter {
         None => d.nums(),
@@ -999,7 +1007,7 @@ fn object(d: &Doc, id: ObjRef) -> Result<ObjectView, ApiError> {
     })
 }
 
-fn children(d: &Doc, path: &NodePath, range: Range) -> Result<Page<NodeView>, ApiError> {
+fn children(d: &Doc, path: &NodePath, range: Range) -> Result<NodeViewPage, ApiError> {
     let ck = d.schema.checker(&d.file);
     let held;
     let (root, mut ty, in_file) = match &path.root {
@@ -1185,7 +1193,7 @@ fn object_schema(d: &Doc, root: &NodeRoot) -> Result<ObjectSchema, ApiError> {
     Ok(out)
 }
 
-fn xref(d: &Doc, revision: Option<u32>, range: Range) -> Result<Page<XrefRow>, ApiError> {
+fn xref(d: &Doc, revision: Option<u32>, range: Range) -> Result<XrefRowPage, ApiError> {
     let row = |(num, e): (u32, syn::xref::XrefEntry)| XrefRow {
         num,
         entry: convert::xref_entry(e),

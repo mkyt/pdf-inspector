@@ -61,6 +61,15 @@ impl Executor for QueueExecutor {
     }
 }
 
+/// Runs each task on its own thread (native embedders).
+pub struct ThreadExecutor;
+
+impl Executor for ThreadExecutor {
+    fn spawn(&self, mut task: Task) {
+        std::thread::spawn(move || while task() {});
+    }
+}
+
 impl<T: Executor + ?Sized> Executor for Arc<T> {
     fn spawn(&self, task: Task) {
         (**self).spawn(task)

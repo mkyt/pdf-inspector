@@ -11,6 +11,7 @@ pub type JobId = u32;
 pub type RequestId = u64;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ObjRef {
     pub num: u32,
     pub generation: u16,
@@ -33,6 +34,7 @@ impl From<ObjRef> for pdfi_syntax::ObjId {
 
 /// Byte range `[start, end)` of the source file.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct Span {
     pub start: u64,
     pub end: u64,
@@ -48,12 +50,16 @@ impl From<pdfi_syntax::Span> for Span {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct Range {
     pub offset: u64,
     pub limit: u32,
 }
 
 /// One slice of a list. `total` is the length of the whole list.
+///
+/// Messages carry it as one concrete type per item (`ObjectSummaryPage`,
+/// ...: foreign bindings have no generics), the same in JSON and TS.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 pub struct Page<T> {
     pub total: u64,
@@ -61,9 +67,78 @@ pub struct Page<T> {
     pub items: Vec<T>,
 }
 
+macro_rules! pages {
+    ($($name:ident($item:ident, $ts:literal)),* $(,)?) => {$(
+        /// One slice of a list (see [`Page`]).
+        #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+        #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+        #[ts(rename = $ts)]
+        pub struct $name {
+            pub total: u64,
+            pub offset: u64,
+            pub items: Vec<$item>,
+        }
+
+        impl From<Page<$item>> for $name {
+            fn from(p: Page<$item>) -> Self {
+                Self {
+                    total: p.total,
+                    offset: p.offset,
+                    items: p.items,
+                }
+            }
+        }
+    )*};
+}
+
+pages! {
+    ObjectSummaryPage(ObjectSummary, "Page<ObjectSummary>"),
+    NodeViewPage(NodeView, "Page<NodeView>"),
+    XrefRowPage(XrefRow, "Page<XrefRow>"),
+    DiagnosticInfoPage(DiagnosticInfo, "Page<DiagnosticInfo>"),
+    PageSummaryPage(PageSummary, "Page<PageSummary>"),
+    AnnotInfoPage(AnnotInfo, "Page<AnnotInfo>"),
+    OutlineItemPage(OutlineItem, "Page<OutlineItem>"),
+    FontInfoPage(FontInfo, "Page<FontInfo>"),
+    ImageInfoPage(ImageInfo, "Page<ImageInfo>"),
+    ReferrerPage(Referrer, "Page<Referrer>"),
+    ObjRefPage(ObjRef, "Page<ObjRef>"),
+    OpViewPage(OpView, "Page<OpView>"),
+    ContentIssuePage(ContentIssue, "Page<ContentIssue>"),
+    ElementViewPage(ElementView, "Page<ElementView>"),
+    GlyphViewPage(GlyphView, "Page<GlyphView>"),
+    ProgramGlyphPage(ProgramGlyph, "Page<ProgramGlyph>"),
+    XmpNodePage(XmpNode, "Page<XmpNode>"),
+    FontUsePage(FontUse, "Page<FontUse>"),
+}
+
+/// Operations `[opener, last]` of a block (see `OpView.end`); a pair in
+/// JSON and TS.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+#[serde(from = "[u32; 2]", into = "[u32; 2]")]
+#[ts(as = "[u32; 2]", rename = "[number, number]")]
+pub struct BlockSpan {
+    pub opener: u32,
+    pub last: u32,
+}
+
+impl From<[u32; 2]> for BlockSpan {
+    fn from([opener, last]: [u32; 2]) -> Self {
+        Self { opener, last }
+    }
+}
+
+impl From<BlockSpan> for [u32; 2] {
+    fn from(b: BlockSpan) -> Self {
+        [b.opener, b.last]
+    }
+}
+
 // ------------------------------------------------------------------ files
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum OpenSource {
     /// A path on the machine running the backend (server mode). Subject to
@@ -72,6 +147,7 @@ pub enum OpenSource {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct DirEntry {
     pub name: String,
     pub path: String,
@@ -80,6 +156,7 @@ pub struct DirEntry {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct DirListing {
     /// `None` for the list of allowed roots.
     pub path: Option<String>,
@@ -90,6 +167,7 @@ pub struct DirListing {
 // ------------------------------------------------------------------ documents
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct DocInfo {
     pub doc: DocId,
     pub name: String,
@@ -98,6 +176,7 @@ pub struct DocInfo {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct DocSummary {
     pub info: DocInfo,
     pub version: Option<String>,
@@ -123,6 +202,7 @@ pub struct DocSummary {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct EncryptionInfo {
     pub filter: String,
     pub v: i64,
@@ -135,6 +215,7 @@ pub struct EncryptionInfo {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(rename_all = "camelCase")]
 pub enum XrefKind {
     Table,
@@ -144,6 +225,7 @@ pub enum XrefKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct RevisionInfo {
     /// 0 = newest.
     pub index: u32,
@@ -155,6 +237,7 @@ pub struct RevisionInfo {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum XrefEntry {
     Free {
@@ -176,12 +259,14 @@ pub enum XrefEntry {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct XrefRow {
     pub num: u32,
     pub entry: XrefEntry,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ObjectSummary {
     pub num: u32,
     pub entry: XrefEntry,
@@ -198,6 +283,7 @@ pub struct ObjectSummary {
 // ------------------------------------------------------------------ objects
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum NodeRoot {
     Trailer,
@@ -207,12 +293,14 @@ pub enum NodeRoot {
 /// A node inside an object: the root followed by child indices (array index,
 /// or dictionary entry index in file order).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct NodePath {
     pub root: NodeRoot,
     pub path: Vec<u32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(rename_all = "camelCase")]
 pub enum StringKind {
     Literal,
@@ -222,6 +310,7 @@ pub enum StringKind {
 /// One level of an object. Containers carry only their size; their items are
 /// fetched with `Children`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Value {
     Null,
@@ -266,6 +355,7 @@ pub enum Value {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct NodeView {
     pub index: u32,
     /// Dictionary key (`#xx`-escaped, without `/`); `None` for array items.
@@ -282,6 +372,7 @@ pub struct NodeView {
 // ------------------------------------------------------------------ schema
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(rename_all = "camelCase")]
 pub enum TypeOrigin {
     /// Reached by following typed references from the trailer.
@@ -295,6 +386,7 @@ pub enum TypeOrigin {
 
 /// Schema type of an object (or the trailer) and its problems.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ObjectSchema {
     /// `None` when no type is known.
     pub type_name: Option<String>,
@@ -314,6 +406,7 @@ pub struct ObjectSchema {
 /// A key (or array element) that a type defines, and whether the object
 /// has it.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct TypeKey {
     /// Dictionary key, array index (`0`), wildcard (`*`) or repeating array
     /// element (`1*`).
@@ -326,6 +419,7 @@ pub struct TypeKey {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Requirement {
     Required,
@@ -337,6 +431,7 @@ pub enum Requirement {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct SlotDoc {
     /// Arlington type: `dictionary`, `name`, `rectangle`, `string-text`, ...
     pub base: String,
@@ -346,6 +441,7 @@ pub struct SlotDoc {
 
 /// Definition of a key (or array element) in the schema.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct KeyDoc {
     pub types: Vec<SlotDoc>,
     pub requirement: Requirement,
@@ -360,6 +456,7 @@ pub struct KeyDoc {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct NodeSchema {
     /// `None` for keys the schema does not define.
     pub key: Option<KeyDoc>,
@@ -371,6 +468,7 @@ pub struct NodeSchema {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Location {
     File {
@@ -385,6 +483,7 @@ pub enum Location {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct StreamInfo {
     /// Encoded data in the source file.
     pub data_span: Option<Span>,
@@ -394,6 +493,7 @@ pub struct StreamInfo {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ObjectView {
     pub id: ObjRef,
     pub location: Location,
@@ -404,6 +504,7 @@ pub struct ObjectView {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(rename_all = "camelCase")]
 pub enum Severity {
     Info,
@@ -412,6 +513,7 @@ pub enum Severity {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct DiagnosticInfo {
     pub severity: Severity,
     pub code: String,
@@ -427,6 +529,7 @@ pub struct DiagnosticInfo {
 /// Metadata of a binary payload. The bytes travel separately (see
 /// [`crate::protocol::BinaryFrame`]); `part` identifies them within the reply.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct BytesInfo {
     pub part: u32,
     pub offset: u64,
@@ -443,6 +546,7 @@ pub struct BytesInfo {
 // ------------------------------------------------------------------ jobs
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum JobKind {
     /// Load every object (optionally decoding every stream) and collect
@@ -469,6 +573,7 @@ pub enum JobKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(rename_all = "camelCase")]
 pub enum JobState {
     Running,
@@ -479,6 +584,7 @@ pub enum JobState {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct JobInfo {
     pub job: JobId,
     pub doc: DocId,
@@ -491,6 +597,7 @@ pub struct JobInfo {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum JobResult {
     CheckObjects {
@@ -523,6 +630,7 @@ pub enum JobResult {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct InventoryStats {
     pub objects: u64,
     /// Objects that failed to load.
@@ -556,6 +664,7 @@ impl InventoryStats {
 /// One edit. Values are written in PDF syntax: `<< /A [1 2 0 R] >>`,
 /// `(text)`, `/Name`. Nodes are addressed like `Children` does.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "op", rename_all = "camelCase")]
 pub enum EditCommand {
     /// Replace a node. An empty path replaces the whole object (a stream
@@ -654,6 +763,7 @@ pub enum EditCommand {
 /// An edit of a content's operations. Text is content stream syntax, one
 /// character per byte (Latin-1, as `ContentText` gives it).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum OpEdit {
     /// Replace operations `from..to` with those in `text`: insert when
@@ -667,6 +777,7 @@ pub enum OpEdit {
 
 /// Operations of a content as written.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct OpText {
     pub from: u32,
     /// Less than asked when the text grew too long.
@@ -677,6 +788,7 @@ pub struct OpText {
 
 /// Stream data in a JSON message.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum StreamPayload {
     /// UTF-8 text.
@@ -689,6 +801,7 @@ pub enum StreamPayload {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(rename_all = "camelCase")]
 pub enum StreamFilter {
     None,
@@ -697,6 +810,7 @@ pub enum StreamFilter {
 
 /// The undo / redo state of a document and what saving can do.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct EditStatus {
     /// Edits are applied that are not saved.
     pub dirty: bool,
@@ -712,6 +826,7 @@ pub struct EditStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ApplyResult {
     pub status: EditStatus,
     /// Objects added, in order.
@@ -725,6 +840,7 @@ pub struct ApplyResult {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum SaveMode {
     /// Append the edits to the unchanged file; keeps signatures valid.
@@ -744,6 +860,7 @@ pub enum SaveMode {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct SaveResult {
     /// Where it went (`None` in the browser).
     pub path: Option<String>,
@@ -753,6 +870,7 @@ pub struct SaveResult {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(rename_all = "camelCase")]
 pub enum ChangeReason {
     Edit,
@@ -766,6 +884,7 @@ pub enum ChangeReason {
 
 /// A rectangle in default user space, normalized (`x0 <= x1`, `y0 <= y1`).
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct Rect {
     pub x0: f64,
     pub y0: f64,
@@ -775,6 +894,7 @@ pub struct Rect {
 
 /// Where a page attribute comes from.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum AttrOrigin {
     Page,
@@ -790,6 +910,7 @@ pub enum AttrOrigin {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct PageSummary {
     /// 0-based.
     pub index: u32,
@@ -803,6 +924,7 @@ pub struct PageSummary {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct PageBox {
     pub name: String,
     pub rect: Option<Rect>,
@@ -810,6 +932,7 @@ pub struct PageBox {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ContentInfo {
     pub id: Option<ObjRef>,
     pub raw_len: Option<u64>,
@@ -819,6 +942,7 @@ pub struct ContentInfo {
 
 /// One named resource: `/Font /F1`, `/XObject /Im3`, ...
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ResourceItem {
     pub category: String,
     pub name: String,
@@ -828,6 +952,7 @@ pub struct ResourceItem {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct PageDetail {
     pub index: u32,
     pub id: ObjRef,
@@ -851,6 +976,7 @@ pub struct PageDetail {
 
 /// A destination, resolved to a page of this document where possible.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct Destination {
     /// The name it was looked up by (named destinations).
     pub named: Option<String>,
@@ -867,6 +993,7 @@ pub struct Destination {
 
 /// Where an outline item, link or open action goes.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum LinkTarget {
     Dest {
@@ -883,6 +1010,7 @@ pub enum LinkTarget {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct OutlineItem {
     pub id: ObjRef,
     pub title: String,
@@ -897,6 +1025,7 @@ pub struct OutlineItem {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct AnnotInfo {
     /// Position in the page's `/Annots` (also the order they are painted
     /// in, over the content).
@@ -950,6 +1079,7 @@ pub struct AnnotInfo {
 /// An annotation's normal appearance stream and how it is put on the page
 /// (ISO 32000-2 12.5.5).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct AppearanceInfo {
     /// The `/AP` entry: `N` (normal), `R` (rollover) or `D` (down).
     pub kind: String,
@@ -971,6 +1101,7 @@ pub struct AppearanceInfo {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct InfoEntry {
     pub key: String,
     pub text: String,
@@ -980,6 +1111,7 @@ pub struct InfoEntry {
 
 /// An entry of the catalog, summarized (`AcroForm`: `3 top-level fields`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct Feature {
     pub key: String,
     pub text: String,
@@ -987,6 +1119,7 @@ pub struct Feature {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct DocumentView {
     pub catalog: Option<ObjRef>,
     pub info: Option<ObjRef>,
@@ -1001,6 +1134,7 @@ pub struct DocumentView {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(rename_all = "camelCase")]
 pub enum XmpNodeKind {
     Element,
@@ -1010,6 +1144,7 @@ pub enum XmpNodeKind {
 /// A node of the XMP tree; children follow their parent with a greater
 /// `depth`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct XmpNode {
     pub depth: u32,
     pub kind: XmpNodeKind,
@@ -1019,6 +1154,7 @@ pub struct XmpNode {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct XmpProperty {
     pub name: String,
     pub namespace: String,
@@ -1026,11 +1162,12 @@ pub struct XmpProperty {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct XmpView {
     pub id: ObjRef,
     /// Length of the decoded packet.
     pub len: u64,
-    pub nodes: Page<XmpNode>,
+    pub nodes: XmpNodePage,
     /// The tree has more nodes than were kept.
     pub truncated: bool,
     pub properties: Vec<XmpProperty>,
@@ -1038,6 +1175,7 @@ pub struct XmpView {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct FontInfo {
     pub id: ObjRef,
     pub base_font: Option<String>,
@@ -1059,6 +1197,7 @@ pub struct FontInfo {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(rename_all = "camelCase")]
 pub enum FontKind {
     /// Type 1, TrueType, MMType1.
@@ -1069,6 +1208,7 @@ pub enum FontKind {
 
 /// What draws a font's glyphs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(rename_all = "camelCase")]
 pub enum GlyphSourceKind {
     /// The embedded program.
@@ -1084,6 +1224,7 @@ pub enum GlyphSourceKind {
 
 /// An embedded font program.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct FontProgramInfo {
     pub stream: Option<ObjRef>,
     /// `FontFile`, `FontFile2` or `FontFile3`.
@@ -1102,6 +1243,7 @@ pub struct FontProgramInfo {
 
 /// A font: dictionaries, encoding, program and problems.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct FontDetail {
     pub id: ObjRef,
     pub kind: FontKind,
@@ -1140,6 +1282,7 @@ pub struct FontDetail {
 
 /// One code of a font and the glyph it selects.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct GlyphView {
     pub code: u32,
     /// The code's bytes in hex (`41`, `0041`).
@@ -1162,6 +1305,7 @@ pub struct GlyphView {
 /// One glyph of an embedded font program, by index, and the codes that
 /// select it.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ProgramGlyph {
     pub gid: u32,
     pub name: Option<String>,
@@ -1179,6 +1323,7 @@ pub struct ProgramGlyph {
 
 /// Text a font shows: one text-showing operation.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct FontUse {
     /// 0-based page index.
     pub page: u32,
@@ -1200,6 +1345,7 @@ pub struct FontUse {
 
 /// How often a code is shown.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct CodeCount {
     /// The code's bytes in hex, as `GlyphView.bytes`.
     pub bytes: String,
@@ -1209,6 +1355,7 @@ pub struct CodeCount {
 /// The text a font shows, once a `FontUses` job has gone through the
 /// document.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct FontUsesView {
     /// A `FontUses` job has finished for the font (otherwise the rest is
     /// empty).
@@ -1218,10 +1365,11 @@ pub struct FontUsesView {
     pub pages: u32,
     /// Every code shown, ascending.
     pub codes: Vec<CodeCount>,
-    pub uses: Page<FontUse>,
+    pub uses: FontUsePage,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ImageInfo {
     pub id: ObjRef,
     pub width: Option<i64>,
@@ -1242,6 +1390,7 @@ pub struct ImageInfo {
 /// those that failed to load) with the same `/Type`, `/Subtype` and schema
 /// type.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ObjectClass {
     pub kind: String,
     pub type_name: Option<String>,
@@ -1254,6 +1403,7 @@ pub struct ObjectClass {
 
 /// Which objects `Objects` lists (needs the inventory).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ObjectFilter {
     /// Objects in any of these classes (`count` ignored); `None`: any.
     pub classes: Option<Vec<ObjectClass>>,
@@ -1264,6 +1414,7 @@ pub struct ObjectFilter {
 /// How the trailer reaches an object: each step refers to the next one (the
 /// last to the object) through `key`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct RefPath {
     /// Whether some chain of references from the trailer reaches it.
     pub reachable: bool,
@@ -1271,6 +1422,7 @@ pub struct RefPath {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct PathStep {
     pub from: NodeRoot,
     /// Schema type, or `/Type`.
@@ -1281,6 +1433,7 @@ pub struct PathStep {
 
 /// An object (or the trailer) that refers to another one.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct Referrer {
     pub from: NodeRoot,
     /// Schema type, or `/Type`.
@@ -1294,6 +1447,7 @@ pub struct Referrer {
 /// A content: a page's `/Contents` (with its resources) or a stream (form
 /// XObject, tiling pattern, glyph procedure, appearance stream, ...).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ContentRef {
     Page { index: u32 },
@@ -1301,6 +1455,7 @@ pub enum ContentRef {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(rename_all = "camelCase")]
 pub enum ContentKind {
     Page,
@@ -1312,6 +1467,7 @@ pub enum ContentKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ContentSourceInfo {
     pub id: Option<ObjRef>,
     /// Decoded bytes parsed.
@@ -1320,6 +1476,7 @@ pub struct ContentSourceInfo {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct CategoryCount {
     /// Operator group: `pathConstruction`, `textShowing`, ...
     pub category: String,
@@ -1327,6 +1484,7 @@ pub struct CategoryCount {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ContentSummary {
     pub content: ContentRef,
     pub kind: ContentKind,
@@ -1360,6 +1518,7 @@ pub struct ContentSummary {
 /// `/Rotate`, a form's `/BBox`, or what a stream paints. Rendered bitmaps
 /// and hit tests use this space (scaled to pixels for bitmaps).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ViewInfo {
     /// In points.
     pub width: f64,
@@ -1372,6 +1531,7 @@ pub struct ViewInfo {
 
 /// A region of a rendered view, in pixels.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct PixelRect {
     pub x: u32,
     pub y: u32,
@@ -1380,6 +1540,7 @@ pub struct PixelRect {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum RenderLayer {
     /// The content (pages on white, streams on transparent).
@@ -1400,6 +1561,7 @@ pub enum RenderLayer {
 /// Another appearance of an annotation to paint: `/AP` entry `kind`
 /// (`N`, `R`, `D`) and its state.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct AppearancePick {
     /// Position in the page's `/Annots`.
     pub index: u32,
@@ -1408,6 +1570,7 @@ pub struct AppearancePick {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct RenderNote {
     /// What was approximated or left out.
     pub message: String,
@@ -1417,6 +1580,7 @@ pub struct RenderNote {
 /// A rendered bitmap: RGBA (not premultiplied), row by row, in binary part
 /// `part`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct BitmapInfo {
     pub part: u32,
     /// The region of the whole view's bitmap this is.
@@ -1432,6 +1596,7 @@ pub struct BitmapInfo {
 
 /// Which painting operations a region of a content takes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
 #[serde(rename_all = "camelCase")]
 pub enum RegionSelect {
     /// What they paint lies inside it.
@@ -1442,6 +1607,7 @@ pub enum RegionSelect {
 
 /// A region cut out of a content: a one-page PDF in binary part `part`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ExtractInfo {
     pub part: u32,
     pub bytes: u64,
@@ -1457,6 +1623,7 @@ pub struct ExtractInfo {
 
 /// A problem of a content: of one operation, or (`op: None`) of the whole.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ContentIssue {
     pub op: Option<u32>,
     pub severity: Severity,
@@ -1470,6 +1637,7 @@ pub struct ContentIssue {
 /// What an operation paints, in the content's space (default user space for
 /// pages).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ElementView {
     pub op: u32,
     /// `fill`, `stroke`, `fillStroke`, `clip`, `text`, `image`,
@@ -1481,6 +1649,7 @@ pub struct ElementView {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct OpView {
     pub index: u32,
     pub operator: String,
@@ -1507,6 +1676,7 @@ pub struct OpView {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ColorView {
     /// As set: `DeviceRGB`, `Pattern`, or a `/ColorSpace` resource name.
     pub space: String,
@@ -1516,6 +1686,7 @@ pub struct ColorView {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct FontView {
     /// Resource name (`ExtGState` when set by `gs`).
     pub name: String,
@@ -1528,6 +1699,7 @@ pub struct FontView {
 
 /// The graphics and text state around one operation.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct GraphicsState {
     /// `[a b c d e f]`.
     pub ctm: Vec<f64>,
@@ -1573,6 +1745,7 @@ pub struct GraphicsState {
 
 /// The state an operation runs in and the state it leaves.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct OpState {
     pub index: u32,
     pub operator: String,

@@ -2,6 +2,9 @@
 //! [`Response`]s and publishing [`Event`]s. Transports (WebSocket server,
 //! wasm Worker) only move messages; all behavior lives here.
 
+#[cfg(feature = "ffi")]
+uniffi::setup_scaffolding!();
+
 // Test support shared by the per-backend conformance runners.
 #[doc(hidden)]
 pub mod conformance;
@@ -18,7 +21,7 @@ pub mod source;
 mod ts;
 
 pub use dto::*;
-pub use job::{Executor, QueueExecutor, Task};
+pub use job::{Executor, QueueExecutor, Task, ThreadExecutor};
 pub use protocol::*;
 pub use session::{MAX_CHUNK, MAX_PAGE, SaveStream, Session, SubscriptionId};
 pub use source::{NoFilesystem, Opened, SaveTarget, SourceProvider};

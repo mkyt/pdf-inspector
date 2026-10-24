@@ -16,7 +16,9 @@ PDF の内部構造を調べ、編集するためのツール群。設計は [do
 | `crates/pdfi-api` | フロントとの境界。`Session` が `Request` → `Response` / `Event` を処理（範囲 API、ジョブ、Batch、バイナリ別フレーム、編集と保存）。TS 型を生成 |
 | `crates/pdfi-server` | `pdfi serve` のローカルサーバー（axum + WebSocket、Web UI 内蔵、トークン / Host / Origin / 許可ルート検査） |
 | `crates/pdfi-wasm` | ブラウザ完結モード用の wasm バインディング（Worker から `Session` を駆動、Blob から直接読む） |
+| `crates/pdfi-ffi` | macOS アプリ用の UniFFI バインディング（プロトコルの型をそのまま Swift に、`Session` をインプロセスで駆動、パスで開く・保存・再読込） |
 | `crates/pdfi-cli` | `pdfi` コマンド |
+| `apps/macos` | macOS アプリ（AppKit の NSDocument + SwiftUI、`PdfInspectorKit` パッケージ）。骨格: 概要・ページ / オブジェクト / 診断 / フォント / 画像の一覧・ページ描画・ジョブ・undo / 保存の経路。Web UI との対応表は [apps/macos/README.md](apps/macos/README.md) |
 | `apps/web` | Web UI（Vite + React + Mantine）。Document / Pages / Outline / Fonts / Images 画面、フォント画面（プログラム・エンコーディング・問題、符号 → グリフ → テキストの表とアウトライン、埋め込みプログラムの全グリフとそれを選ぶ符号、そのフォントで描かれたテキストの一覧（フォーム内も含む）と使われた符号）、命令列ビュー（ネスト・問題・デコード済みテキスト、命令ごとの前後のグラフィックス状態、描画範囲の図とステップ表示）、ページ描画（タイル・ズーム、クリックで命令を選択、選択した命令のハイライト、ステップ実行、矩形で囲んだ範囲を描く命令だけを無劣化で 1 ページの PDF に切り出し）、オブジェクト一覧・ツリー・hex・ストリーム表示、被参照一覧、スキーマ型・キー定義・問題の表示と検証ジョブ。編集（ツリーの値を PDF 構文で編集・追加・削除、オブジェクトの追加・削除、ストリームのデータ、ページ操作、Info / XMP）、命令列エディタ（ブロックの折りたたみ・範囲選択・キー操作で挿入 / 編集 / 削除 / 移動 / コピー・貼り付け、CodeMirror のテキストモード: 色分け・折りたたみ・オペランドに合う演算子とリソース名の補完・問題表示・ホバーの説明）と undo / redo、保存（サーバーはパスへ、ブラウザは File System Access API）。サーバー / ブラウザ完結の両モード |
 
 ## 使い方
@@ -45,6 +47,15 @@ target/release/pdfi rewrite in.pdf out.pdf [--reserialize]
 ```
 
 暗号化ファイルは `--password`、xref を無視して走査で復元するには `--recover`。
+
+### macOS アプリ
+
+```sh
+apps/macos/scripts/build-core.sh          # Rust のコア（XCFramework）と Swift バインディングを生成
+open apps/macos/PDFInspector.xcodeproj
+```
+
+詳しくは [apps/macos/README.md](apps/macos/README.md)。
 
 ### Web UI
 
@@ -86,6 +97,8 @@ cargo test --workspace
 UPDATE_TS=1 cargo test -p pdfi-api        # プロトコルを変えたら TS 型（apps/web/src/protocol/generated.ts）を再生成
 UPDATE_CONFORMANCE=1 cargo test -p pdfi-api --test conformance   # 適合テストの期待結果を再生成（意図した変更のとき）
 (cd apps/web && npm run build:wasm && npm run test:conformance)  # 同じシナリオを wasm で実行
+cargo test -p pdfi-ffi                    # 同じシナリオを FFI（macOS の経路）で実行
+swift test --package-path apps/macos/PdfInspectorKit             # Swift から（先に apps/macos/scripts/build-core.sh）
 tests/fixtures/make.sh                    # フィクスチャ再生成（python3 + fontTools, qpdf が必要）
 scripts/make-large-pdf.py big.pdf --pages 3000 --image-kib 100   # 大きな合成 PDF（約 300 MB）
 scripts/corpus-check.sh <dir> [--decode]  # 手元の PDF 群で qpdf とページ数を突き合わせ

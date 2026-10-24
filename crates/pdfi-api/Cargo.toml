@@ -16,6 +16,11 @@ pdfi-syntax = { version = "0.1.0", path = "../pdfi-syntax" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 ts-rs = { version = "12.0.1", features = ["serde-compat", "no-serde-warnings"] }
+uniffi = { version = "0.32.2", optional = true }
+
+[features]
+# UniFFI derives on the protocol types, for pdfi-ffi.
+ffi = ["dep:uniffi"]
 
 [lints]
 workspace = true
