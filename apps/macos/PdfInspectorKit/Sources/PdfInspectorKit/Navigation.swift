@@ -39,11 +39,26 @@ public struct Selection: Equatable, Sendable {
 /// Where a document window is, with back and forward.
 @MainActor @Observable
 public final class Navigation {
-    public private(set) var target: Target = .document {
-        didSet {
-            if !target.isSame(as: oldValue) { selection = nil }
+    /// Where the window is, with the selected operation of a content.
+    public private(set) var target: Target {
+        get {
+            if case .content(let c, _) = place { .content(c, op: op) } else { place }
+        }
+        set {
+            let p: Target = if case .content(let c, _) = newValue { .content(c, op: nil) } else { newValue }
+            let o: UInt32? = if case .content(_, let o) = newValue { o } else { nil }
+            if p != place {
+                place = p
+                selection = nil
+            }
+            if o != op { op = o }
         }
     }
+    /// The target without the selected operation: views that do not show it
+    /// read this, so that selecting another operation leaves them alone.
+    public private(set) var place: Target = .document
+    /// The selected operation of a content target.
+    public private(set) var op: UInt32?
     private var back: [Target] = []
     private var forward: [Target] = []
     public private(set) var selection: Selection?

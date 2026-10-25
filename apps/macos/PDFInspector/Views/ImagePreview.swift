@@ -59,6 +59,7 @@ struct ImagePreview: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("ImagePreview")
         if let d = dict {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
@@ -256,6 +257,7 @@ func rasterize(_ d: ImageDict, _ bytes: Data) -> Result<CGImage, RasterError> {
 /// Shows transparency behind images.
 struct Checkerboard: View {
     var body: some View {
+        let _ = Perf.tick("Checkerboard")
         Canvas { ctx, size in
             let s = 8.0
             ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.white))

@@ -39,6 +39,7 @@ struct ValueEditor: View {
     @State private var busy = false
 
     var body: some View {
+        let _ = Perf.tick("ValueEditor")
         VStack(alignment: .leading, spacing: 8) {
             Text(edit.title).font(.headline)
             if case .entry = edit.kind {

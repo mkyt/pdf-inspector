@@ -32,13 +32,14 @@ struct Breadcrumbs: View {
 
         init(_ m: DocumentModel) {
             // The selected operation does not move the crumbs.
-            if case .content(let c, _) = m.nav.target { target = .content(c, op: nil) } else { target = m.nav.target }
+            target = m.nav.place
             inventory = m.summary.inventory != nil
             generation = m.generation
         }
     }
 
     var body: some View {
+        let _ = Perf.tick("Breadcrumbs")
         ScrollViewReader { proxy in
             ScrollView(.horizontal) {
                 HStack(spacing: 4) {
@@ -73,7 +74,7 @@ struct Breadcrumbs: View {
     }
 
     private func load() async {
-        let t = model.nav.target
+        let t = model.nav.place
         let page: PageDetail? =
             if let i = targetPage(t) { try? await model.backend.page(model.doc, index: i) } else { nil }
         let id: ObjRef? =
@@ -112,7 +113,7 @@ struct Breadcrumbs: View {
     }
 
     private var crumbs: [Crumb] {
-        let t = model.nav.target
+        let t = model.nav.place
         switch t {
         case .document: return [Crumb(label: "Document")]
         case .trailer: return [Crumb(label: "Trailer")]

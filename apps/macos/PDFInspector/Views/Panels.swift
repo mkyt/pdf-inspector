@@ -1,44 +1,41 @@
+import AppKit
 import PdfInspectorKit
 import SwiftUI
 
 /// Rows of a `PagedList`, fetched as they scroll into view (the web
 /// `PagedList`). The list is dropped and fetched again when the document
-/// changes.
+/// changes. Rows are `rowHeight` high, or as high as they need when `fits`
+/// (measured as they are shown); `rowBackground` colors a whole row.
 struct PagedRows<P: ListPage, Row: View>: View {
     let model: DocumentModel
     let empty: String
+    let rowHeight: Double
+    let fits: Bool
     @State private var list: PagedList<P>
     private let row: (P.Item, Int) -> Row
 
     init(
-        model: DocumentModel, total: Int, empty: String = "Nothing here.",
+        model: DocumentModel, total: Int, empty: String = "Nothing here.", rowHeight: Double = 24, fits: Bool = false,
         fetch: @escaping @Sendable (ListRange) async throws -> P,
         @ViewBuilder row: @escaping (P.Item, Int) -> Row
     ) {
         self.model = model
         self.empty = empty
+        self.rowHeight = rowHeight
+        self.fits = fits
         _list = State(initialValue: PagedList(total: total, fetch: fetch))
         self.row = row
     }
 
     var body: some View {
+        let _ = Perf.tick("PagedRows")
         Group {
             if list.total == 0 {
                 Text(empty)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(0..<list.total, id: \.self) { i in
-                    Group {
-                        if let item = list.item(i) {
-                            row(item, i)
-                        } else {
-                            ProgressView().controlSize(.mini)
-                        }
-                    }
-                    .onAppear { list.need(i) }
-                }
-                .listStyle(.plain)
+                PagedTable(list: list, version: list.version, rowHeight: rowHeight, fits: fits, row: row)
             }
         }
         .overlay(alignment: .bottom) {
@@ -47,6 +44,158 @@ struct PagedRows<P: ListPage, Row: View>: View {
             }
         }
         .onChange(of: model.generation) { list.reset() }
+    }
+}
+
+extension View {
+    /// The background of the whole row of a `PagedRows` (like
+    /// `listRowBackground`).
+    func rowBackground(_ color: Color?) -> some View {
+        preference(key: RowBackground.self, value: color)
+    }
+}
+
+private struct RowBackground: PreferenceKey {
+    static var defaultValue: Color? { nil }
+    static func reduce(value: inout Color?, nextValue: () -> Color?) { value = value ?? nextValue() }
+}
+
+/// The rows of a `PagedRows` in an NSTableView, which asks only for the rows
+/// on screen (SwiftUI's `List` diffs every row on each update: seconds for
+/// 100,000 objects). Each row is a SwiftUI view of its own: what it reads
+/// (the window's place) updates the rows on screen only.
+private struct PagedTable<P: ListPage, Row: View>: NSViewRepresentable {
+    let list: PagedList<P>
+    /// `list.version`, read in the owner's body so that it redraws.
+    let version: Int
+    let rowHeight: Double
+    let fits: Bool
+    let row: (P.Item, Int) -> Row
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let table = NSTableView()
+        let column = NSTableColumn(identifier: .init("row"))
+        column.resizingMask = .autoresizingMask
+        table.addTableColumn(column)
+        table.headerView = nil
+        table.style = .plain
+        table.rowHeight = rowHeight
+        table.intercellSpacing = .zero
+        table.selectionHighlightStyle = .none
+        table.allowsEmptySelection = true
+        table.focusRingType = .none
+        table.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
+        table.dataSource = context.coordinator
+        table.delegate = context.coordinator
+        let scroll = NSScrollView()
+        scroll.documentView = table
+        scroll.hasVerticalScroller = true
+        scroll.drawsBackground = false
+        context.coordinator.table = table
+        context.coordinator.shown = self
+        table.reloadData()
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        context.coordinator.update(self)
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+        var shown: PagedTable?
+        weak var table: NSTableView?
+        /// Heights of rows measured (with `fits`), by row; for the width.
+        private var heights: [Int: CGFloat] = [:]
+        private var measuredWidth: CGFloat = 0
+
+        func update(_ p: PagedTable) {
+            guard let table, let old = shown else { return }
+            shown = p
+            if old.list !== p.list || table.numberOfRows != p.list.total {
+                heights = [:]
+                table.reloadData()
+                return
+            }
+            // The rows' closures are new: show the rows on screen with them.
+            let rows = table.rows(in: table.visibleRect)
+            guard rows.length > 0 else { return }
+            Perf.tick("PagedTable.reloadRows")
+            table.reloadData(forRowIndexes: IndexSet(integersIn: rows.location..<rows.location + rows.length), columnIndexes: [0])
+        }
+
+        func numberOfRows(in tableView: NSTableView) -> Int { shown?.list.total ?? 0 }
+
+        func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+            guard let p = shown else { return nil }
+            Perf.tick("PagedTable.viewFor")
+            p.list.need(row)
+            let content = PagedCell(item: p.list.item(row), index: row, row: p.row)
+            let id = NSUserInterfaceItemIdentifier("PagedCell")
+            let cell: NSHostingView<PagedCell<P.Item, Row>>
+            if let c = tableView.makeView(withIdentifier: id, owner: nil) as? NSHostingView<PagedCell<P.Item, Row>> {
+                c.rootView = content
+                cell = c
+            } else {
+                cell = NSHostingView(rootView: content)
+                cell.identifier = id
+                cell.sizingOptions = []
+            }
+            if p.fits, content.item != nil { measure(content, row: row, in: tableView) }
+            return cell
+        }
+
+        /// Sizes rows for `fits`.
+        private var measurer: NSHostingController<PagedCell<P.Item, Row>>?
+
+        private func measure(_ content: PagedCell<P.Item, Row>, row: Int, in tableView: NSTableView) {
+            guard let p = shown else { return }
+            let width = tableView.tableColumns.first?.width ?? tableView.bounds.width
+            if width != measuredWidth {
+                measuredWidth = width
+                heights = [:]
+            }
+            guard heights[row] == nil else { return }
+            let m = measurer ?? NSHostingController(rootView: content)
+            measurer = m
+            m.rootView = content
+            let h = max(p.rowHeight, m.sizeThatFits(in: NSSize(width: width, height: 10_000)).height.rounded(.up))
+            heights[row] = h
+            if h != p.rowHeight {
+                // After this row's view is in place.
+                DispatchQueue.main.async { tableView.noteHeightOfRows(withIndexesChanged: [row]) }
+            }
+        }
+
+        func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+            heights[row] ?? shown?.rowHeight ?? 24
+        }
+
+        func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool { false }
+    }
+}
+
+/// A row of a `PagedTable`: the item's row, or a spinner while its page
+/// loads; the row is made here so that what it reads updates it.
+private struct PagedCell<Item, Row: View>: View {
+    let item: Item?
+    let index: Int
+    let row: (Item, Int) -> Row
+
+    var body: some View {
+        let _ = Perf.tick("PagedCell")
+        Group {
+            if let item {
+                row(item, index)
+            } else {
+                ProgressView().controlSize(.mini)
+            }
+        }
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .backgroundPreferenceValue(RowBackground.self) { $0 ?? .clear }
     }
 }
 
@@ -63,10 +212,11 @@ struct DiagnosticsPanel: View {
     let model: DocumentModel
 
     var body: some View {
+        let _ = Perf.tick("DiagnosticsPanel")
         let doc = model.doc
         let backend = model.backend
         PagedRows<DiagnosticInfoPage, _>(
-            model: model, total: Int(model.summary.diagnostics), empty: "No diagnostics.",
+            model: model, total: Int(model.summary.diagnostics), empty: "No diagnostics.", fits: true,
             fetch: { try await backend.diagnostics(doc, range: $0) }
         ) { d, _ in
             DiagnosticRow(d: d) { model.nav.open(.object($0)) }
@@ -79,6 +229,7 @@ struct DiagnosticRow: View {
     let open: (ObjRef) -> Void
 
     var body: some View {
+        let _ = Perf.tick("DiagnosticRow")
         HStack(alignment: .firstTextBaseline) {
             Image(systemName: d.severity.symbol).foregroundStyle(d.severity.color)
             VStack(alignment: .leading) {
@@ -127,6 +278,7 @@ struct InventoryGate<Content: View>: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("InventoryGate")
         if let stats = model.summary.inventory {
             content(stats)
         } else {
@@ -153,6 +305,7 @@ struct FontsPanel: View {
     let model: DocumentModel
 
     var body: some View {
+        let _ = Perf.tick("FontsPanel")
         let doc = model.doc
         let backend = model.backend
         InventoryGate(model: model) { stats in
@@ -182,6 +335,7 @@ struct ImagesPanel: View {
     let model: DocumentModel
 
     var body: some View {
+        let _ = Perf.tick("ImagesPanel")
         let doc = model.doc
         let backend = model.backend
         InventoryGate(model: model) { stats in

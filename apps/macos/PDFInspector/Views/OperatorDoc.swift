@@ -49,6 +49,7 @@ struct OperatorDoc: View {
     let op: UInt32
 
     var body: some View {
+        let _ = Perf.tick("OperatorDoc")
         Loaded(model.generation, fetch: {
             try await model.backend.contentOps(model.doc, content, range: ListRange(offset: UInt64(op), limit: 1))
                 .items.first
@@ -187,20 +188,33 @@ struct OpStatePanel: View {
     let content: ContentRef
     let summary: ContentSummary
     let index: UInt32
-    @State private var state: OpState?
-    @State private var o: OpView?
-    @State private var source: Data?
+    /// What was read for an operation: kept while the next one is read, and
+    /// set at once, so that a new selection lays out the panel once.
+    @State private var shown: Shown?
     @State private var error: String?
+
+    private struct Shown {
+        let index: UInt32
+        let state: OpState
+        let o: OpView?
+        let source: Data?
+    }
+
+    private struct Key: Equatable {
+        let index: UInt32
+        let generation: Int
+    }
 
     private static let maxSource: UInt64 = 4096
 
     var body: some View {
+        let _ = Perf.tick("OpStatePanel")
         ScrollView {
             VStack(alignment: .leading, spacing: 6) {
                 if let error {
                     Text(error).foregroundStyle(.red)
-                } else if let s = state {
-                    panel(s)
+                } else if let s = shown {
+                    panel(s.state, index: s.index, o: s.o, source: s.source)
                 } else {
                     ProgressView().controlSize(.small)
                 }
@@ -209,13 +223,14 @@ struct OpStatePanel: View {
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .task(id: model.generation) {
+        .task(id: Key(index: index, generation: model.generation)) {
             do {
                 async let st = model.backend.opState(model.doc, content, index: index)
                 async let ov = model.backend.contentOps(
                     model.doc, content, range: ListRange(offset: UInt64(index), limit: 1))
-                state = try await st
-                o = try await ov.items.first
+                let state = try await st
+                let o = try await ov.items.first
+                var source: Data?
                 if let o, let si = o.source, Int(si) < summary.sources.count, let id = summary.sources[Int(si)].id,
                     let span = o.span
                 {
@@ -224,6 +239,9 @@ struct OpStatePanel: View {
                         len: UInt32(min(span.end - span.start, Self.maxSource))
                     ).data
                 }
+                try Task.checkCancellation()
+                shown = Shown(index: index, state: state, o: o, source: source)
+                error = nil
             } catch is CancellationError {
             } catch {
                 self.error = error.localizedDescription
@@ -231,7 +249,7 @@ struct OpStatePanel: View {
         }
     }
 
-    @ViewBuilder private func panel(_ s: OpState) -> some View {
+    @ViewBuilder private func panel(_ s: OpState, index: UInt32, o: OpView?, source: Data?) -> some View {
         HStack(spacing: 6) {
             Text(s.operator).font(.callout.monospaced().bold())
                 .foregroundStyle(Category.color(o?.category ?? "unknown"))

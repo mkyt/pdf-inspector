@@ -8,6 +8,7 @@ struct PagesPanel: View {
     @State private var adding = false
 
     var body: some View {
+        let _ = Perf.tick("PagesPanel")
         let doc = model.doc
         let backend = model.backend
         let count = model.summary.pages
@@ -54,7 +55,7 @@ struct PagesPanel: View {
                 .buttonStyle(.plain)
                 .font(.callout)
                 .contextMenu { PageMenu(model: model, page: p, count: count) }
-                .listRowBackground(model.nav.target == .page(p.index) ? Color.accentColor.opacity(0.2) : nil)
+                .rowBackground(model.nav.place == .page(p.index) ? Color.accentColor.opacity(0.2) : nil)
             }
             .id(count)
         }
@@ -70,6 +71,7 @@ private struct PageMenu: View {
     @Environment(\.inspectorDocument) private var document
 
     var body: some View {
+        let _ = Perf.tick("PageMenu")
         let i = page.index
         let n = pageText(i, label: page.label)
         let pages = [i]
@@ -90,7 +92,7 @@ private struct PageMenu: View {
         Divider()
         Button("Delete", role: .destructive) {
             document?.run("Delete page \(n)", [.deletePages(pages: pages)])
-            if model.nav.target == .page(i) { model.nav.open(.document) }
+            if model.nav.place == .page(i) { model.nav.open(.document) }
         }
     }
 
@@ -128,6 +130,7 @@ private struct AddPages: View {
     @State private var busy = false
 
     var body: some View {
+        let _ = Perf.tick("AddPages")
         let count = Int(model.summary.pages)
         VStack(alignment: .leading, spacing: 10) {
             Text("Add pages").font(.headline)

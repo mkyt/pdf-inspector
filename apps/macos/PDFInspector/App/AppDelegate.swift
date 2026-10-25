@@ -1,4 +1,5 @@
 import AppKit
+import PdfInspectorKit
 
 /// AppKit lifecycle: documents are `InspectorDocument`s (NSDocument reads by
 /// URL, so the file is never loaded whole), each window hosts SwiftUI.
@@ -19,6 +20,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if UserDefaults.standard.string(forKey: "PerfBench") != nil {
+            PerfBench.runIfAsked()
+            return
+        }
+        if Perf.enabled { MainThreadMonitor.shared.start() }
         // Nothing reopened or opened from the Finder: ask for a file.
         DispatchQueue.main.async {
             if NSDocumentController.shared.documents.isEmpty {

@@ -24,6 +24,7 @@ struct StreamPanel: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("StreamPanel")
         let data = chunks.reduce(into: Data()) { $0.append($1.data) }
         let last = chunks.last?.info
         let errors = Array(Set(chunks.flatMap(\.info.errors))).sorted()
@@ -131,6 +132,7 @@ private struct DataEditor: View {
     private static let maxText: UInt32 = 4 << 20
 
     var body: some View {
+        let _ = Perf.tick("DataEditor")
         VStack(alignment: .leading, spacing: 8) {
             Text("Stream data of \(id.num) \(id.generation)").font(.headline)
             if let s = stoppedAt {

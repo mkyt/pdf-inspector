@@ -10,6 +10,7 @@ struct PageView: View {
     @State private var annot: UInt32?
 
     var body: some View {
+        let _ = Perf.tick("PageView")
         Loaded(model.generation, fetch: { try await model.backend.page(model.doc, index: index) }) { p in
             SplitPane(.horizontal, key: "pageInfo", size: 420, min: 260, max: 900) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -52,6 +53,7 @@ private struct Rendering: View {
     @Binding var annot: UInt32?
 
     var body: some View {
+        let _ = Perf.tick("Rendering")
         let content = ContentRef.page(index: index)
         Loaded(model.generation, fetch: { try await model.backend.content(model.doc, content) }) { s in
             RenderView(
@@ -66,6 +68,7 @@ private struct Origin: View {
     let o: AttrOrigin
 
     var body: some View {
+        let _ = Perf.tick("Origin")
         switch o {
         case .inherited(let from):
             HStack(spacing: 3) {
@@ -86,6 +89,7 @@ private struct PageDetailView: View {
     @Binding var annot: UInt32?
 
     var body: some View {
+        let _ = Perf.tick("PageDetailView")
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 4) {
                 Text("Page tree:").foregroundStyle(.secondary)
@@ -201,6 +205,7 @@ private struct AnnotationList: View {
     @State private var error: String?
 
     var body: some View {
+        let _ = Perf.tick("AnnotationList")
         VStack(alignment: .leading, spacing: 2) {
             ForEach(items, id: \.index) { a in
                 HStack(alignment: .firstTextBaseline, spacing: 6) {

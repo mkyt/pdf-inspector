@@ -112,6 +112,7 @@ struct RenderView: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("RenderView")
         VStack(alignment: .leading, spacing: 4) {
             toolbar
             ScrollView([.horizontal, .vertical]) {
@@ -482,6 +483,7 @@ private struct AnnotOverlay: View {
     let onSelect: (UInt32) -> Void
 
     var body: some View {
+        let _ = Perf.tick("AnnotOverlay")
         let sel = annots.first { $0.index == selected }
         let ap = sel.flatMap { shownAppearance($0, picks[$0.index]) }
         let toCanvas = view.transform.concatenating(CGAffineTransform(scaleX: zoom, y: zoom))
@@ -587,6 +589,7 @@ struct AnnotCard: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("AnnotCard")
         let ap = shownAppearance(a, pick)
         let painted = a.shown && ap != nil && ap?.error == nil && ap?.id != nil && ap?.toPage != nil
         VStack(alignment: .leading, spacing: 4) {
@@ -706,6 +709,7 @@ struct LinkView: View {
     let link: LinkTarget
 
     var body: some View {
+        let _ = Perf.tick("LinkView")
         switch link {
         case .dest(let d) where d.pageIndex != nil:
             LinkButton(d.text) { model.nav.open(.page(d.pageIndex!)) }
@@ -741,6 +745,7 @@ private struct RegionCut: View {
     @State private var error: String?
 
     var body: some View {
+        let _ = Perf.tick("RegionCut")
         let rect = view.toContent(region)
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 8) {

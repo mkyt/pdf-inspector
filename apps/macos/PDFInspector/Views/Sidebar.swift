@@ -39,6 +39,7 @@ struct Sidebar: View {
     @Bindable var layout: WindowLayout
 
     var body: some View {
+        let _ = Perf.tick("Sidebar")
         VStack(spacing: 0) {
             SummaryCard(model: model, layout: layout)
             Divider()
@@ -80,6 +81,7 @@ struct SummaryCard: View {
     let layout: WindowLayout
 
     var body: some View {
+        let _ = Perf.tick("SummaryCard")
         let s = model.summary
         VStack(alignment: .leading, spacing: 6) {
             Text(s.info.name)
@@ -117,6 +119,7 @@ struct FlowBadges: View {
     let items: [String]
 
     var body: some View {
+        let _ = Perf.tick("FlowBadges")
         HStack(spacing: 4) {
             ForEach(items, id: \.self) { t in
                 Text(t)
@@ -139,6 +142,7 @@ struct CheckObjects: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("CheckObjects")
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Button("Check objects") { start(decode: false) }
@@ -179,6 +183,7 @@ struct JobProgress: View {
     let job: JobInfo
 
     var body: some View {
+        let _ = Perf.tick("JobProgress")
         if job.state == .running {
             ProgressView(value: Double(job.done), total: Double(max(job.total, 1)))
                 .controlSize(.small)
@@ -195,6 +200,7 @@ struct Landmarks: View {
     let model: DocumentModel
 
     var body: some View {
+        let _ = Perf.tick("Landmarks")
         let s = model.summary
         HStack(spacing: 4) {
             landmark("Overview", .document)
@@ -210,7 +216,7 @@ struct Landmarks: View {
     private func landmark(_ title: String, _ t: Target) -> some View {
         Button(title) { model.nav.open(t) }
             .buttonStyle(.accessoryBar)
-            .background(model.nav.target.isSame(as: t) ? Color.accentColor.opacity(0.2) : .clear,
+            .background(model.nav.place.isSame(as: t) ? Color.accentColor.opacity(0.2) : .clear,
                         in: .rect(cornerRadius: 5))
     }
 }

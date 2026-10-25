@@ -30,6 +30,7 @@ struct NodeChildren: View {
     private var indent: CGFloat { CGFloat(depth) * 16 + 20 }
 
     var body: some View {
+        let _ = Perf.tick("NodeChildren")
         VStack(alignment: .leading, spacing: 0) {
             ForEach(nodes, id: \.index) { n in
                 NodeRow(model: model, parent: path, node: n, depth: depth, label: label)
@@ -93,6 +94,7 @@ struct NodeRow: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("NodeRow")
         let v = node.value
         let expandable: Bool = {
             if case .ref = v { return depth < maxDepth }

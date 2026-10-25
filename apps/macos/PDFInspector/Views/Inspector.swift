@@ -9,6 +9,7 @@ struct InspectorView: View {
     @State private var edit: ValueEdit?
 
     var body: some View {
+        let _ = Perf.tick("InspectorView")
         Group {
             switch root {
             case .trailer:
@@ -30,6 +31,7 @@ private struct TrailerInspector: View {
     @State private var schema: ObjectSchema?
 
     var body: some View {
+        let _ = Perf.tick("TrailerInspector")
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
@@ -66,6 +68,7 @@ private struct ObjectInspector: View {
     enum Tab: Hashable { case structure, stream, source }
 
     var body: some View {
+        let _ = Perf.tick("ObjectInspector")
         Group {
             if let o = object {
                 content(o)
@@ -214,6 +217,7 @@ private struct EditMenu: View {
     @Environment(\.inspectorDocument) private var document
 
     var body: some View {
+        let _ = Perf.tick("EditMenu")
         let path = NodePath(root: root, path: [])
         Menu("Edit") {
             Button("Edit as Text…") { editValue?(ValueEdit(.set(path), title: "Edit \(name)")) }
@@ -252,6 +256,7 @@ struct SchemaBadge: View {
     let schema: ObjectSchema?
 
     var body: some View {
+        let _ = Perf.tick("SchemaBadge")
         if let s = schema, let t = s.typeName {
             let guess = s.origin == .guess
             Badge(t + (guess ? "?" : ""), color: .teal, outline: guess)
@@ -266,6 +271,7 @@ struct SchemaIssues: View {
     let schema: ObjectSchema?
 
     var body: some View {
+        let _ = Perf.tick("SchemaIssues")
         if let s = schema, !s.issues.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 IssueList(model: model, issues: s.issues)
@@ -287,6 +293,7 @@ private struct PageLink: View {
     let id: ObjRef
 
     var body: some View {
+        let _ = Perf.tick("PageLink")
         Loaded(model.generation, fetch: { try await model.backend.pageIndex(model.doc, id: id) }) { index in
             if let index {
                 LinkButton("Page \(index + 1) of the document →") { model.nav.open(.page(index)) }
@@ -311,6 +318,7 @@ struct Referrers: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("Referrers")
         if model.summary.inventory == nil {
             HStack(spacing: 6) {
                 Text("Referenced by: needs the inventory.").foregroundStyle(.secondary)
@@ -387,6 +395,7 @@ private struct SourceView: View {
     private static let maxSource: UInt64 = 1 << 20
 
     var body: some View {
+        let _ = Perf.tick("SourceView")
         if case .file(let span) = object.location {
             let end = object.stream?.dataSpan?.start ?? span.end
             let len = min(end - span.start, Self.maxSource)

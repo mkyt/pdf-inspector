@@ -21,6 +21,7 @@ struct Loaded<Key: Equatable, Value, Content: View>: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("Loaded")
         VStack(alignment: .leading, spacing: 0) {
             if let value {
                 content(value)
@@ -112,24 +113,78 @@ struct CodeText: NSViewRepresentable {
     }
 }
 
-/// Hex dump of bytes in memory; `base` is the offset of the first one.
-struct BytesDump: View {
+/// Hex dump of bytes in memory; `base` is the offset of the first one. In
+/// an NSTableView of text fields, which makes only the rows on screen (a
+/// SwiftUI `List` compares every row on each update: 4 MiB is 262,144).
+struct BytesDump: NSViewRepresentable {
     let data: Data
     var base: UInt64 = 0
 
-    var body: some View {
-        let rows = (data.count + 15) / 16
-        List(0..<rows, id: \.self) { r in
-            Text(line(r))
-                .font(.system(size: 11, design: .monospaced))
-                .textSelection(.enabled)
-                .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
-        }
-        .listStyle(.plain)
-        .environment(\.defaultMinListRowHeight, 15)
+    private static let rowHeight = 15.0
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let table = NSTableView()
+        let column = NSTableColumn(identifier: .init("line"))
+        column.resizingMask = .autoresizingMask
+        table.addTableColumn(column)
+        table.headerView = nil
+        table.style = .plain
+        table.rowHeight = Self.rowHeight
+        table.intercellSpacing = .zero
+        table.selectionHighlightStyle = .none
+        table.focusRingType = .none
+        table.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
+        table.dataSource = context.coordinator
+        table.delegate = context.coordinator
+        let scroll = NSScrollView()
+        scroll.documentView = table
+        scroll.hasVerticalScroller = true
+        scroll.drawsBackground = false
+        context.coordinator.table = table
+        table.reloadData()
+        return scroll
     }
 
-    private func line(_ r: Int) -> String {
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        let c = context.coordinator
+        let old = c.dump
+        c.dump = self
+        if old.base != base || old.data != data { c.table?.reloadData() }
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+        var dump: BytesDump
+        weak var table: NSTableView?
+
+        init(_ dump: BytesDump) {
+            self.dump = dump
+        }
+
+        func numberOfRows(in tableView: NSTableView) -> Int { (dump.data.count + 15) / 16 }
+
+        func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+            let id = NSUserInterfaceItemIdentifier("BytesLine")
+            let field: NSTextField
+            if let f = tableView.makeView(withIdentifier: id, owner: nil) as? NSTextField {
+                field = f
+            } else {
+                field = NSTextField(labelWithString: "")
+                field.identifier = id
+                field.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+                field.isSelectable = true
+                field.lineBreakMode = .byClipping
+            }
+            field.stringValue = " " + dump.line(row)
+            return field
+        }
+
+        func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool { false }
+    }
+
+    fileprivate func line(_ r: Int) -> String {
         let start = data.startIndex + r * 16
         let row = data[start..<min(start + 16, data.endIndex)]
         let off = String(base + UInt64(r * 16), radix: 16)
@@ -149,6 +204,7 @@ struct IssueList: View {
     @State private var all = false
 
     var body: some View {
+        let _ = Perf.tick("IssueList")
         let sorted = issues.sorted { $0.severity.rank > $1.severity.rank }
         VStack(alignment: .leading, spacing: 3) {
             ForEach(Array((all ? sorted : Array(sorted.prefix(max))).enumerated()), id: \.offset) { _, d in
@@ -195,6 +251,7 @@ struct Badge: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("Badge")
         Text(text)
             .font(.caption)
             .padding(.horizontal, 5)
@@ -215,6 +272,7 @@ struct MessagesOverlay: View {
     let model: DocumentModel
 
     var body: some View {
+        let _ = Perf.tick("MessagesOverlay")
         VStack(alignment: .leading, spacing: 6) {
             ForEach(model.messages) { m in
                 HStack(alignment: .top, spacing: 8) {
@@ -276,6 +334,7 @@ struct LinkButton: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("LinkButton")
         Button(title, action: action).buttonStyle(.link)
     }
 }
@@ -312,6 +371,7 @@ struct SplitPane<First: View, Second: View>: View {
     private static var firstMin: Double { 120 }
 
     var body: some View {
+        let _ = Perf.tick("SplitPane")
         let layout = axis == .vertical ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
         // The size asked for, within what the pane has.
         let s = Swift.max(40, Swift.min(Swift.min(max, Swift.max(min, size)), length - Self.firstMin))

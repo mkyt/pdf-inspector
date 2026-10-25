@@ -28,6 +28,7 @@ struct FontView: View {
     let id: ObjRef
 
     var body: some View {
+        let _ = Perf.tick("FontView")
         Loaded(model.generation, fetch: { try await model.backend.font(model.doc, id: id) }) { f in
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
@@ -60,6 +61,7 @@ private struct FontProperties: View {
     let f: FontDetail
 
     var body: some View {
+        let _ = Perf.tick("FontProperties")
         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
             if let d = f.descendant { row("descendant") { ObjLink(model: model, id: d) } }
             row("encoding") { Text((f.encoding ?? "none (built-in)") + (f.vertical ? " · vertical" : "")) }
@@ -129,6 +131,7 @@ private struct FontUses: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("FontUses")
         Loaded(model.generation, fetch: {
             try await model.backend.fontUses(model.doc, id: f.id, range: ListRange(offset: 0, limit: 0))
         }) { u in
@@ -277,6 +280,7 @@ private struct GlyphTable: View {
     @State private var shown: [String: UInt64]?
 
     var body: some View {
+        let _ = Perf.tick("GlyphTable")
         let programGlyphs = f.glyphSource == .embedded ? Int(f.program?.glyphs ?? 0) : 0
         let listing = programGlyphs > 0 && byProgram
         let total = listing ? programGlyphs : Int(f.codes)
@@ -369,6 +373,7 @@ private struct GlyphGrid<P: ListPage>: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("GlyphGrid")
         let rows = (total + 7) / 8
         ScrollView {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 76, maximum: 76), spacing: 0)], spacing: 0) {
@@ -401,6 +406,7 @@ private struct GlyphCell: View {
     let active: Bool
 
     var body: some View {
+        let _ = Perf.tick("GlyphCell")
         let procedure: ObjRef? = if case .code(let g) = e { g.procedure } else { nil }
         let empty: Bool = {
             if e.outline == nil && procedure == nil { return true }
@@ -450,6 +456,7 @@ private struct GlyphShape: View {
     let e: GlyphEntry
 
     var body: some View {
+        let _ = Perf.tick("GlyphShape")
         Canvas { ctx, size in
             let top = max(f.ascent != 0 ? f.ascent : 800, e.bbox?.y1 ?? 0)
             let bottom = min(f.descent != 0 ? f.descent : -200, e.bbox?.y0 ?? 0)
@@ -488,6 +495,7 @@ private struct PickedGlyph: View {
     let shown: UInt64?
 
     var body: some View {
+        let _ = Perf.tick("PickedGlyph")
         HStack(alignment: .top, spacing: 16) {
             Group {
                 if e.outline != nil {

@@ -42,6 +42,10 @@ public final class DocumentModel {
 
     private func handle(_ ev: Event) {
         switch ev {
+        case .jobProgress: break
+        default: Perf.event("event", "\(ev)")
+        }
+        switch ev {
         case .docChanged(let doc, _, _) where doc == self.doc:
             // Jobs ran on the document as it was.
             jobs = [:]

@@ -37,6 +37,9 @@ public final class PagedList<P: ListPage> {
     /// Length of the whole list: as given, then as the backend reports it.
     public private(set) var total: Int
     public private(set) var error: String?
+    /// Bumped when a page arrives or the list is reset: views that read
+    /// items outside SwiftUI (a table) redraw the rows on screen.
+    public private(set) var version = 0
     private var pages: [Int: P] = [:]
     @ObservationIgnored private var loading: [Int: Task<Void, Never>] = [:]
     @ObservationIgnored private let fetch: @Sendable (ListRange) async throws -> P
@@ -61,7 +64,9 @@ public final class PagedList<P: ListPage> {
             do {
                 let page = try await fetch(range)
                 self.pages[p] = page
-                self.total = Int(page.total)
+                if self.total != Int(page.total) { self.total = Int(page.total) }
+                self.version += 1
+                Perf.tick("PagedList.page")
                 self.error = nil
             } catch is CancellationError {
             } catch {
@@ -77,6 +82,8 @@ public final class PagedList<P: ListPage> {
         loading = [:]
         pages = [:]
         error = nil
+        version += 1
+        Perf.tick("PagedList.reset")
         if let total { self.total = total }
     }
 }

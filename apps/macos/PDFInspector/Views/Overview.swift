@@ -11,6 +11,7 @@ struct OverviewView: View {
     @Environment(\.inspectorDocument) private var document
 
     var body: some View {
+        let _ = Perf.tick("OverviewView")
         Loaded(model.generation, fetch: { try await model.backend.document(model.doc) }) { d in
             form(d)
                 .sheet(item: $info) { e in InfoEditor(model: model, edit: e, syncXmp: syncXmp) }
@@ -110,6 +111,7 @@ struct ObjLink: View {
     let id: ObjRef
 
     var body: some View {
+        let _ = Perf.tick("ObjLink")
         LinkButton(id.objText) { model.nav.open(.object(id)) }
             .font(.caption.monospaced())
     }
@@ -143,6 +145,7 @@ private struct InfoEditor: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("InfoEditor")
         let date = k == "CreationDate" || k == "ModDate"
         VStack(alignment: .leading, spacing: 8) {
             Text(edit.fixed ? "Edit /Info /\(edit.key)" : "Add an Info entry").font(.headline)
@@ -226,6 +229,7 @@ private struct XmpEditor: View {
     private static let maxXmp: UInt32 = 4 << 20
 
     var body: some View {
+        let _ = Perf.tick("XmpEditor")
         VStack(alignment: .leading, spacing: 8) {
             Text("XMP metadata").font(.headline)
             if text == nil && error == nil {
@@ -286,6 +290,7 @@ private struct XmpTree: View {
     @State private var error: String?
 
     var body: some View {
+        let _ = Perf.tick("XmpTree")
         VStack(alignment: .leading, spacing: 6) {
             if let error {
                 Text(error).foregroundStyle(.red)

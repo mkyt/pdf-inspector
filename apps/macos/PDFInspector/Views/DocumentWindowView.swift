@@ -9,6 +9,7 @@ struct DocumentWindowView: View {
     @Bindable var layout: WindowLayout
 
     var body: some View {
+        let _ = Perf.tick("DocumentWindowView")
         NavigationSplitView(columnVisibility: sidebarVisibility) {
             Sidebar(model: model, layout: layout)
                 .navigationSplitViewColumnWidth(min: 260, ideal: 380, max: 700)
@@ -54,6 +55,7 @@ struct TargetView: View {
     let model: DocumentModel
 
     var body: some View {
+        let _ = Perf.tick("TargetView")
         switch model.nav.target {
         case .document:
             OverviewView(model: model)
@@ -106,6 +108,11 @@ struct DocumentToolbar: ToolbarContent {
 }
 
 extension Target {
+    /// The number of the object shown, if it is one.
+    var objectNum: UInt32? {
+        if case .object(let id) = self { id.num } else { nil }
+    }
+
     func title(in s: DocSummary) -> String {
         switch self {
         case .document: "Overview"

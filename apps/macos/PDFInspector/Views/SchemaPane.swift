@@ -8,6 +8,7 @@ struct SchemaPane: View {
     let model: DocumentModel
 
     var body: some View {
+        let _ = Perf.tick("SchemaPane")
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
                 content
@@ -19,9 +20,9 @@ struct SchemaPane: View {
 
     @ViewBuilder private var content: some View {
         let nav = model.nav
-        switch nav.target {
-        case .content(let c, let op):
-            if let op {
+        switch nav.place {
+        case .content(let c, _):
+            if let op = nav.op {
                 OperatorDoc(model: model, content: c, op: op)
                     .id(op)
             } else if case .stream(let id) = c {
@@ -33,7 +34,7 @@ struct SchemaPane: View {
             if let s = nav.selection {
                 SelectionView(model: model, selection: s)
             } else {
-                switch nav.target {
+                switch nav.place {
                 case .object(let id):
                     TypeView(model: model, root: .object(id: id), title: id.objText, structure: true)
                 case .trailer:
@@ -62,6 +63,7 @@ private struct SelectionView: View {
     let selection: Selection
 
     var body: some View {
+        let _ = Perf.tick("SelectionView")
         let s = selection.node.schema
         VStack(alignment: .leading, spacing: 2) {
             Text(selection.path).font(.headline.monospaced()).textSelection(.enabled)
@@ -99,6 +101,7 @@ struct SectionLabel: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("SectionLabel")
         HStack(spacing: 6) {
             Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             VStack { Divider() }
@@ -112,6 +115,7 @@ private struct PageType: View {
     let index: UInt32
 
     var body: some View {
+        let _ = Perf.tick("PageType")
         Loaded(model.generation, fetch: { try await model.backend.page(model.doc, index: index) }) { p in
             TypeView(model: model, root: .object(id: p.id), title: p.id.objText)
         }
@@ -135,6 +139,7 @@ struct TypeView: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("TypeView")
         Loaded(Key(root: root, generation: model.generation), fetch: {
             try await model.backend.schema(model.doc, root: root)
         }) { s in
@@ -215,6 +220,7 @@ private struct TypeKeyRow: View {
     let toggle: () -> Void
 
     var body: some View {
+        let _ = Perf.tick("TypeKeyRow")
         let old = k.doc.deprecated != nil
         HStack(spacing: 4) {
             Button(action: toggle) {
@@ -261,6 +267,7 @@ struct KeyDocView: View {
     let doc: KeyDoc
 
     var body: some View {
+        let _ = Perf.tick("KeyDocView")
         Grid(alignment: .topLeading, horizontalSpacing: 8, verticalSpacing: 3) {
             GridRow {
                 label("Type")

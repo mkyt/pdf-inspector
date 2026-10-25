@@ -60,7 +60,7 @@ final class DocumentWindowController: NSWindowController, NSMenuItemValidation {
         // Where the window is, under the document's name (the breadcrumbs
         // tell the whole path).
         Task { [weak window] in
-            for await t in Observations({ box.model.nav.target.title(in: box.model.summary) }) {
+            for await t in Observations({ box.model.nav.place.title(in: box.model.summary) }) {
                 window?.subtitle = t
             }
         }

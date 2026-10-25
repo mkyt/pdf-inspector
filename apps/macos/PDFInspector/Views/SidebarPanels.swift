@@ -6,6 +6,7 @@ struct OutlinePanel: View {
     let model: DocumentModel
 
     var body: some View {
+        let _ = Perf.tick("OutlinePanel")
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 OutlineItems(model: model, parent: nil, depth: 0)
@@ -24,6 +25,7 @@ private struct OutlineItems: View {
     @State private var error: String?
 
     var body: some View {
+        let _ = Perf.tick("OutlineItems")
         VStack(alignment: .leading, spacing: 0) {
             ForEach(items, id: \.id) { it in
                 OutlineRow(model: model, item: it, depth: depth)
@@ -85,8 +87,9 @@ private struct OutlineRow: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("OutlineRow")
         let expandable = item.hasChildren && depth < 32
-        let active = model.nav.target == .object(item.id)
+        let active = model.nav.place == .object(item.id)
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 4) {
                 Button {
@@ -141,6 +144,7 @@ struct XrefPanel: View {
     @State private var revision: UInt32?
 
     var body: some View {
+        let _ = Perf.tick("XrefPanel")
         let s = model.summary
         let r = revision.flatMap { i in s.revisions.first { $0.index == i } }
         let doc = model.doc
@@ -227,9 +231,10 @@ struct ValidatePanel: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("ValidatePanel")
         let job = job
         let running = job?.state == .running
-        let target: ObjRef? = if case .object(let id) = model.nav.target { id } else { nil }
+        let target: ObjRef? = if case .object(let id) = model.nav.place { id } else { nil }
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Checks objects against the Arlington PDF Model, following typed references.")
@@ -267,7 +272,7 @@ struct ValidatePanel: View {
                 let backend = model.backend
                 let id = job.job
                 PagedRows<DiagnosticInfoPage, _>(
-                    model: model, total: Int(kept), empty: "No issues found.",
+                    model: model, total: Int(kept), empty: "No issues found.", fits: true,
                     fetch: { try await backend.jobDiagnostics(id, range: $0) }
                 ) { d, _ in
                     Button {
@@ -371,6 +376,7 @@ struct ObjectsPanel: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("ObjectsPanel")
         let total = Int(model.summary.xrefEntries)
         let filter = filter
         VStack(alignment: .leading, spacing: 0) {
@@ -481,7 +487,6 @@ struct ObjectsPanel: View {
     private func list(total: Int, filter: ObjectFilter?) -> some View {
         let doc = model.doc
         let backend = model.backend
-        let current: UInt32? = if case .object(let id) = model.nav.target { id.num } else { nil }
         let empty =
             layout.objectPicks.unreferenced && !layout.objectPicks.byClass
             ? "Every object is referred to." : "No object matches."
@@ -515,7 +520,7 @@ struct ObjectsPanel: View {
             .buttonStyle(.plain)
             .disabled(free)
             .font(.callout)
-            .listRowBackground(o.num == current ? Color.accentColor.opacity(0.2) : nil)
+            .rowBackground(model.nav.place.objectNum == o.num ? Color.accentColor.opacity(0.2) : nil)
         }
         .id(filter)
     }

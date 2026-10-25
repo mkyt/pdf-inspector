@@ -31,6 +31,7 @@ struct HexView: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("HexView")
         let first = UInt64(top * Self.row)
         let last = min(size, UInt64((top + visible) * Self.row))
         VStack(spacing: 0) {
@@ -71,7 +72,7 @@ struct HexView: View {
         .onChange(of: model.nav.hexSpan) { _, s in
             if let s { scroll(to: Int(s.start / UInt64(Self.row)) - 2) }
         }
-        .task(id: FollowKey(target: model.nav.target, generation: model.generation)) {
+        .task(id: FollowKey(target: model.nav.place, generation: model.generation)) {
             await follow()
         }
     }
@@ -180,7 +181,7 @@ struct HexView: View {
 /// The object the window's target is about, if any.
 @MainActor
 func targetObject(_ model: DocumentModel) async throws -> ObjRef? {
-    switch model.nav.target {
+    switch model.nav.place {
     case .object(let id), .font(let id), .content(.stream(let id), _): id
     case .page(let i), .content(.page(let i), _): try await model.backend.page(model.doc, index: i).id
     case .document: model.summary.root

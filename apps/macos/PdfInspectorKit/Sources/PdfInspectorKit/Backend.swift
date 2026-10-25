@@ -20,15 +20,34 @@ public final class Backend: Sendable {
 
     /// Run `work` on a new thread. Not GCD: its 512 KiB stacks are too small
     /// for the renderer (Rust's own threads get 2 MiB).
+    /// Each is a signpost interval (`Perf`) named `name`, logged when slow.
     private func run<T: Sendable>(
-        _ work: @escaping @Sendable (PdfSession, CancelToken) throws -> T
+        _ name: String, _ work: @escaping @Sendable (PdfSession, CancelToken) throws -> T
     ) async throws -> T {
         try Task.checkCancellation()
         let cancel = CancelToken()
+        let asked = ContinuousClock.now
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { cont in
                 let t = Thread { [session] in
-                    cont.resume(with: Result { try work(session, cancel) })
+                    let started = ContinuousClock.now
+                    let sp = Perf.requests
+                    let state = sp.beginInterval("request", id: sp.makeSignpostID(), "\(name, privacy: .public)")
+                    Perf.requestStarted()
+                    let r = Result { try work(session, cancel) }
+                    Perf.requestEnded()
+                    sp.endInterval("request", state)
+                    let ran = ContinuousClock.now - started
+                    if Perf.enabled {
+                        let waited = (started - asked).ms
+                        let failed = if case .failure = r { " (failed)" } else { "" }
+                        if ran > Perf.slowRequest {
+                            Perf.info("slow request \(name): \(ran.ms) ms, started after \(waited) ms\(failed)")
+                        } else {
+                            Perf.debug("request \(name): \(ran.ms) ms\(failed)")
+                        }
+                    }
+                    cont.resume(with: r)
                 }
                 t.stackSize = 8 << 20
                 t.qualityOfService = .userInitiated
@@ -40,7 +59,7 @@ public final class Backend: Sendable {
     }
 
     public func send(_ request: Request) async throws -> Reply {
-        try await run { try $0.dispatchCancellable(request: request, cancel: $1) }
+        try await run(request.name) { try $0.dispatchCancellable(request: request, cancel: $1) }
     }
 
     /// Blocking, for callers that must answer synchronously (NSDocument
@@ -65,7 +84,7 @@ public final class Backend: Sendable {
     /// Write `doc` with its edits to a new file at `url`; `reload` it from
     /// where the file ends up.
     public func save(_ doc: DocId, mode: SaveMode, to url: URL) async throws -> SaveResult {
-        try await run { try $0.saveTo(doc: doc, mode: mode, path: url.path, cancel: $1) }
+        try await run("save") { try $0.saveTo(doc: doc, mode: mode, path: url.path, cancel: $1) }
     }
 
     /// Replace `doc` by the file at `url` (after saving it), with a fresh

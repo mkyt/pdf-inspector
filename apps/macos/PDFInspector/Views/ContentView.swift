@@ -61,6 +61,7 @@ struct ContentView: View {
     private func select(_ i: UInt32?) { model.nav.update(.content(content, op: i)) }
 
     var body: some View {
+        let _ = Perf.tick("ContentView")
         Loaded(model.generation, fetch: { try await model.backend.content(model.doc, content) }) { s in
             VStack(spacing: 0) {
                 header(s)
@@ -79,7 +80,7 @@ struct ContentView: View {
                     }
                 } second: {
                     if let op, UInt64(op) < s.ops {
-                        OpStatePanel(model: model, content: content, summary: s, index: op).id(op)
+                        OpStatePanel(model: model, content: content, summary: s, index: op)
                     } else {
                         Text("Select an operation to see the graphics state it runs in.")
                             .font(.caption).foregroundStyle(.secondary).padding(10)
@@ -213,6 +214,7 @@ private struct ContentIssues: View {
     @State private var open: Bool?
 
     var body: some View {
+        let _ = Perf.tick("ContentIssues")
         let open = open ?? (s.errors + s.warnings > 0)
         VStack(alignment: .leading, spacing: 2) {
             Button {
@@ -319,6 +321,7 @@ private struct OpEditor: View {
     }
 
     var body: some View {
+        let _ = Perf.tick("OpEditor")
         VStack(spacing: 0) {
             tools
             Divider()
@@ -349,88 +352,56 @@ private struct OpEditor: View {
     }
 
     private var rows: some View {
-        let l = layout
-        return ScrollViewReader { proxy in
-            List(selection: $selection) {
-                ForEach(0..<l.rows, id: \.self) { r in
-                    let i = l.op(r)
-                    Group {
-                        if let o = list.item(i) {
-                            OpRow(o: o, active: op == UInt32(i), folded: folds[UInt32(i)]) {
-                                toggle(UInt32(i), o.end)
-                            }
-                        } else {
-                            ProgressView().controlSize(.mini)
-                        }
-                    }
-                    .tag(i)
-                    .id(i)
-                    .onAppear { list.need(i) }
-                }
-            }
-            .listStyle(.plain)
-            .environment(\.defaultMinListRowHeight, 20)
-            .contextMenu(forSelectionType: Int.self) { _ in
-                menuItems
-            } primaryAction: { _ in
-                Task { await openEdit() }
-            }
-            .onChange(of: selection) { old, new in
-                // The focus: the operation just added, else the first.
-                let added = new.subtracting(old)
-                let focus = added.max() ?? new.min()
-                if let focus, UInt32(focus) != op { onSelect(UInt32(focus)) }
-            }
-            .onChange(of: op) { _, o in
-                if let o { withAnimation { proxy.scrollTo(l.op(l.row(Int(o))), anchor: nil) } }
-            }
-            .onAppear {
-                if let op { proxy.scrollTo(l.op(l.row(Int(op))), anchor: .center) }
-            }
-            .onKeyPress(.return) {
-                Task { await openEdit() }
-                return .handled
-            }
-            .onKeyPress(characters: ["i", "I", "t", "T"], phases: .down) { k in
-                guard !k.modifiers.contains(.command), bar == nil else { return .ignored }
-                if k.characters.lowercased() == "i" {
-                    openInsert(before: k.modifiers.contains(.shift))
-                } else if let r = range {
-                    onText(r)
-                }
-                return .handled
-            }
-            .onKeyPress(keys: [.upArrow, .downArrow], phases: .down) { k in
-                guard k.modifiers.contains(.option) else { return .ignored }
-                move(down: k.key == .downArrow)
-                return .handled
-            }
-            .onKeyPress(keys: [.leftArrow, .rightArrow], phases: .down) { k in
-                guard let op, let o = list.item(Int(op)) else { return .ignored }
-                let end = folds[op] ?? o.end
-                guard let end, end > op, (folds[op] != nil) == (k.key == .rightArrow) else { return .ignored }
-                toggle(op, end)
-                return .handled
-            }
-            .onDeleteCommand { remove() }
-            .onCopyCommand { copyProviders() }
-            .onCutCommand {
-                let p = copyProviders()
-                remove(label: "Cut")
-                return p
-            }
-            .onPasteCommand(of: [.utf8PlainText]) { providers in paste(providers) }
+        OpTable(
+            list: list, version: list.version, layout: layout, folds: folds, op: op, selection: $selection,
+            actions: actions
+        )
+        .onChange(of: selection) { old, new in
+            // The focus: the operation just added, else the first.
+            let added = new.subtracting(old)
+            let focus = added.max() ?? new.min()
+            if let focus, UInt32(focus) != op { onSelect(UInt32(focus)) }
         }
     }
 
-    @ViewBuilder private var menuItems: some View {
-        Button("Edit as Text") { Task { await openEdit() } }
-        Button("Insert Before…") { openInsert(before: true) }
-        Button("Insert After…") { openInsert(before: false) }
-        Button("Duplicate") { Task { await duplicate() } }
-        Button("Wrap in q … Q") { wrap() }
-        Divider()
-        Button("Delete", role: .destructive) { remove() }
+    private var actions: OpTable.Actions {
+        OpTable.Actions(
+            toggle: { toggle($0, $1) },
+            edit: { Task { await openEdit() } },
+            character: { c, shift in
+                guard bar == nil else { return false }
+                switch c.lowercased() {
+                case "i": openInsert(before: shift)
+                case "t": if let r = range { onText(r) }
+                default: return false
+                }
+                return true
+            },
+            move: { move(down: $0) },
+            fold: { right in
+                guard let op, let o = list.item(Int(op)) else { return false }
+                let end = folds[op] ?? o.end
+                guard let end, end > op, (folds[op] != nil) == right else { return false }
+                toggle(op, end)
+                return true
+            },
+            delete: { remove() },
+            copy: { Task { await copy() } },
+            cut: {
+                Task {
+                    if await copy() { remove(label: "Cut") }
+                }
+            },
+            paste: { paste($0) },
+            menu: [
+                ("Edit as Text", { Task { await openEdit() } }),
+                ("Insert Before…", { openInsert(before: true) }),
+                ("Insert After…", { openInsert(before: false) }),
+                ("Duplicate", { Task { await duplicate() } }),
+                ("Wrap in q … Q", { wrap() }),
+                nil,
+                ("Delete", { remove() }),
+            ])
     }
 
     private var tools: some View {
@@ -637,41 +608,30 @@ private struct OpEditor: View {
         }
     }
 
-    /// The selection as text, fetched when the pasteboard asks for it.
-    private func copyProviders() -> [NSItemProvider] {
-        guard let r = range else { return [] }
-        let backend = model.backend
-        let doc = model.doc
-        let content = content
-        let p = NSItemProvider()
-        // Asked for off the main thread: a blocking request is fine there.
-        p.registerDataRepresentation(for: .utf8PlainText) { done in
-            do {
-                let reply = try backend.sendNow(
-                    .contentText(
-                        doc: doc, content: content,
-                        range: ListRange(offset: UInt64(r.lowerBound), limit: UInt32(r.count))))
-                guard case .opText(let t) = reply.body else { throw UnexpectedResponse(body: reply.body) }
-                done(Data(t.text.utf8), nil)
-            } catch {
-                done(nil, error)
-            }
-            return nil
+    /// Put the selection on the pasteboard as text.
+    @discardableResult
+    private func copy() async -> Bool {
+        guard let r = range else { return false }
+        do {
+            let text = try await textOf(r)
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            return true
+        } catch let e as RasterError {
+            error = e.message
+        } catch {
+            self.error = error.localizedDescription
         }
-        return [p]
+        return false
     }
 
-    private func paste(_ providers: [NSItemProvider]) {
-        guard let p = providers.first else { return }
+    private func paste(_ text: String) {
         let at = range?.upperBound ?? total
-        _ = p.loadDataRepresentation(for: .utf8PlainText) { data, _ in
-            guard let data, let text = String(data: data, encoding: .utf8), !text.isEmpty else { return }
-            Task { @MainActor in _ = await replace("Paste before #\(at)", at, at, text) }
-        }
+        Task { _ = await replace("Paste before #\(at)", at, at, text) }
     }
 }
 
-private struct OpRow: View {
+struct OpRow: View {
     let o: OpView
     let active: Bool
     /// Last operation of the folded block it opens.
@@ -679,6 +639,7 @@ private struct OpRow: View {
     let onFold: () -> Void
 
     var body: some View {
+        let _ = Perf.tick("OpRow")
         let foldable = (o.end ?? 0) > o.index
         HStack(spacing: 4) {
             Text("\(o.index)").monospaced().foregroundStyle(.secondary).frame(width: 52, alignment: .trailing)
@@ -738,6 +699,7 @@ private struct ContentTextEditor: View {
     private var dirty: Bool { loaded.map { $0.text != text } ?? false }
 
     var body: some View {
+        let _ = Perf.tick("ContentTextEditor")
         let end = loaded?.to ?? range.upperBound
         VStack(spacing: 0) {
             HStack(spacing: 6) {
@@ -819,6 +781,7 @@ private struct ContentPreview: View {
     @State private var annot: UInt32?
 
     var body: some View {
+        let _ = Perf.tick("ContentPreview")
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Picker("Show", selection: $boxes) {
@@ -867,6 +830,7 @@ private struct ContentDiagram: View {
     @State private var clips = false
 
     var body: some View {
+        let _ = Perf.tick("ContentDiagram")
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Toggle("Clips", isOn: $clips)
