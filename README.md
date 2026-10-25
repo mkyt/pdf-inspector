@@ -23,6 +23,16 @@ PDF の内部構造を調べ、編集するためのツール群。設計は [do
 
 ## 使い方
 
+よく使う手順は `Makefile` にまとめてある（`make` で一覧）。
+
+```sh
+make setup        # ツールチェーン（wasm32 ターゲット・wasm-bindgen-cli）と npm パッケージ
+make cli          # Web UI を埋め込んだ target/release/pdfi
+make web          # apps/web/dist（ブラウザ完結モード）
+make macos        # macOS アプリ（CONFIGURATION=Debug も可）→ apps/macos/build/DerivedData
+make check        # CI と同じ検査（fmt・clippy・テスト・wasm・Swift）
+```
+
 ```sh
 cargo build --release
 target/release/pdfi info file.pdf
