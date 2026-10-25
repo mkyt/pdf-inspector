@@ -39,6 +39,7 @@ pub fn typescript() -> String {
         ObjectSchema::decl(&cfg),
         Requirement::decl(&cfg),
         SlotDoc::decl(&cfg),
+        AllowedValue::decl(&cfg),
         KeyDoc::decl(&cfg),
         TypeKey::decl(&cfg),
         NodeSchema::decl(&cfg),

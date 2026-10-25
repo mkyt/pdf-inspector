@@ -129,19 +129,28 @@ pub fn key_doc(k: &schema::KeyDef) -> KeyDoc {
     let ver = |v: u8| (v != 0).then(|| schema::version_text(v));
     let text = |s: &str| (!s.is_empty()).then(|| s.to_string());
     let mut allowed = Vec::new();
-    for slot in k.slots {
-        for l in slot.values.iter().flat_map(|v| v.lits) {
-            if allowed.len() == MAX_ALLOWED {
-                break;
-            }
-            allowed.push(match l.lit {
-                Lit::Name(n) => format!("/{n}"),
-                Lit::Int(i) => i.to_string(),
-                Lit::Num(n) => n.to_string(),
-                Lit::Str(s) => format!("({s})"),
-                Lit::Bool(b) => b.to_string(),
+    let mut constraints: Vec<String> = Vec::new();
+    let mut allowed_open = false;
+    for v in k.slots.iter().filter_map(|s| s.values.as_ref()) {
+        for l in v.lits.iter().take(MAX_ALLOWED - allowed.len()) {
+            allowed.push(AllowedValue {
+                value: match l.lit {
+                    Lit::Name(n) => format!("/{n}"),
+                    Lit::Int(i) => i.to_string(),
+                    Lit::Num(n) => n.to_string(),
+                    Lit::Str(s) => format!("({s})"),
+                    Lit::Bool(b) => b.to_string(),
+                },
+                since: ver(l.since),
+                deprecated: ver(l.deprecated),
             });
         }
+        for e in v.evals {
+            if !constraints.iter().any(|c| c == e) {
+                constraints.push(e.to_string());
+            }
+        }
+        allowed_open |= v.open;
     }
     KeyDoc {
         types: k
@@ -169,6 +178,8 @@ pub fn key_doc(k: &schema::KeyDef) -> KeyDoc {
         inheritable: k.inheritable,
         default: text(k.default),
         allowed,
+        constraints,
+        allowed_open,
         note: text(k.note),
     }
 }

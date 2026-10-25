@@ -1,6 +1,6 @@
 // Generated from crates/pdfi-api by `UPDATE_TS=1 cargo test -p pdfi-api`. Do not edit.
 
-export const PROTOCOL_VERSION = 16;
+export const PROTOCOL_VERSION = 17;
 
 export type DocId = number;
 export type JobId = number;
@@ -171,11 +171,27 @@ base: string,
  */
 links: Array<string>, };
 
+export type AllowedValue = { 
+/**
+ * In PDF syntax: `/Name`, `3`, `(text)`, `true`.
+ */
+value: string, since: string | null, deprecated: string | null, };
+
 export type KeyDoc = { types: Array<SlotDoc>, requirement: Requirement, since: string | null, deprecated: string | null, extension: string | null, inheritable: boolean, default: string | null, 
 /**
  * Allowed values, when the schema lists them (truncated).
  */
-allowed: Array<string>, note: string | null, };
+allowed: Array<AllowedValue>, 
+/**
+ * Conditions a value meets instead (Arlington expressions, e.g.
+ * `@P>=0`).
+ */
+constraints: Array<string>, 
+/**
+ * Values besides `allowed` and `constraints` are possible (wildcards,
+ * conditions the model does not spell out).
+ */
+allowed_open: boolean, note: string | null, };
 
 export type TypeKey = { 
 /**

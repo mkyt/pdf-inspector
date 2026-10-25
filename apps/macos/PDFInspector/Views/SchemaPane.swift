@@ -76,6 +76,10 @@ private struct SelectionView: View {
                 Badge(t, color: .accentColor)
             }
         }
+        if let k = s?.key, k.hasValues {
+            SectionLabel("Possible values")
+            PossibleValues(doc: k, current: selection.node.value.text)
+        }
         if let s, !s.issues.isEmpty {
             SectionLabel("Issues")
             IssueList(model: model, issues: s.issues, max: 20)
@@ -83,7 +87,7 @@ private struct SelectionView: View {
         SectionLabel("Definition")
         if let s {
             if let k = s.key {
-                KeyDocView(doc: k)
+                KeyDocView(doc: k, values: false)
             } else {
                 Text("Not defined by the schema for this type.").font(.caption).foregroundStyle(.secondary)
             }
@@ -265,6 +269,8 @@ private struct TypeKeyRow: View {
 
 struct KeyDocView: View {
     let doc: KeyDoc
+    /// Include the possible values (shown apart for a selected entry).
+    var values = true
 
     var body: some View {
         let _ = Perf.tick("KeyDocView")
@@ -298,10 +304,10 @@ struct KeyDocView: View {
                     Text(d).monospaced()
                 }
             }
-            if !doc.allowed.isEmpty {
+            if values && doc.hasValues {
                 GridRow {
                     label("Values")
-                    Text(doc.allowed.joined(separator: " ")).monospaced()
+                    PossibleValues(doc: doc)
                 }
             }
             if let n = doc.note { row("Note", n) }
@@ -319,5 +325,62 @@ struct KeyDocView: View {
             label(l)
             Text(v)
         }
+    }
+}
+
+extension KeyDoc {
+    var hasValues: Bool { !allowed.isEmpty || !constraints.isEmpty }
+}
+
+/// What the value of a key may be: the values the schema lists (`current`
+/// marked, deprecated ones struck through), the conditions it meets, and
+/// whether there are others.
+struct PossibleValues: View {
+    let doc: KeyDoc
+    var current: String?
+
+    var body: some View {
+        let _ = Perf.tick("PossibleValues")
+        VStack(alignment: .leading, spacing: 4) {
+            if !doc.allowed.isEmpty {
+                FlowLayout(spacing: 3) {
+                    ForEach(Array(doc.allowed.enumerated()), id: \.offset) { _, v in
+                        chip(v)
+                    }
+                }
+            }
+            ForEach(doc.constraints, id: \.self) { c in
+                Text("where \(Text(c).monospaced())")
+            }
+            if doc.allowedOpen {
+                Text("Others are possible too.").foregroundStyle(.secondary)
+            }
+        }
+        .font(.caption)
+    }
+
+    private func chip(_ v: AllowedValue) -> some View {
+        let on = current.map { same(v.value, $0) } ?? false
+        let since = v.since == doc.since ? nil : v.since
+        return HStack(spacing: 2) {
+            if on { Image(systemName: "checkmark").font(.caption2.bold()) }
+            Text(v.value).monospaced().strikethrough(v.deprecated != nil)
+            if let since { Text(since).font(.caption2).foregroundStyle(.secondary) }
+        }
+        .padding(.horizontal, 5)
+        .padding(.vertical, 1)
+        .foregroundStyle(on ? Color.accentColor : v.deprecated != nil ? .secondary : .primary)
+        .background(on ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.1), in: .rect(cornerRadius: 4))
+        .help(
+            [on ? "The current value." : nil, v.since.map { "Since PDF \($0)." },
+             v.deprecated.map { "Deprecated in PDF \($0)." }]
+                .compactMap { $0 }.joined(separator: " "))
+    }
+
+    /// Same value, numbers by value (`1` and `1.0`).
+    private func same(_ a: String, _ b: String) -> Bool {
+        if a == b { return true }
+        guard let x = Double(a), let y = Double(b) else { return false }
+        return x == y
     }
 }

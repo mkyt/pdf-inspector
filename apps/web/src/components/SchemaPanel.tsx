@@ -5,7 +5,7 @@ import { api, useBackend } from "../api";
 import { useDoc } from "../doc";
 import { objText, valueText } from "../format";
 import { useNav } from "../nav";
-import type { KeyDoc, NodeRoot, TypeKey } from "../protocol/generated";
+import type { AllowedValue, KeyDoc, NodeRoot, TypeKey } from "../protocol/generated";
 import { useSchema } from "./Inspector";
 import { IssueList } from "./Issues";
 import { OperatorDoc } from "./OperatorDoc";
@@ -58,6 +58,12 @@ export function SchemaPanel() {
           </Badge>
         </Group>
       )}
+      {s?.key && hasValues(s.key) && (
+        <>
+          <Divider label="Possible values" labelPosition="left" />
+          <PossibleValues doc={s.key} current={valueText(node.value)} />
+        </>
+      )}
       {s && s.issues.length > 0 && (
         <>
           <Divider label="Issues" labelPosition="left" />
@@ -74,7 +80,7 @@ export function SchemaPanel() {
           Not defined by the schema for this type.
         </Text>
       ) : (
-        <KeyDocView doc={s.key} />
+        <KeyDocView doc={s.key} values={false} />
       )}
     </Stack>
   );
@@ -267,7 +273,8 @@ function TypeKeyRow({ k, open, onToggle }: { k: TypeKey; open: boolean; onToggle
   );
 }
 
-function KeyDocView({ doc: k }: { doc: KeyDoc }) {
+/** `values`: include the possible values (shown apart for a selected entry). */
+function KeyDocView({ doc: k, values = true }: { doc: KeyDoc; values?: boolean }) {
   const rows: [string, ReactNode][] = [
     [
       "Type",
@@ -303,7 +310,7 @@ function KeyDocView({ doc: k }: { doc: KeyDoc }) {
   if (k.deprecated) rows.push(["Deprecated", `PDF ${k.deprecated}`]);
   if (k.inheritable) rows.push(["Inheritable", "yes"]);
   if (k.default) rows.push(["Default", <Code>{k.default}</Code>]);
-  if (k.allowed.length > 0) rows.push(["Values", <Text size="xs" ff="monospace">{k.allowed.join(" ")}</Text>]);
+  if (values && hasValues(k)) rows.push(["Values", <PossibleValues doc={k} />]);
   if (k.note) rows.push(["Note", k.note]);
   return (
     <Table withRowBorders={false} verticalSpacing={2} horizontalSpacing={4} fz="xs">
@@ -319,4 +326,75 @@ function KeyDocView({ doc: k }: { doc: KeyDoc }) {
       </Table.Tbody>
     </Table>
   );
+}
+
+function hasValues(k: KeyDoc): boolean {
+  return k.allowed.length > 0 || k.constraints.length > 0;
+}
+
+/**
+ * What the value of a key may be: the values the schema lists (`current`
+ * marked, deprecated ones struck through), the conditions it meets, and
+ * whether there are others.
+ */
+function PossibleValues({ doc, current }: { doc: KeyDoc; current?: string }) {
+  return (
+    <Stack gap={4}>
+      {doc.allowed.length > 0 && (
+        <Group gap={3}>
+          {doc.allowed.map((v, i) => (
+            <ValueChip key={i} v={v} on={current !== undefined && same(v.value, current)} keySince={doc.since} />
+          ))}
+        </Group>
+      )}
+      {doc.constraints.map((c) => (
+        <Text key={c} size="xs">
+          where <Code>{c}</Code>
+        </Text>
+      ))}
+      {doc.allowed_open && (
+        <Text size="xs" c="dimmed">
+          Others are possible too.
+        </Text>
+      )}
+    </Stack>
+  );
+}
+
+function ValueChip({ v, on, keySince }: { v: AllowedValue; on: boolean; keySince: string | null }) {
+  const since = v.since !== keySince ? v.since : null;
+  const tip = [on ? "The current value." : null, v.since && `Since PDF ${v.since}.`, v.deprecated && `Deprecated in PDF ${v.deprecated}.`]
+    .filter(Boolean)
+    .join(" ");
+  const chip = (
+    <Badge
+      size="sm"
+      radius="sm"
+      tt="none"
+      ff="monospace"
+      fw={on ? 700 : 400}
+      variant={on ? "light" : "default"}
+      c={on ? undefined : v.deprecated ? "dimmed" : undefined}
+      td={v.deprecated ? "line-through" : undefined}
+      leftSection={on ? "✓" : undefined}
+      rightSection={
+        since ? (
+          <Text span size="10px" c="dimmed">
+            {since}
+          </Text>
+        ) : undefined
+      }
+    >
+      {v.value}
+    </Badge>
+  );
+  return tip ? <Tooltip label={tip}>{chip}</Tooltip> : chip;
+}
+
+/** Same value, numbers by value (`1` and `1.0`). */
+function same(a: string, b: string): boolean {
+  if (a === b) return true;
+  const x = Number(a);
+  const y = Number(b);
+  return a.trim() !== "" && b.trim() !== "" && !Number.isNaN(x) && x === y;
 }

@@ -4,7 +4,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 9, backend speaks 16"
+        "message": "client speaks protocol 9, backend speaks 17"
       }
     }
   },
@@ -13,7 +13,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 999, backend speaks 16"
+        "message": "client speaks protocol 999, backend speaks 17"
       }
     }
   },
@@ -380,6 +380,10 @@
               "issues": [],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [
+                  "@Size>0"
+                ],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -414,6 +418,8 @@
               "issues": [],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -453,6 +459,8 @@
               "issues": [],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -493,6 +501,8 @@
               "issues": [],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -572,8 +582,14 @@
               "issues": [],
               "key": {
                 "allowed": [
-                  "/Pages"
+                  {
+                    "deprecated": null,
+                    "since": null,
+                    "value": "/Pages"
+                  }
                 ],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -608,6 +624,8 @@
               "issues": [],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -644,6 +662,10 @@
               "issues": [],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [
+                  "@Count>=0"
+                ],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -678,6 +700,8 @@
               "issues": [],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -712,6 +736,8 @@
               "issues": [],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -761,6 +787,8 @@
               "issues": [],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -801,6 +829,8 @@
               "issues": [],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -853,6 +883,8 @@
               "issues": [],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -2587,6 +2619,10 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [
+                "@Size>0"
+              ],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -2610,6 +2646,10 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [
+                "(@Prev>=0) && (@Prev<=fn:FileSize())"
+              ],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -2633,6 +2673,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -2658,6 +2700,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -2684,6 +2728,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -2710,6 +2756,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -2736,6 +2784,10 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [
+                "(@XRefStm>=0) && (@XRefStm<=fn:FileSize())"
+              ],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -2759,6 +2811,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": "ISO_TS_32004",
@@ -2784,6 +2838,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": "OpenOffice",
@@ -2809,6 +2865,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": "OpenOffice",
@@ -2848,8 +2906,14 @@
           {
             "doc": {
               "allowed": [
-                "/Pages"
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/Pages"
+                }
               ],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -2873,6 +2937,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -2898,6 +2964,10 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [
+                "@Count>=0"
+              ],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -2921,6 +2991,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -2946,6 +3018,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -2969,6 +3043,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": "@MediaBox",
               "deprecated": null,
               "extension": null,
@@ -2992,6 +3068,10 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [
+                "(@Rotate mod 90)==0"
+              ],
               "default": "0",
               "deprecated": null,
               "extension": null,
@@ -3580,8 +3660,14 @@
           {
             "doc": {
               "allowed": [
-                "/Catalog"
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/Catalog"
+                }
               ],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -3605,16 +3691,54 @@
           {
             "doc": {
               "allowed": [
-                "/1.0",
-                "/1.1",
-                "/1.2",
-                "/1.3",
-                "/1.4",
-                "/1.5",
-                "/1.6",
-                "/1.7",
-                "/2.0"
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/1.0"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/1.1"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/1.2"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/1.3"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/1.4"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/1.5"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/1.6"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/1.7"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/2.0"
+                }
               ],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -3638,6 +3762,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -3663,6 +3789,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -3688,6 +3816,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -3713,6 +3843,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -3738,6 +3870,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -3763,6 +3897,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -3788,13 +3924,39 @@
           {
             "doc": {
               "allowed": [
-                "/SinglePage",
-                "/OneColumn",
-                "/TwoColumnLeft",
-                "/TwoColumnRight",
-                "/TwoPageLeft",
-                "/TwoPageRight"
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/SinglePage"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/OneColumn"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/TwoColumnLeft"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/TwoColumnRight"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/TwoPageLeft"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/TwoPageRight"
+                }
               ],
+              "allowed_open": false,
+              "constraints": [],
               "default": "SinglePage",
               "deprecated": null,
               "extension": null,
@@ -3818,13 +3980,39 @@
           {
             "doc": {
               "allowed": [
-                "/UseNone",
-                "/UseOutlines",
-                "/UseThumbs",
-                "/FullScreen",
-                "/UseOC",
-                "/UseAttachments"
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/UseNone"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/UseOutlines"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/UseThumbs"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/FullScreen"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/UseOC"
+                },
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/UseAttachments"
+                }
               ],
+              "allowed_open": false,
+              "constraints": [],
               "default": "UseNone",
               "deprecated": null,
               "extension": null,
@@ -3848,6 +4036,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -3873,6 +4063,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -3898,6 +4090,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -3953,6 +4147,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -3978,6 +4174,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -4003,6 +4201,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -4028,6 +4228,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -4053,6 +4255,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -4078,6 +4282,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -4103,6 +4309,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -4126,6 +4334,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": "2.0",
               "extension": null,
@@ -4151,6 +4361,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -4176,6 +4388,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -4201,6 +4415,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -4226,6 +4442,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -4251,6 +4469,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -4276,6 +4496,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -4301,6 +4523,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": null,
@@ -4326,6 +4550,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": "false",
               "deprecated": "2.0",
               "extension": null,
@@ -4349,6 +4575,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": "ETSI_PAdES",
@@ -4374,6 +4602,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": "ISO_19005_3",
@@ -4399,6 +4629,8 @@
           {
             "doc": {
               "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
               "default": null,
               "deprecated": null,
               "extension": "PDF_VT2",
@@ -4443,9 +4675,19 @@
               "issues": [],
               "key": {
                 "allowed": [
-                  "/Page",
-                  "/Template"
+                  {
+                    "deprecated": null,
+                    "since": null,
+                    "value": "/Page"
+                  },
+                  {
+                    "deprecated": null,
+                    "since": null,
+                    "value": "/Template"
+                  }
                 ],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -4480,6 +4722,8 @@
               "issues": [],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -4533,6 +4777,8 @@
               ],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -4567,6 +4813,8 @@
               "issues": [],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -4616,6 +4864,10 @@
               ],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [
+                  "(@Rotate mod 90)==0"
+                ],
                 "default": "0",
                 "deprecated": null,
                 "extension": null,
@@ -4662,6 +4914,8 @@
               ],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -4745,8 +4999,14 @@
               "issues": [],
               "key": {
                 "allowed": [
-                  "/Outlines"
+                  {
+                    "deprecated": null,
+                    "since": null,
+                    "value": "/Outlines"
+                  }
                 ],
+                "allowed_open": false,
+                "constraints": [],
                 "default": null,
                 "deprecated": null,
                 "extension": null,
@@ -4781,6 +5041,10 @@
               "issues": [],
               "key": {
                 "allowed": [],
+                "allowed_open": false,
+                "constraints": [
+                  "@Count>=0"
+                ],
                 "default": null,
                 "deprecated": null,
                 "extension": null,

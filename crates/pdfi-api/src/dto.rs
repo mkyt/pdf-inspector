@@ -439,6 +439,16 @@ pub struct SlotDoc {
     pub links: Vec<String>,
 }
 
+/// A value the schema lists for a key.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct AllowedValue {
+    /// In PDF syntax: `/Name`, `3`, `(text)`, `true`.
+    pub value: String,
+    pub since: Option<String>,
+    pub deprecated: Option<String>,
+}
+
 /// Definition of a key (or array element) in the schema.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
@@ -451,7 +461,13 @@ pub struct KeyDoc {
     pub inheritable: bool,
     pub default: Option<String>,
     /// Allowed values, when the schema lists them (truncated).
-    pub allowed: Vec<String>,
+    pub allowed: Vec<AllowedValue>,
+    /// Conditions a value meets instead (Arlington expressions, e.g.
+    /// `@P>=0`).
+    pub constraints: Vec<String>,
+    /// Values besides `allowed` and `constraints` are possible (wildcards,
+    /// conditions the model does not spell out).
+    pub allowed_open: bool,
     pub note: Option<String>,
 }
 
