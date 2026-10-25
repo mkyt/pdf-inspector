@@ -30,8 +30,10 @@ struct FontView: View {
     var body: some View {
         let _ = Perf.tick("FontView")
         Loaded(model.generation, fetch: { try await model.backend.font(model.doc, id: id) }) { f in
+            // One scroll for everything: the glyphs take the whole width and
+            // as much height as there is, under their pinned header.
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+                LazyVStack(alignment: .leading, spacing: 12, pinnedViews: .sectionHeaders) {
                     HStack(spacing: 8) {
                         Text(f.baseFont ?? "(no /BaseFont)").font(.title3.bold()).textSelection(.enabled)
                         Badge((f.subtype ?? "?") + (f.cidSubtype.map { " · \($0)" } ?? ""))
@@ -271,7 +273,8 @@ private enum GlyphEntry: Equatable {
 
 /// The glyph table: by code (what the font can show) or, for an embedded
 /// program, by glyph index (everything it holds), fetched by pages as
-/// cells come into view.
+/// cells come into view. A section of the font view's stack: its header
+/// (with the picked glyph) stays on top while the cells scroll.
 private struct GlyphTable: View {
     let model: DocumentModel
     let f: FontDetail
@@ -284,36 +287,10 @@ private struct GlyphTable: View {
         let programGlyphs = f.glyphSource == .embedded ? Int(f.program?.glyphs ?? 0) : 0
         let listing = programGlyphs > 0 && byProgram
         let total = listing ? programGlyphs : Int(f.codes)
-        VStack(alignment: .leading, spacing: 6) {
-            if total == 0 {
-                Text("No glyphs to list.").font(.caption).foregroundStyle(.secondary)
-            } else {
-                HStack {
-                    Text("Glyphs").font(.headline)
-                    if programGlyphs > 0 {
-                        Picker("Glyphs", selection: $byProgram) {
-                            Text("\(f.codes.formatted()) codes").tag(false)
-                            Text("\(programGlyphs.formatted()) in the program").tag(true)
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .fixedSize()
-                        .controlSize(.small)
-                    }
-                    if let shown {
-                        Label("shown in the document (\(shown.count.formatted()) codes)", systemImage: "circle.fill")
-                            .foregroundStyle(.secondary)
-                            .tint(.teal)
-                    }
-                    Text(
-                        listing
-                            ? "glyph index → codes that select it · dimmed: no code selects it"
-                            : (programGlyphs > 0 ? "" : "\(total.formatted()) codes · ") + "code → glyph → text"
-                    )
-                    .foregroundStyle(.secondary)
-                }
-                .font(.caption)
-                if let picked { PickedGlyph(model: model, f: f, e: picked, shown: timesShown(picked)) }
+        if total == 0 {
+            Text("No glyphs to list.").font(.caption).foregroundStyle(.secondary)
+        } else {
+            Section {
                 Group {
                     if listing {
                         GlyphGrid<ProgramGlyphPage>(
@@ -332,8 +309,45 @@ private struct GlyphTable: View {
                     }
                 }
                 .id(listing)
+            } header: {
+                header(programGlyphs: programGlyphs, listing: listing, total: total)
             }
         }
+    }
+
+    private func header(programGlyphs: Int, listing: Bool, total: Int) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Glyphs").font(.headline)
+                if programGlyphs > 0 {
+                    Picker("Glyphs", selection: $byProgram) {
+                        Text("\(f.codes.formatted()) codes").tag(false)
+                        Text("\(programGlyphs.formatted()) in the program").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .controlSize(.small)
+                }
+                if let shown {
+                    Label("shown in the document (\(shown.count.formatted()) codes)", systemImage: "circle.fill")
+                        .foregroundStyle(.secondary)
+                        .tint(.teal)
+                }
+                Text(
+                    listing
+                        ? "glyph index → codes that select it · dimmed: no code selects it"
+                        : (programGlyphs > 0 ? "" : "\(total.formatted()) codes · ") + "code → glyph → text"
+                )
+                .foregroundStyle(.secondary)
+            }
+            .font(.caption)
+            if let picked { PickedGlyph(model: model, f: f, e: picked, shown: timesShown(picked)) }
+        }
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background)
+        .overlay(alignment: .bottom) { Divider() }
         .onChange(of: byProgram) { picked = nil }
         .task(id: model.generation) {
             let u = try? await model.backend.fontUses(model.doc, id: f.id, range: ListRange(offset: 0, limit: 0))
@@ -374,27 +388,22 @@ private struct GlyphGrid<P: ListPage>: View {
 
     var body: some View {
         let _ = Perf.tick("GlyphGrid")
-        let rows = (total + 7) / 8
-        ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 76, maximum: 76), spacing: 0)], spacing: 0) {
-                ForEach(0..<total, id: \.self) { i in
-                    Group {
-                        if let item = list.item(i) {
-                            let e = entry(item)
-                            GlyphCell(f: f, e: e, shown: shown.map { s in e.codes.reduce(0) { $0 + (s[$1] ?? 0) } },
-                                      active: picked?.key == e.key)
-                                .onTapGesture { pick(e) }
-                        } else {
-                            ProgressView().controlSize(.mini)
-                        }
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 76, maximum: 76), spacing: 0)], spacing: 0) {
+            ForEach(0..<total, id: \.self) { i in
+                Group {
+                    if let item = list.item(i) {
+                        let e = entry(item)
+                        GlyphCell(f: f, e: e, shown: shown.map { s in e.codes.reduce(0) { $0 + (s[$1] ?? 0) } },
+                                  active: picked?.key == e.key)
+                            .onTapGesture { pick(e) }
+                    } else {
+                        ProgressView().controlSize(.mini)
                     }
-                    .frame(width: 76, height: 92)
-                    .onAppear { list.need(i) }
                 }
+                .frame(width: 76, height: 92)
+                .onAppear { list.need(i) }
             }
         }
-        .frame(height: min(Double(rows) * 92 + 2, 560))
-        .border(.separator)
         .onChange(of: model.generation) { list.reset() }
     }
 }

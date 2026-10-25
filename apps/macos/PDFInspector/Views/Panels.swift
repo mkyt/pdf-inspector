@@ -158,6 +158,8 @@ private struct PagedTable<P: ListPage, Row: View>: NSViewRepresentable {
                 heights = [:]
             }
             guard heights[row] == nil else { return }
+            // Without the cell's frame, which takes whatever height it is offered.
+            let content = PagedCell(item: content.item, index: content.index, row: content.row, measuring: true)
             let m = measurer ?? NSHostingController(rootView: content)
             measurer = m
             m.rootView = content
@@ -183,6 +185,7 @@ private struct PagedCell<Item, Row: View>: View {
     let item: Item?
     let index: Int
     let row: (Item, Int) -> Row
+    var measuring = false
 
     var body: some View {
         let _ = Perf.tick("PagedCell")
@@ -194,7 +197,9 @@ private struct PagedCell<Item, Row: View>: View {
             }
         }
         .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .padding(.vertical, measuring ? 3 : 0)
+        .fixedSize(horizontal: false, vertical: measuring)
+        .frame(maxWidth: .infinity, maxHeight: measuring ? nil : .infinity, alignment: .leading)
         .backgroundPreferenceValue(RowBackground.self) { $0 ?? .clear }
     }
 }

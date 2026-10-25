@@ -422,8 +422,10 @@ struct RenderView: View {
             Toggle("1:1", isOn: Binding { zoom == 1 } set: { zoom = $0 ? 1 : nil })
                 .toggleStyle(.button)
                 .help("Actual size (100%)")
-            Toggle("Region", isOn: $cutting)
+            // Titled, unlike the zoom buttons: an icon alone is easy to miss.
+            Toggle(isOn: $cutting) { Label("Cut Region", systemImage: "crop") }
                 .toggleStyle(.button)
+                .labelStyle(.titleAndIcon)
                 .help("Drag a rectangle to cut out the operations painting inside it, as a PDF")
                 .padding(.leading, 6)
             if !annots.isEmpty {
