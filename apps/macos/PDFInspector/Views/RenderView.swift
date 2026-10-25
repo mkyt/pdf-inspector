@@ -124,6 +124,7 @@ struct RenderView: View {
             .onScrollGeometryChange(for: CGRect.self, of: { $0.visibleRect }) { visible = $1 }
             .onGeometryChange(for: CGSize.self, of: { $0.size }) { box = $0 }
             .background(Color.gray.opacity(0.12))
+            .overlay(alignment: .bottomLeading) { status }
             .border(.separator)
             footer
         }
@@ -174,7 +175,12 @@ struct RenderView: View {
     private var canvas: some View {
         let selAnnot = annots.first { $0.index == annot }
         return ZStack(alignment: .topLeading) {
-            if summary.kind == .page { Color.white } else { Checkerboard() }
+            // The shadow under the page only: on the stack it falls from
+            // every tile and label (lines at the tiles' edges).
+            Group {
+                if summary.kind == .page { Color.white } else { Checkerboard() }
+            }
+            .shadow(color: .black.opacity(0.3), radius: 1.5)
             layerTiles("content")
             if showsAppearances { layerTiles(annotsName) }
             if let h = highlight {
@@ -204,9 +210,9 @@ struct RenderView: View {
                     annots: showOutlines ? annots : selAnnot.map { [$0] } ?? [], view: v, zoom: z, selected: annot,
                     picks: picks
                 ) { i in annot = i == annot ? nil : i }
+                .equatable()
             }
         }
-        .shadow(color: .black.opacity(0.3), radius: 1.5)
         .contentShape(.rect)
         .onTapGesture(coordinateSpace: .local) { p in
             guard !cutting else { return }
@@ -263,31 +269,67 @@ struct RenderView: View {
         if tiles.count > 256 || tiles.keys.contains(where: { $0.scale != scale }) {
             tiles = tiles.filter { $0.key.scale == scale }
         }
+        let backend = model.backend
+        let doc = model.doc
+        let content = content
+        let scale = scale
         for (name, layer, u) in layers {
-            for t in visibleTiles {
-                let key = TileKey(layer: name, scale: scale, until: u, x: t.x, y: t.y)
-                if tiles[key] != nil { continue }
-                do {
-                    let b = try await model.backend.render(
-                        model.doc, content, scale: scale, tile: t, until: u, layer: layer)
-                    if let img = b.cgImage() {
+            let missing = visibleTiles.filter { tiles[TileKey(layer: name, scale: scale, until: u, x: $0.x, y: $0.y)] == nil }
+            // A few side by side, each batch shown at once: the view updates
+            // once a batch, not once a tile.
+            for start in stride(from: 0, to: missing.count, by: Self.tileBatch) {
+                let batch = missing[start..<min(start + Self.tileBatch, missing.count)]
+                let done = await withTaskGroup(of: TileResult.self) { group in
+                    for t in batch {
+                        group.addTask {
+                            do {
+                                let b = try await backend.render(doc, content, scale: scale, tile: t, until: u, layer: layer)
+                                return TileResult(tile: t, image: b.cgImage(), notes: b.info.notes, error: nil)
+                            } catch {
+                                return TileResult(tile: t, image: nil, notes: nil, error: error)
+                            }
+                        }
+                    }
+                    var out: [TileResult] = []
+                    for await r in group { out.append(r) }
+                    return out
+                }
+                if Task.isCancelled { return }
+                var next = tiles
+                var failed: (any Error)?
+                for r in done.sorted(by: { ($0.tile.y, $0.tile.x) < ($1.tile.y, $1.tile.x) }) {
+                    if let e = r.error {
+                        failed = failed ?? e
+                        continue
+                    }
+                    if let img = r.image {
                         if name == "content" {
                             // Drop the same tile at other steps.
-                            tiles = tiles.filter { !($0.key.layer == name && $0.key.x == t.x && $0.key.y == t.y) }
+                            next = next.filter { !($0.key.layer == name && $0.key.x == r.tile.x && $0.key.y == r.tile.y) }
                         }
-                        tiles[key] = img
+                        next[TileKey(layer: name, scale: scale, until: u, x: r.tile.x, y: r.tile.y)] = img
                     }
-                    if name == "content", b.info.notes != notes { notes = b.info.notes }
-                    error = nil
-                } catch is CancellationError {
-                    return
-                } catch {
-                    if Task.isCancelled { return }
-                    self.error = error.localizedDescription
+                    if name == "content", let n = r.notes, n != notes { notes = n }
+                }
+                tiles = next
+                if let failed {
+                    if failed is CancellationError { return }
+                    self.error = failed.localizedDescription
                     return
                 }
+                error = nil
             }
         }
+    }
+
+    /// Tiles rendered side by side.
+    private static let tileBatch = 4
+
+    private struct TileResult: Sendable {
+        let tile: PixelRect
+        let image: CGImage?
+        let notes: [RenderNote]?
+        let error: (any Error)?
     }
 
     private func loadHighlight() async {
@@ -417,12 +459,27 @@ struct RenderView: View {
                 model: model, a: a, total: annotsTotal, contentOps: summary.ops, pick: picks[a.index],
                 onPick: { p in picks[a.index] = p }, onClose: { annot = nil })
         }
-        if let hint { Text(hint).font(.caption).foregroundStyle(.secondary) }
-        if !notes.isEmpty {
-            Text("Not exact yet: \(notes.map(\.message).joined(separator: "; ")).")
-                .font(.caption).foregroundStyle(.orange)
+    }
+
+    /// What the rendering found, over its bottom edge: as rows below it, the
+    /// first tiles' notes made the view shorter, the fit scale smaller and
+    /// every tile render again.
+    @ViewBuilder private var status: some View {
+        if hint != nil || !notes.isEmpty || error != nil {
+            VStack(alignment: .leading, spacing: 2) {
+                if let hint { Text(hint).foregroundStyle(.secondary) }
+                if !notes.isEmpty {
+                    Text("Not exact yet: \(notes.map(\.message).joined(separator: "; ")).").foregroundStyle(.orange)
+                }
+                if let error { Text(error).foregroundStyle(.red) }
+            }
+            .font(.caption)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(.regularMaterial, in: .rect(cornerRadius: 4))
+            .padding(4)
+            .allowsHitTesting(false)
         }
-        if let error { Text(error).font(.caption).foregroundStyle(.red) }
     }
 }
 
@@ -474,13 +531,19 @@ private func affine(_ m: [Double]) -> CGAffineTransform {
 /// `/QuadPoints` (filled), ink / vertex / line paths, and for the selected
 /// one its appearance's `/BBox` as put on the page (dotted, with the form's
 /// origin and axes). Labels (`[index] Subtype`) select an annotation.
-private struct AnnotOverlay: View {
+/// Equatable without `onSelect`: a tile arriving redraws the rendering, not
+/// the labels (dozens of buttons on a page of links).
+private struct AnnotOverlay: View, Equatable {
     let annots: [AnnotInfo]
     let view: ViewInfo
     let zoom: Double
     let selected: UInt32?
     let picks: [UInt32: AppearancePick]
     let onSelect: (UInt32) -> Void
+
+    nonisolated static func == (a: Self, b: Self) -> Bool {
+        a.annots == b.annots && a.view == b.view && a.zoom == b.zoom && a.selected == b.selected && a.picks == b.picks
+    }
 
     var body: some View {
         let _ = Perf.tick("AnnotOverlay")

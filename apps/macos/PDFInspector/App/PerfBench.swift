@@ -9,7 +9,8 @@ import SwiftUI
 /// Options: `-PerfBenchSteps n` (30), `-PerfBenchPage i` (0-based),
 /// `-PerfBenchPanes schema,bytes,<sidebar tab>`, `-PerfBenchCounts n` (how
 /// many view counters to list), `-PerfStderr YES` (the logs on stderr),
-/// `-PerfBenchSnapshot <png>` (the window at the end).
+/// `-PerfBenchSnapshot <png>` (the window at the end), `-PerfBenchVerbose YES`
+/// (every step).
 ///
 /// `select` steps the selected operation from code, `keys` with ↓ in the
 /// operation list (as typing does), `scroll` pages down the list; `pages`
@@ -51,20 +52,27 @@ enum PerfBench {
     }
 
     struct Sample {
+        let label: String
         let settle: Duration
         let busy: Duration
         let longest: Duration
         let counts: [String: Int]
     }
 
-    /// Wait until no request runs and the main thread has been idle a while.
+    /// Wait until no request has run for a while with the main thread free
+    /// (polled every few ms).
     static func settle(timeout: Duration = .seconds(20)) async -> Duration {
         let start = ContinuousClock.now
         var quietSince: ContinuousClock.Instant?
         let quiet = Duration.milliseconds(60)
+        var last = start
         while ContinuousClock.now - start < timeout {
             try? await Task.sleep(for: .milliseconds(4))
             let now = ContinuousClock.now
+            // A long gap: the main thread was busy (the views may start
+            // requests after it, like a debounced render). Not quiet.
+            if now - last > .milliseconds(20) { quietSince = nil }
+            last = now
             if Perf.requestsInFlight == 0 {
                 if let q = quietSince {
                     if now - q >= quiet { return q - start }
@@ -86,7 +94,7 @@ enum PerfBench {
         Perf.event("bench step", label)
         action()
         let t = await settle()
-        return Sample(settle: t, busy: mon.busy, longest: mon.longest, counts: Perf.takeCounts())
+        return Sample(label: label, settle: t, busy: mon.busy, longest: mon.longest, counts: Perf.takeCounts())
     }
 
     static func run(_ mode: String, model: DocumentModel, page: UInt32, steps: Int) async throws {
@@ -106,6 +114,10 @@ enum PerfBench {
         _ = await settle()
         if mode == "bytes" {
             try await bytes(steps: steps)
+            return
+        }
+        if mode == "grid" {
+            try await grid(steps: steps)
             return
         }
         let content = ContentRef.page(index: page)
@@ -184,6 +196,22 @@ enum PerfBench {
         }
     }
 
+    /// A lazy grid of 65,536 cells like the font's glyphs, picking another
+    /// cell each step (`-PerfBenchCells n` for another count).
+    private static func grid(steps: Int) async throws {
+        let state = GridState()
+        state.count = UserDefaults.standard.integer(forKey: "PerfBenchCells").nonZero ?? 65536
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 800), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = NSHostingView(rootView: GridHost(state: state))
+        window.makeKeyAndOrderFront(nil)
+        _ = await settle()
+        var samples: [Sample] = []
+        for i in 1...steps {
+            samples.append(await measure("pick \(i)") { state.picked = i })
+        }
+        report("grid of \(state.count) (picking)", samples)
+    }
+
     /// The operation list.
     private static func findTable(_ v: NSView?) -> NSTableView? {
         guard let v else { return nil }
@@ -213,6 +241,11 @@ enum PerfBench {
             return String(format: "median %7.1f  p90 %7.1f  max %7.1f ms", p(0.5), p(0.9), v.last!)
         }
         print("== \(title) (\(s.count) steps)")
+        if UserDefaults.standard.bool(forKey: "PerfBenchVerbose") {
+            for x in s {
+                print(String(format: "  %-24@ settle %7.1f  main %7.1f  longest %7.1f ms", x.label as NSString, x.settle.ms, x.busy.ms, x.longest.ms))
+            }
+        }
         print("  settle   \(stats(s.map(\.settle)))")
         print("  main     \(stats(s.map(\.busy)))")
         print("  longest  \(stats(s.map(\.longest)))")
@@ -228,6 +261,40 @@ enum PerfBench {
 @MainActor @Observable
 private final class BytesState {
     var data = Data()
+}
+
+@MainActor @Observable
+private final class GridState {
+    var count = 0
+    var picked = 0
+}
+
+private struct GridHost: View {
+    let state: GridState
+
+    var body: some View {
+        // As GlyphGrid: the pick comes in as a property.
+        GridCells(count: state.count, picked: state.picked) { state.picked = $0 }
+    }
+}
+
+private struct GridCells: View {
+    let count: Int
+    let picked: Int
+    let pick: (Int) -> Void
+
+    var body: some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 76, maximum: 76), spacing: 0)], spacing: 0) {
+                ForEach(0..<count, id: \.self) { i in
+                    Text("\(i)")
+                        .frame(width: 76, height: 92)
+                        .background(picked == i ? Color.accentColor.opacity(0.2) : .clear)
+                        .onTapGesture { pick(i) }
+                }
+            }
+        }
+    }
 }
 
 private struct BytesHost: View {

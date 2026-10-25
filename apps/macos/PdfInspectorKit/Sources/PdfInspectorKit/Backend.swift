@@ -34,6 +34,7 @@ public final class Backend: Sendable {
                     let sp = Perf.requests
                     let state = sp.beginInterval("request", id: sp.makeSignpostID(), "\(name, privacy: .public)")
                     Perf.requestStarted()
+                    Perf.tick("request " + name)
                     let r = Result { try work(session, cancel) }
                     Perf.requestEnded()
                     sp.endInterval("request", state)

@@ -460,7 +460,7 @@ struct ObjectsPanel: View {
                 Toggle("Unreferenced (\(stats.unreferenced.formatted()))", isOn: $layout.objectPicks.unreferenced)
                 Spacer()
                 if p.any {
-                    Button("Clear") { layout.objectPicks = ObjectPicks() }.buttonStyle(.link)
+                    Button("Clear") { layout.objectPicks = ObjectPicks() }.buttonStyle(.inlineLink)
                 }
             }
         }

@@ -237,7 +237,7 @@ struct DiagnosticRow: View {
                 HStack {
                     Text(d.code).monospaced()
                     if let obj = d.obj {
-                        Button(obj.refText) { open(obj) }.buttonStyle(.link)
+                        Button(obj.refText) { open(obj) }.buttonStyle(.inlineLink)
                     }
                     if let p = d.path { Text(p).monospaced() }
                 }

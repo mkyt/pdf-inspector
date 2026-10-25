@@ -40,7 +40,7 @@ cp tests/fixtures/*.pdf ~/Library/Containers/com.juzbox.pdf-inspector/Data/Libra
 - **signpost**: Rust へのリクエストは 1 件ずつ `backend` カテゴリの区間（名前は `contentOps` などリクエストの種類）、メインスレッドが 32 ms を超えて塞がったターンは Points of Interest の `slow main turn`。Instruments（Time Profiler + os_signpost）でそのまま見える
 - **ログ**: `-PerfLog YES` で有効。遅いリクエスト（50 ms 超）とメインスレッドの長いターンを `com.juzbox.pdf-inspector` / `perf` に出す（`log stream --predicate 'subsystem == "com.juzbox.pdf-inspector"' --level debug`）。`-PerfStderr YES` で stderr にも出す
 - **ビューの評価回数**: 各ビューの `body` 冒頭の `Perf.tick("名前")`。ログ有効時だけ数える
-- **ベンチマーク**: `scripts/bench.sh FILE [MODE] [OPTIONS…]` が Release でビルドし、ファイルをサンドボックスのコンテナに写して `PerfBench`（`PDFInspector/App/PerfBench.swift`）を走らせる。1 ステップごとに落ち着くまで（リクエストなし・メインスレッド空き）待ち、所要時間・メインスレッドの使用時間・最長ターン・ステップあたりのビュー評価回数を出す
+- **ベンチマーク**: `scripts/bench.sh FILE [MODE] [OPTIONS…]` が Release でビルドし、ファイルをサンドボックスのコンテナに写して `PerfBench`（`PDFInspector/App/PerfBench.swift`）を走らせる。1 ステップごとに落ち着くまで（リクエストなし・メインスレッド空き）待ち、所要時間・メインスレッドの使用時間・最長ターン・ステップあたりのビュー評価回数とリクエスト回数（`request render` など）を出す
 
 ```sh
 apps/macos/scripts/bench.sh big.pdf keys -PerfBenchPage 11 -PerfBenchSteps 50   # 操作一覧で ↓
@@ -49,11 +49,13 @@ apps/macos/scripts/bench.sh big.pdf scroll                                      
 apps/macos/scripts/bench.sh book.pdf objects -PerfBenchPanes objects            # オブジェクトを次々に開く
 apps/macos/scripts/bench.sh book.pdf pages -PerfBenchPanes pages,schema,bytes   # ページを次々に開く
 apps/macos/scripts/bench.sh any.pdf bytes -PerfBenchSteps 64                    # 16 進ダンプ（BytesDump）を 256 KiB ずつ伸ばす
+apps/macos/scripts/bench.sh any.pdf grid                                        # 6 万 5 千セルの LazyVGrid で選択を変える
+apps/macos/scripts/bench.sh big.pdf keys -PerfBenchBoxes YES                    # プレビューを Boxes にして ↓
 ```
 
-`-PerfBenchSnapshot out.png` は終わったときのウィンドウを保存する。
+`-PerfBenchSnapshot out.png` は終わったときのウィンドウを保存し、`-PerfBenchVerbose YES` はステップごとの値を出す。長いターンの中身は、ベンチを走らせたまま `xcrun xctrace record --template 'Time Profiler' --attach <pid> --time-limit 10s` で取り、`potential-hangs` の区間に入るサンプルを見るとよい。
 
-長い一覧は SwiftUI の `List` にしないこと: 更新のたびに全行を比べる（5 万行で 1 回 8 秒）。操作一覧は `OpTable`、サイドバーの一覧は `PagedRows`、ストリームの 16 進表示は `BytesDump`（どれも NSTableView で、見えている行だけ作る）。選択中の操作が変わっても他のビューが動かないよう、場所だけを見るビューは `nav.target` でなく `nav.place` を読む。
+長い一覧は SwiftUI の `List` にしないこと: 更新のたびに全行を比べる（5 万行で 1 回 8 秒）。`LazyVStack` / `LazyVGrid` は見えている分だけで済む。ほかに重かったもの: `.buttonStyle(.link)`（ボタンごとに NSButton を作る。`.inlineLink` を使う）、広い範囲に掛けた `.textSelection(.enabled)`（テキストごとに選択用のレイアウト）、範囲の広い `Slider(step:)`。操作一覧は `OpTable`、サイドバーの一覧は `PagedRows`、ストリームの 16 進表示は `BytesDump`（どれも NSTableView で、見えている行だけ作る）。選択中の操作が変わっても他のビューが動かないよう、場所だけを見るビューは `nav.target` でなく `nav.place` を読む。
 
 ## Web UI との対応
 

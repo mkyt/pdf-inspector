@@ -225,7 +225,7 @@ struct IssueList: View {
             }
             if sorted.count > max {
                 Button(all ? "Show fewer" : "Show all \(sorted.count)") { all.toggle() }
-                    .buttonStyle(.link)
+                    .buttonStyle(.inlineLink)
                     .font(.caption)
             }
         }
@@ -323,6 +323,31 @@ extension InspectorDocument {
     }
 }
 
+/// A button looking like a link, drawn by SwiftUI: `.link` makes an
+/// NSButton (and a view graph) for each, 100 ms for a page of links.
+struct InlineLinkStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Label(configuration: configuration)
+    }
+
+    private struct Label: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.isEnabled) private var enabled
+
+        var body: some View {
+            configuration.label
+                .foregroundStyle(enabled ? AnyShapeStyle(.link) : AnyShapeStyle(.tertiary))
+                .opacity(configuration.isPressed ? 0.6 : 1)
+                .contentShape(.rect)
+                .pointerStyle(enabled ? .link : nil)
+        }
+    }
+}
+
+extension ButtonStyle where Self == InlineLinkStyle {
+    static var inlineLink: InlineLinkStyle { InlineLinkStyle() }
+}
+
 /// A link-styled button.
 struct LinkButton: View {
     let title: String
@@ -335,7 +360,7 @@ struct LinkButton: View {
 
     var body: some View {
         let _ = Perf.tick("LinkButton")
-        Button(title, action: action).buttonStyle(.link)
+        Button(title, action: action).buttonStyle(.inlineLink)
     }
 }
 

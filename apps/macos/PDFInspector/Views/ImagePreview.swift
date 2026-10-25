@@ -73,7 +73,7 @@ struct ImagePreview: View {
                     }
                     Button(samplesLabel) { save(d, as: .stored("bin", .data)) }
                 }
-                .buttonStyle(.link)
+                .buttonStyle(.inlineLink)
                 if let image {
                     // Large images shrink to fit; small ones grow (up to 32×).
                     let scale = min(32, Self.maxSide / Double(max(d.width, d.height)))

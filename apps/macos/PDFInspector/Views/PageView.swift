@@ -110,7 +110,9 @@ private struct PageDetailView: View {
                     ForEach(p.boxes, id: \.name) { b in
                         GridRow {
                             Text("/\(b.name)").monospaced().foregroundStyle(.secondary)
-                            Text(b.rect?.text ?? "—").monospaced()
+                            // Selectable values only: a selectable text lays out
+                            // twice (for the selection), the whole page is slow.
+                            Text(b.rect?.text ?? "—").monospaced().textSelection(.enabled)
                             Text(b.rect?.sizeText ?? "—")
                             Origin(model: model, o: b.origin)
                         }
@@ -136,9 +138,9 @@ private struct PageDetailView: View {
                         ForEach(Array(p.resourceItems.enumerated()), id: \.offset) { _, r in
                             GridRow {
                                 Text("/\(r.category)").monospaced().foregroundStyle(.secondary)
-                                Text("/\(r.name)").monospaced()
+                                Text("/\(r.name)").monospaced().textSelection(.enabled)
                                 if let id = r.id { ObjLink(model: model, id: id) } else { Text("direct").foregroundStyle(.secondary) }
-                                Text(r.detail)
+                                Text(r.detail).textSelection(.enabled)
                             }
                         }
                     }
@@ -180,7 +182,6 @@ private struct PageDetailView: View {
             }
         }
         .font(.caption)
-        .textSelection(.enabled)
     }
 
     private func section(
@@ -206,7 +207,9 @@ private struct AnnotationList: View {
 
     var body: some View {
         let _ = Perf.tick("AnnotationList")
-        VStack(alignment: .leading, spacing: 2) {
+        // Lazy: a page of links has dozens of rows of buttons; only those in
+        // view are made. Not selectable (the card of the selected one is).
+        LazyVStack(alignment: .leading, spacing: 2) {
             ForEach(items, id: \.index) { a in
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     LinkButton("[\(a.index)]") { annot = a.index == annot ? nil : a.index }

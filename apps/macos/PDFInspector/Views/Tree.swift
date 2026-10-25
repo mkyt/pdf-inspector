@@ -43,7 +43,7 @@ struct NodeChildren: View {
                 Button("Show more (\(nodes.count.formatted()) of \(total.formatted()))") {
                     Task { await more() }
                 }
-                .buttonStyle(.link)
+                .buttonStyle(.inlineLink)
                 .font(.caption)
                 .disabled(loading)
                 .padding(.leading, indent)

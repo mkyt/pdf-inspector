@@ -170,7 +170,7 @@ private struct InfoEditor: View {
             )
             .font(.caption).foregroundStyle(.secondary)
             if date {
-                Button("Now") { value = Date.ISO8601FormatStyle(timeZone: .current).format(.now) }.buttonStyle(.link)
+                Button("Now") { value = Date.ISO8601FormatStyle(timeZone: .current).format(.now) }.buttonStyle(.inlineLink)
             }
             if let error { Text(error).font(.caption).foregroundStyle(.red) }
             HStack {

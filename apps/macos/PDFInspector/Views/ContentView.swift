@@ -223,7 +223,7 @@ private struct ContentIssues: View {
                 Label("\(s.issues.formatted()) problem\(s.issues == 1 ? "" : "s")",
                       systemImage: open ? "chevron.down" : "chevron.right")
             }
-            .buttonStyle(.link)
+            .buttonStyle(.inlineLink)
             if open {
                 Loaded(model.generation, fetch: {
                     try await model.backend.contentIssues(model.doc, content, range: ListRange(offset: 0, limit: 500))
@@ -775,7 +775,8 @@ private struct ContentPreview: View {
     let s: ContentSummary
     let op: UInt32?
     let onPick: (UInt32) -> Void
-    @State private var boxes = false
+    // Boxes first with `-PerfBenchBoxes YES` (PerfBench).
+    @State private var boxes = UserDefaults.standard.bool(forKey: "PerfBenchBoxes")
     @State private var step = false
     @State private var drag: Double?
     @State private var annot: UInt32?
@@ -802,8 +803,10 @@ private struct ContentPreview: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             if (step || boxes) && s.ops > 1 {
+                // Rounded here, not with `step:`: a stepped Slider works out
+                // its steps on each update (tens of ms for 800,000).
                 Slider(
-                    value: Binding { drag ?? Double(op ?? 0) } set: { drag = $0 }, in: 0...Double(s.ops - 1), step: 1
+                    value: Binding { drag ?? Double(op ?? 0) } set: { drag = $0.rounded() }, in: 0...Double(s.ops - 1)
                 ) { editing in
                     if !editing, let d = drag { onPick(UInt32(d)) }
                 }
@@ -826,7 +829,7 @@ private struct ContentDiagram: View {
     let op: UInt32?
     let step: Bool
     let onPick: (UInt32) -> Void
-    @State private var elements: [ElementView]?
+    @State private var boxes: Boxes?
     @State private var clips = false
 
     var body: some View {
@@ -844,8 +847,8 @@ private struct ContentDiagram: View {
             }
             .font(.caption)
             .controlSize(.small)
-            if let elements {
-                diagram(elements)
+            if let boxes {
+                diagram(boxes)
             } else {
                 ProgressView().controlSize(.small)
             }
@@ -867,62 +870,32 @@ private struct ContentDiagram: View {
                 if p.items.isEmpty { break }
                 o += UInt64(p.items.count)
             }
-            elements = out
+            boxes = Boxes(out, bounds: summary.bounds)
         }
     }
 
-    private func kindColor(_ k: String) -> Color {
-        switch k {
-        case "fill": .blue
-        case "stroke": .teal
-        case "fillStroke": .indigo
-        case "text": .orange
-        case "image": .purple
-        case "inlineImage": .purple
-        case "form": .green
-        case "shading": .pink
-        default: .gray
-        }
-    }
-
-    private func diagram(_ all: [ElementView]) -> some View {
-        let area = { (r: Rect) in (r.x1 - r.x0) * (r.y1 - r.y0) }
-        let sorted = all.filter { $0.kind != "clip" || clips }.sorted { area($0.bbox) > area($1.bbox) }
-        var view = summary.bounds
-        if view == nil {
-            for e in all {
-                view = view.map {
-                    Rect(x0: min($0.x0, e.bbox.x0), y0: min($0.y0, e.bbox.y0), x1: max($0.x1, e.bbox.x1), y1: max($0.y1, e.bbox.y1))
-                } ?? e.bbox
-            }
-        }
-        let b = view ?? Rect(x0: 0, y0: 0, x1: 100, y1: 100)
-        let w = max(b.x1 - b.x0, 1)
-        let h = max(b.y1 - b.y0, 1)
+    private func diagram(_ b: Boxes) -> some View {
+        let v = b.view
+        let w = max(v.x1 - v.x0, 1)
+        let h = max(v.y1 - v.y0, 1)
         let pad = max(w, h) * 0.03
-        let selected = all.first { $0.op == op }
+        let sorted = clips ? b.sorted : b.painted
         return GeometryReader { geo in
             let k = min(geo.size.width / (w + 2 * pad), geo.size.height / (h + 2 * pad))
             // Content space (y up) to the canvas.
-            let m = CGAffineTransform(a: k, b: 0, c: 0, d: -k, tx: (pad - b.x0) * k, ty: (b.y1 + pad) * k)
-            let rect = { (r: Rect) in
-                Path(CGRect(x: r.x0, y: r.y0, width: max(r.x1 - r.x0, 0), height: max(r.y1 - r.y0, 0))).applying(m)
-            }
-            Canvas { ctx, _ in
-                ctx.fill(rect(b), with: .color(Color(nsColor: .textBackgroundColor)))
-                ctx.stroke(rect(b), with: .color(.gray.opacity(0.5)), lineWidth: 1)
-                for e in sorted {
-                    let later = step && op != nil && e.op > op!
-                    let c = kindColor(e.kind)
-                    let p = rect(e.bbox)
-                    if e.kind != "clip" { ctx.fill(p, with: .color(c.opacity(later ? 0.02 : 0.1))) }
-                    ctx.stroke(
-                        p, with: .color(c.opacity(later ? 0.15 : 0.8)),
-                        style: StrokeStyle(lineWidth: 1, dash: e.hidden || e.kind == "clip" ? [3, 2] : []))
-                }
-                if let s = selected {
-                    ctx.fill(rect(s.bbox), with: .color(.red.opacity(0.15)))
-                    ctx.stroke(rect(s.bbox), with: .color(.red), lineWidth: 2.5)
+            let m = CGAffineTransform(a: k, b: 0, c: 0, d: -k, tx: (pad - v.x0) * k, ty: (v.y1 + pad) * k)
+            ZStack {
+                // Every box: drawn again only when the boxes, the scale or
+                // (stepping) the selection change, not on each selection.
+                BoxesLayer(boxes: b, clips: clips, until: step ? op : nil, transform: m)
+                    .equatable()
+                if let e = op.flatMap({ b.byOp[$0] }) {
+                    Canvas { ctx, _ in
+                        let p = Path(e.bbox.cgRect).applying(m)
+                        ctx.fill(p, with: .color(.red.opacity(0.15)))
+                        ctx.stroke(p, with: .color(.red), lineWidth: 2.5)
+                    }
+                    .allowsHitTesting(false)
                 }
             }
             .background(Color.gray.opacity(0.12))
@@ -941,4 +914,84 @@ private struct ContentDiagram: View {
         .aspectRatio((w + 2 * pad) / (h + 2 * pad), contentMode: .fit)
         .frame(maxHeight: 520)
     }
+}
+
+/// The boxes of a content, sorted once when read: largest first, so that
+/// the smallest are drawn on top and found first by a click.
+private final class Boxes {
+    /// Every box (clips too), largest first.
+    let sorted: [ElementView]
+    /// Without the clips.
+    let painted: [ElementView]
+    /// What an operation paints (the first box of it).
+    let byOp: [UInt32: ElementView]
+    /// The space shown: the content's bounds, else around every box.
+    let view: Rect
+
+    init(_ all: [ElementView], bounds: Rect?) {
+        let area = { (r: Rect) in (r.x1 - r.x0) * (r.y1 - r.y0) }
+        sorted = all.sorted { area($0.bbox) > area($1.bbox) }
+        painted = sorted.filter { $0.kind != "clip" }
+        byOp = Dictionary(all.map { ($0.op, $0) }) { a, _ in a }
+        var v = bounds
+        if v == nil {
+            for e in all {
+                v = v.map {
+                    Rect(x0: min($0.x0, e.bbox.x0), y0: min($0.y0, e.bbox.y0), x1: max($0.x1, e.bbox.x1), y1: max($0.y1, e.bbox.y1))
+                } ?? e.bbox
+            }
+        }
+        view = v ?? Rect(x0: 0, y0: 0, x1: 100, y1: 100)
+    }
+}
+
+/// Every box of a `ContentDiagram`; with `until`, the later ones faint.
+private struct BoxesLayer: View, Equatable {
+    let boxes: Boxes
+    let clips: Bool
+    let until: UInt32?
+    let transform: CGAffineTransform
+
+    nonisolated static func == (a: Self, b: Self) -> Bool {
+        a.boxes === b.boxes && a.clips == b.clips && a.until == b.until && a.transform == b.transform
+    }
+
+    var body: some View {
+        let _ = Perf.tick("BoxesLayer")
+        Canvas { ctx, _ in
+            let m = transform
+            let frame = Path(boxes.view.cgRect).applying(m)
+            ctx.fill(frame, with: .color(Color(nsColor: .textBackgroundColor)))
+            ctx.stroke(frame, with: .color(.gray.opacity(0.5)), lineWidth: 1)
+            for e in clips ? boxes.sorted : boxes.painted {
+                let later = until.map { e.op > $0 } ?? false
+                let c = kindColor(e.kind)
+                let p = Path(e.bbox.cgRect).applying(m)
+                if e.kind != "clip" { ctx.fill(p, with: .color(c.opacity(later ? 0.02 : 0.1))) }
+                ctx.stroke(
+                    p, with: .color(c.opacity(later ? 0.15 : 0.8)),
+                    style: StrokeStyle(lineWidth: 1, dash: e.hidden || e.kind == "clip" ? [3, 2] : []))
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func kindColor(_ k: String) -> Color {
+        switch k {
+        case "fill": .blue
+        case "stroke": .teal
+        case "fillStroke": .indigo
+        case "text": .orange
+        case "image": .purple
+        case "inlineImage": .purple
+        case "form": .green
+        case "shading": .pink
+        default: .gray
+        }
+    }
+}
+
+extension Rect {
+    /// As a CGRect (an empty one when inverted).
+    fileprivate var cgRect: CGRect { CGRect(x: x0, y: y0, width: max(x1 - x0, 0), height: max(y1 - y0, 0)) }
 }

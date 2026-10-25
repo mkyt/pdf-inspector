@@ -167,7 +167,7 @@ private struct DataEditor: View {
                 .fixedSize()
                 Spacer()
                 if !binary {
-                    Button("Replace with a File Instead") { binary = true }.buttonStyle(.link)
+                    Button("Replace with a File Instead") { binary = true }.buttonStyle(.inlineLink)
                 }
             }
             .font(.caption)
