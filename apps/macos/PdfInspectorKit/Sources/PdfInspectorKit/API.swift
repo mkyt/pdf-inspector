@@ -147,6 +147,17 @@ extension Backend {
         return Bytes(info: info, data: part(blobs, info.part))
     }
 
+    /// An image XObject as it paints (RGBA, not premultiplied), reduced by
+    /// about `reduce` in both directions.
+    public func decodeImage(_ doc: DocId, id: ObjRef, reduce: UInt32 = 1) async throws
+        -> (info: DecodedImage, data: Data)
+    {
+        let (info, blobs) = try await callWithBlobs(.decodeImage(doc: doc, id: id, reduce: reduce)) {
+            if case .decodedImage(let v) = $0 { v } else { nil }
+        }
+        return (info, info.part.map { part(blobs, $0) } ?? Data())
+    }
+
     // MARK: Pages and the document model
 
     public func pages(_ doc: DocId, range: ListRange) async throws -> PageSummaryPage {

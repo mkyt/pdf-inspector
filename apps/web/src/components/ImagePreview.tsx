@@ -5,9 +5,9 @@ import { api, useBackend } from "../api";
 import type { Backend } from "../backend/backend";
 import { useDoc } from "../doc";
 import { useNav } from "../nav";
-import type { DocId, NodeView, ObjRef, StreamInfo } from "../protocol/generated";
+import type { DecodedImage, DocId, ImageFile, NodeView, ObjRef, StreamInfo } from "../protocol/generated";
 
-/** Decoded data we fetch for a preview (one request; also the protocol's chunk limit). */
+/** The protocol's chunk limit for stream data. */
 const MAX_DATA = 4 << 20;
 const MAX_SIDE = 320;
 
@@ -43,9 +43,8 @@ function readDict(nodes: NodeView[]): ImageDict | null {
 }
 
 /**
- * A preview of an image XObject, drawn in the browser: JPEG (DCTDecode) as
- * is, uncompressed or Flate data with 8-bit gray / RGB / CMYK samples (and
- * 1-bit masks). Everything else waits for the renderer.
+ * A preview of an image XObject as the renderer decodes it: `/Decode`,
+ * color spaces and tint transforms, soft masks.
  */
 export function ImagePreview({ id, info }: { id: ObjRef; info: StreamInfo }) {
   const backend = useBackend();
@@ -59,16 +58,17 @@ export function ImagePreview({ id, info }: { id: ObjRef; info: StreamInfo }) {
       ),
   });
   const d = dict.data;
-  const jpeg = info.filters[info.filters.length - 1] === "DCTDecode";
-  const supported = d && (jpeg || drawable(d, info));
-  const data = useQuery({
-    queryKey: ["doc", nav.doc, "imageData", id.num, id.generation],
-    queryFn: () => api.streamData(backend, nav.doc, id, true, 0, MAX_DATA),
-    enabled: !!supported,
+  // Decoded at about twice the preview's size.
+  const reduce = d ? Math.max(1, Math.floor(Math.max(d.width, d.height) / (2 * MAX_SIDE))) : 1;
+  const image = useQuery({
+    queryKey: ["doc", nav.doc, "decodedImage", id.num, id.generation, reduce],
+    queryFn: () => api.decodeImage(backend, nav.doc, id, reduce),
+    enabled: !!d,
   });
   if (!d) return null;
   // Large images shrink to fit; small ones grow (up to 32×) so that they can be seen.
   const scale = Math.min(32, MAX_SIDE / Math.max(d.width, d.height));
+  const decoded = image.data?.info;
   return (
     <Stack gap={4}>
       <Group gap={6}>
@@ -78,23 +78,22 @@ export function ImagePreview({ id, info }: { id: ObjRef; info: StreamInfo }) {
         <Text size="xs" c="dimmed">
           {d.width} × {d.height} · {d.mask ? "ImageMask" : (d.space ?? "other color space")} · {d.bits} bpc
         </Text>
-        <Download id={id} d={d} kind={downloadKind(d, info)} />
-        {drawable(d, info) && <Download id={id} d={d} kind={samplesKind(info)} />}
+        {decoded?.file && <Download id={id} kind={storedKind(decoded.file)} />}
+        {decoded && decoded.part !== null && <Download id={id} kind={{ label: "PNG", ext: "png" }} />}
+        <Download id={id} kind={samplesKind(info)} />
       </Group>
-      {!supported ? (
+      {image.error ? (
         <Text size="xs" c="dimmed">
-          No preview for this encoding yet (comes with the renderer).
+          {image.error.message}
         </Text>
-      ) : !data.data ? (
+      ) : !image.data ? (
         <Loader size="xs" />
-      ) : !data.data.info.eof && !jpeg ? (
+      ) : image.data.info.part === null ? (
         <Text size="xs" c="dimmed">
-          Too large to preview here.
+          {image.data.info.error ?? "No preview for this image."}
         </Text>
-      ) : jpeg ? (
-        <Jpeg bytes={data.data.data} width={d.width * scale} />
       ) : (
-        <Raster d={d} bytes={data.data.data} scale={scale} />
+        <Raster img={image.data.info} data={image.data.data} width={d.width * scale} height={d.height * scale} />
       )}
     </Stack>
   );
@@ -102,30 +101,14 @@ export function ImagePreview({ id, info }: { id: ObjRef; info: StreamInfo }) {
 
 const PLAIN_FILTERS = ["FlateDecode", "LZWDecode", "ASCII85Decode", "ASCIIHexDecode", "RunLengthDecode"];
 
-/** Samples we can turn into pixels ourselves. */
-function drawable(d: ImageDict, info: StreamInfo): boolean {
-  return (
-    info.filters.every((f) => PLAIN_FILTERS.includes(f)) &&
-    (d.bits === 8 || (d.bits === 1 && (d.mask || d.space === "DeviceGray")))
-  );
-}
-
 interface DownloadKind {
   label: string;
   ext: string;
 }
 
-/**
- * What a download saves: JPEG and JPEG 2000 data as stored (they are image
- * files already), samples we can draw as PNG, anything else as the stream
- * data decoded as far as we can.
- */
-function downloadKind(d: ImageDict, info: StreamInfo): DownloadKind {
-  const last = info.filters[info.filters.length - 1];
-  if (last === "DCTDecode") return { label: "JPEG", ext: "jpg" };
-  if (last === "JPXDecode") return { label: "JPEG 2000", ext: "jp2" };
-  if (drawable(d, info)) return { label: "PNG", ext: "png" };
-  return samplesKind(info);
+/** A JPEG or JPEG 2000 file as stored. */
+function storedKind(file: ImageFile): DownloadKind {
+  return file === "jpeg" ? { label: "JPEG", ext: "jpg" } : { label: "JPEG 2000", ext: "jp2" };
 }
 
 /** The stream data decoded as far as we can, without conversion. */
@@ -154,16 +137,21 @@ async function streamAll(b: Backend, doc: DocId, id: ObjRef): Promise<Uint8Array
   return out;
 }
 
-async function imageBlob(d: ImageDict, ext: string, bytes: Uint8Array): Promise<Blob> {
-  if (ext !== "png") {
-    const type = ext === "jpg" ? "image/jpeg" : ext === "jp2" ? "image/jp2" : "application/octet-stream";
-    return new Blob([bytes as BlobPart], { type });
+/** What a download saves: the image as it paints (PNG), or the stream data as stored. */
+async function imageBlob(b: Backend, doc: DocId, id: ObjRef, ext: string): Promise<Blob> {
+  if (ext === "png") {
+    const { info, data } = await api.decodeImage(b, doc, id, 1);
+    if (info.part === null) throw new Error(info.error ?? "cannot decode the image");
+    const c = new OffscreenCanvas(info.width, info.height);
+    c.getContext("2d")!.putImageData(imageData(info, data), 0, 0);
+    return c.convertToBlob({ type: "image/png" });
   }
-  const img = rasterize(d, bytes);
-  if (typeof img === "string") throw new Error(img);
-  const c = new OffscreenCanvas(d.width, d.height);
-  c.getContext("2d")!.putImageData(img, 0, 0);
-  return c.convertToBlob({ type: "image/png" });
+  const type = ext === "jpg" ? "image/jpeg" : ext === "jp2" ? "image/jp2" : "application/octet-stream";
+  return new Blob([(await streamAll(b, doc, id)) as BlobPart], { type });
+}
+
+function imageData(info: DecodedImage, data: Uint8Array): ImageData {
+  return new ImageData(new Uint8ClampedArray(data.buffer as ArrayBuffer, data.byteOffset, data.byteLength), info.width, info.height);
 }
 
 export function save(blob: Blob, name: string) {
@@ -175,7 +163,7 @@ export function save(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-function Download({ id, d, kind }: { id: ObjRef; d: ImageDict; kind: DownloadKind }) {
+function Download({ id, kind }: { id: ObjRef; kind: DownloadKind }) {
   const backend = useBackend();
   const nav = useNav();
   const { summary } = useDoc();
@@ -187,8 +175,7 @@ function Download({ id, d, kind }: { id: ObjRef; d: ImageDict; kind: DownloadKin
     setBusy(true);
     setError(null);
     try {
-      const blob = await imageBlob(d, ext, await streamAll(backend, nav.doc, id));
-      save(blob, `${stem}-${id.num}-${id.generation}.${ext}`);
+      save(await imageBlob(backend, nav.doc, id, ext), `${stem}-${id.num}-${id.generation}.${ext}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -215,84 +202,21 @@ const frame = {
   alignSelf: "flex-start",
 } as const;
 
-/** Samples as RGBA pixels, or why they cannot be. */
-function rasterize(d: ImageDict, bytes: Uint8Array): ImageData | string {
-  const { width: w, height: h } = d;
-  const img = new ImageData(w, h);
-  const px = img.data;
-  if (d.bits === 1) {
-    const row = Math.ceil(w / 8);
-    for (let y = 0; y < h; y++)
-      for (let x = 0; x < w; x++) {
-        const bit = (bytes[y * row + (x >> 3)] >> (7 - (x & 7))) & 1;
-        const o = 4 * (y * w + x);
-        // Image masks paint where the sample is 0; gray 1 is white.
-        const v = d.mask ? (bit ? 255 : 0) : bit * 255;
-        px[o] = px[o + 1] = px[o + 2] = d.mask ? 0 : v;
-        px[o + 3] = d.mask ? 255 - v : 255;
-      }
-    return img;
-  }
-  const n = bytes.length / (w * h);
-  const comps =
-    d.space === "DeviceGray" ? 1 : d.space === "DeviceRGB" ? 3 : d.space === "DeviceCMYK" ? 4 : Math.floor(n);
-  if (![1, 3, 4].includes(comps) || bytes.length < w * h * comps) {
-    return `cannot tell the samples apart (${bytes.length} bytes for ${w}×${h})`;
-  }
-  for (let i = 0; i < w * h; i++) {
-    const s = i * comps;
-    const o = 4 * i;
-    if (comps === 1) px[o] = px[o + 1] = px[o + 2] = bytes[s];
-    else if (comps === 3) {
-      px[o] = bytes[s];
-      px[o + 1] = bytes[s + 1];
-      px[o + 2] = bytes[s + 2];
-    } else {
-      const k = bytes[s + 3];
-      px[o] = 255 - Math.min(255, bytes[s] + k);
-      px[o + 1] = 255 - Math.min(255, bytes[s + 1] + k);
-      px[o + 2] = 255 - Math.min(255, bytes[s + 2] + k);
-    }
-    px[o + 3] = 255;
-  }
-  return img;
-}
-
-function Jpeg({ bytes, width }: { bytes: Uint8Array; width: number }) {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    const u = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "image/jpeg" }));
-    setUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [bytes]);
-  return url ? <img src={url} width={width} style={frame} alt="" /> : null;
-}
-
-function Raster({ d, bytes, scale }: { d: ImageDict; bytes: Uint8Array; scale: number }) {
+function Raster({ img, data, width, height }: { img: DecodedImage; data: Uint8Array; width: number; height: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    const ctx = ref.current?.getContext("2d");
-    if (!ctx) return;
-    const img = rasterize(d, bytes);
-    if (typeof img === "string") setError(img);
-    else ctx.putImageData(img, 0, 0);
-  }, [d, bytes]);
-  if (error)
-    return (
-      <Text size="xs" c="dimmed">
-        {error}
-      </Text>
-    );
+    ref.current?.getContext("2d")?.putImageData(imageData(img, data), 0, 0);
+  }, [img, data]);
   return (
     <canvas
       ref={ref}
-      width={d.width}
-      height={d.height}
+      width={img.width}
+      height={img.height}
       style={{
         ...frame,
-        width: d.width * scale,
-        imageRendering: scale > 1 || d.width < 64 ? "pixelated" : "auto",
+        width,
+        height,
+        imageRendering: width > img.width || img.width < 64 ? "pixelated" : "auto",
       }}
     />
   );

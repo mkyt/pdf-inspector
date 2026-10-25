@@ -188,6 +188,45 @@ pub fn reduces(file: &PdfFile, d: &Dict) -> bool {
     })
 }
 
+/// An image file a stream's data can be saved as.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StoredFile {
+    Jpeg,
+    Jpeg2000,
+}
+
+/// The image file an image XObject's data is (`DCTDecode` or `JPXDecode`
+/// last) when viewers show it as the image paints: gray or RGB samples
+/// (device or ICC based, or JPEG 2000's own space) and, for JPEG, the
+/// default `/Decode`. Not CMYK JPEGs (viewers invert Adobe ones, PDF
+/// readers leave that to `/Decode`), tints (samples are amounts of ink),
+/// indexed, Lab or calibrated colors.
+pub fn stored_file(file: &PdfFile, profiles: &Profiles, d: &Dict) -> Option<StoredFile> {
+    let kind = match canonical_name(file.filter_specs(d).last()?.name.as_bytes()) {
+        b"DCTDecode" => StoredFile::Jpeg,
+        b"JPXDecode" => StoredFile::Jpeg2000,
+        _ => return None,
+    };
+    if matches!(entry(file, d, "ImageMask", None), Some(Object::Bool(true))) {
+        return None;
+    }
+    let plain = match entry(file, d, "ColorSpace", None).map(|o| color::parse(file, profiles, &o)) {
+        None => kind == StoredFile::Jpeg2000,
+        Some(Space::Gray | Space::Rgb) => true,
+        Some(Space::Icc(i)) => matches!(i.n, 1 | 3),
+        Some(_) => false,
+    };
+    // JPEG 2000 samples are used as decoded, whatever `/Decode` says.
+    let decode = entry(file, d, "Decode", None).and_then(|o| {
+        o.as_array()?
+            .iter()
+            .map(|n| resolve(file, &n.obj).1.as_f64())
+            .collect::<Option<Vec<_>>>()
+    });
+    let default = decode.is_none_or(|v| v.chunks(2).all(|r| r == [0.0, 1.0]));
+    (plain && (default || kind == StoredFile::Jpeg2000)).then_some(kind)
+}
+
 /// Decode an image XObject (and its `/SMask` or `/Mask`), reduced by
 /// about `k` in both directions (bilevel codecs reduce while decoding,
 /// and also when the image would be too large otherwise).

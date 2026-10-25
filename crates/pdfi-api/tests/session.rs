@@ -504,6 +504,65 @@ fn json_round_trip() {
     assert_eq!(BinaryFrame::decode(&f.encode()), Some(f));
 }
 
+fn decode_image(s: &Session, doc: DocId, num: u32, reduce: u32) -> (DecodedImage, Vec<u8>) {
+    let (b, mut blobs) = ok(s.dispatch(Request::DecodeImage {
+        doc,
+        id: ObjRef { num, generation: 0 },
+        reduce,
+    }));
+    let ResponseBody::DecodedImage(img) = b else {
+        panic!()
+    };
+    let data = img.part.map(|p| std::mem::take(&mut blobs[p as usize]));
+    (img, data.unwrap_or_default())
+}
+
+#[test]
+fn decoded_images_and_stored_files() {
+    let (s, _) = session();
+    let doc = open(&s, "paint.pdf", None).info.doc;
+
+    // A one-channel JPEG of ink amounts (/Separation /Black): no ink |
+    // full ink. Saved as is, viewers would show it inverted.
+    let (img, px) = decode_image(&s, doc, 69, 1);
+    assert_eq!((img.width, img.height, img.file), (16, 8, None));
+    assert_eq!(px.len(), 16 * 8 * 4);
+    assert!(px[..3].iter().all(|&c| c > 240), "{:?}", &px[..4]);
+    assert!(px[60..63].iter().all(|&c| c < 64), "{:?}", &px[60..64]);
+    assert_eq!(px[3], 255);
+
+    // Adobe CMYK JPEG: viewers invert it, PDF readers follow /Decode.
+    assert_eq!(decode_image(&s, doc, 68, 1).0.file, None);
+    assert_eq!(
+        decode_image(&s, doc, 60, 1).0.file,
+        Some(ImageFile::Jpeg2000)
+    );
+    // Reduced while decoding.
+    let (img, px) = decode_image(&s, doc, 65, 4);
+    assert_eq!((img.width, img.height, px.len()), (16, 16, 16 * 16 * 4));
+
+    let doc = open(&s, "render.pdf", None).info.doc;
+    assert_eq!(decode_image(&s, doc, 27, 1).0.file, Some(ImageFile::Jpeg));
+    assert_eq!(decode_image(&s, doc, 28, 1).0.file, Some(ImageFile::Jpeg));
+    assert_eq!(decode_image(&s, doc, 29, 1).0.file, None);
+    // Stencil masks paint black where the sample is 0.
+    let (img, px) = decode_image(&s, doc, 23, 1);
+    assert_eq!((img.width, img.height, img.file), (8, 8, None));
+    assert_eq!(&px[..4], [0, 0, 0, 0]);
+    assert_eq!(&px[4..8], [0, 0, 0, 255]);
+
+    // Not an image.
+    let r = s.dispatch(Request::DecodeImage {
+        doc,
+        id: ObjRef {
+            num: 1,
+            generation: 0,
+        },
+        reduce: 1,
+    });
+    assert!(matches!(r.response, Response::Err(e) if e.code == ErrorCode::BadRequest));
+}
+
 #[test]
 fn typescript_bindings_are_up_to_date() {
     let path =

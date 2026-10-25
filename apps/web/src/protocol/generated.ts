@@ -1,6 +1,6 @@
 // Generated from crates/pdfi-api by `UPDATE_TS=1 cargo test -p pdfi-api`. Do not edit.
 
-export const PROTOCOL_VERSION = 14;
+export const PROTOCOL_VERSION = 15;
 
 export type DocId = number;
 export type JobId = number;
@@ -747,6 +747,24 @@ full_width: number, full_height: number, scale: number,
  */
 ops: number, notes: Array<RenderNote>, };
 
+export type ImageFile = "jpeg" | "jpeg2000";
+
+export type DecodedImage = { 
+/**
+ * `None` when the image cannot be decoded (`error` says why).
+ */
+part: number | null, width: number, height: number, 
+/**
+ * Colors converted approximately (tint transforms).
+ */
+approximate: boolean, error: string | null, 
+/**
+ * The stream's data is this image file and viewers show it as the
+ * image paints (not, for example, ink amounts of a separation that
+ * they would show inverted).
+ */
+file: ImageFile | null, };
+
 export type RegionSelect = "inside" | "overlaps";
 
 export type ExtractInfo = { part: number, bytes: number, 
@@ -1010,7 +1028,7 @@ fit: boolean, } | { "op": "rawBytes", doc: number, offset: number, len: number, 
 /**
  * Decrypt and apply filters; otherwise the bytes as stored.
  */
-decoded: boolean, offset: number, len: number, } | { "op": "startJob", doc: number, job: JobKind, } | { "op": "jobStatus", job: number, } | { "op": "cancelJob", job: number, } | { "op": "jobDiagnostics", job: number, range: Range, } | { "op": "nodeSyntax", doc: number, path: NodePath, } | { "op": "apply", doc: number, 
+decoded: boolean, offset: number, len: number, } | { "op": "decodeImage", doc: number, id: ObjRef, reduce: number, } | { "op": "startJob", doc: number, job: JobKind, } | { "op": "jobStatus", job: number, } | { "op": "cancelJob", job: number, } | { "op": "jobDiagnostics", job: number, range: Range, } | { "op": "nodeSyntax", doc: number, path: NodePath, } | { "op": "apply", doc: number, 
 /**
  * What `Undo` will say it reverts.
  */
@@ -1022,7 +1040,7 @@ export type ResponseBody = { "type": "hello" } & HelloInfo | { "type": "dir" } &
 /**
  * More blocks than returned.
  */
-truncated: boolean, } | { "type": "resources", items: Array<ResourceItem>, truncated: boolean, } | { "type": "elements" } & Page<ElementView> | { "type": "opState" } & OpState | { "type": "font" } & FontDetail | { "type": "glyphs" } & Page<GlyphView> | { "type": "programGlyphs" } & Page<ProgramGlyph> | { "type": "fontUses" } & FontUsesView | { "type": "bitmap" } & BitmapInfo | { "type": "hits", ops: Array<number>, } | { "type": "extract" } & ExtractInfo | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "syntax", text: string, 
+truncated: boolean, } | { "type": "resources", items: Array<ResourceItem>, truncated: boolean, } | { "type": "elements" } & Page<ElementView> | { "type": "opState" } & OpState | { "type": "font" } & FontDetail | { "type": "glyphs" } & Page<GlyphView> | { "type": "programGlyphs" } & Page<ProgramGlyph> | { "type": "fontUses" } & FontUsesView | { "type": "bitmap" } & BitmapInfo | { "type": "decodedImage" } & DecodedImage | { "type": "hits", ops: Array<number>, } | { "type": "extract" } & ExtractInfo | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "syntax", text: string, 
 /**
  * Longer than what is returned: not editable as text.
  */

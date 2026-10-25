@@ -88,6 +88,8 @@ pub fn typescript() -> String {
         RenderLayer::decl(&cfg),
         RenderNote::decl(&cfg),
         BitmapInfo::decl(&cfg),
+        ImageFile::decl(&cfg),
+        DecodedImage::decl(&cfg),
         RegionSelect::decl(&cfg),
         ExtractInfo::decl(&cfg),
         ContentIssue::decl(&cfg),

@@ -1594,6 +1594,34 @@ pub struct BitmapInfo {
     pub notes: Vec<RenderNote>,
 }
 
+/// An image file a stream's data is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
+#[serde(rename_all = "camelCase")]
+pub enum ImageFile {
+    Jpeg,
+    Jpeg2000,
+}
+
+/// An image XObject decoded as it paints (`/Decode`, color space and tint
+/// transforms, `/SMask` or `/Mask`): RGBA (not premultiplied), row by row,
+/// in binary part `part`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct DecodedImage {
+    /// `None` when the image cannot be decoded (`error` says why).
+    pub part: Option<u32>,
+    pub width: u32,
+    pub height: u32,
+    /// Colors converted approximately (tint transforms).
+    pub approximate: bool,
+    pub error: Option<String>,
+    /// The stream's data is this image file and viewers show it as the
+    /// image paints (not, for example, ink amounts of a separation that
+    /// they would show inverted).
+    pub file: Option<ImageFile>,
+}
+
 /// Which painting operations a region of a content takes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Enum))]

@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 14;
+pub const PROTOCOL_VERSION: u32 = 15;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
@@ -260,6 +260,13 @@ pub enum Request {
         offset: u64,
         len: u32,
     },
+    /// An image XObject as it paints, reduced by about `reduce` in both
+    /// directions (1: full size); a binary part (`DecodedImage`).
+    DecodeImage {
+        doc: DocId,
+        id: ObjRef,
+        reduce: u32,
+    },
     StartJob {
         doc: DocId,
         job: JobKind,
@@ -367,6 +374,7 @@ pub enum ResponseBody {
     ProgramGlyphs(ProgramGlyphPage),
     FontUses(FontUsesView),
     Bitmap(BitmapInfo),
+    DecodedImage(DecodedImage),
     Hits {
         ops: Vec<u32>,
     },

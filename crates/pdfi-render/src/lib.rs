@@ -158,6 +158,17 @@ pub struct Output {
     pub notes: Vec<(String, u32)>,
 }
 
+/// An image XObject as it paints.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ImageOutput {
+    pub width: u32,
+    pub height: u32,
+    /// RGBA, not premultiplied, row by row; stencil masks in black.
+    pub rgba: Vec<u8>,
+    /// Colors converted approximately (tint transforms).
+    pub approximate: bool,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
     Invalid(String),
@@ -264,6 +275,38 @@ impl DocRender {
             }
         }
         v
+    }
+}
+
+impl DocRender {
+    /// An image XObject decoded as it paints (`/Decode`, color space,
+    /// `/SMask` or `/Mask`), reduced by about `k` in both directions.
+    pub fn decode_image(
+        &self,
+        file: &PdfFile,
+        id: ObjId,
+        s: &Stream,
+        k: u32,
+    ) -> Result<ImageOutput, ImageError> {
+        let d = self.image(file, id, s, k.max(1));
+        let d = d.as_ref().as_ref().map_err(Clone::clone)?;
+        let mut rgba = d.pixmap.clone().take_demultiplied();
+        if d.stencil {
+            for px in rgba.chunks_exact_mut(4) {
+                px[..3].fill(0);
+            }
+        }
+        Ok(ImageOutput {
+            width: d.pixmap.width(),
+            height: d.pixmap.height(),
+            rgba,
+            approximate: d.approximate,
+        })
+    }
+
+    /// See [`image::stored_file`].
+    pub fn stored_file(&self, file: &PdfFile, s: &Stream) -> Option<image::StoredFile> {
+        image::stored_file(file, &self.profiles, &s.dict)
     }
 }
 

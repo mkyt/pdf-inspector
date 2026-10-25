@@ -673,6 +673,9 @@ impl Session {
                 let len = check_chunk(len)?;
                 stream_data(&d, id, decoded, offset, len, blobs)
             }
+            Request::DecodeImage { doc, id, reduce } => {
+                decode_image(&*self.doc(doc)?, id, reduce, blobs)
+            }
             Request::StartJob { doc, job } => {
                 let d = self.doc(doc)?;
                 let j = match job {
@@ -1221,6 +1224,48 @@ fn xref(d: &Doc, revision: Option<u32>, range: Range) -> Result<XrefRowPage, Api
             }))
         }
     }
+}
+
+fn decode_image(
+    d: &Doc,
+    id: ObjRef,
+    reduce: u32,
+    blobs: &mut Vec<Vec<u8>>,
+) -> Result<ResponseBody, ApiError> {
+    let o = d.file.get(id.into())?;
+    let s = match &o.node.obj {
+        Object::Stream(s) if s.dict.get_name("Subtype").is_some_and(|n| n == "Image") => s,
+        _ => {
+            return Err(ApiError::new(
+                ErrorCode::BadRequest,
+                format!("object {} is not an image", o.id),
+            ));
+        }
+    };
+    let file = d.render.stored_file(&d.file, s).map(|f| match f {
+        pdfi_render::image::StoredFile::Jpeg => ImageFile::Jpeg,
+        pdfi_render::image::StoredFile::Jpeg2000 => ImageFile::Jpeg2000,
+    });
+    Ok(ResponseBody::DecodedImage(
+        match d.render.decode_image(&d.file, o.id, s, reduce) {
+            Ok(img) => DecodedImage {
+                part: Some(push_part(blobs, img.rgba)),
+                width: img.width,
+                height: img.height,
+                approximate: img.approximate,
+                error: None,
+                file,
+            },
+            Err(e) => DecodedImage {
+                part: None,
+                width: 0,
+                height: 0,
+                approximate: false,
+                error: Some(e.to_string()),
+                file,
+            },
+        },
+    ))
 }
 
 fn stream_data(

@@ -4,7 +4,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 9, backend speaks 14"
+        "message": "client speaks protocol 9, backend speaks 15"
       }
     }
   },
@@ -13,7 +13,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 999, backend speaks 14"
+        "message": "client speaks protocol 999, backend speaks 15"
       }
     }
   },

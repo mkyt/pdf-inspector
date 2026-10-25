@@ -12,6 +12,7 @@ import type {
   ContentIssue,
   ContentRef,
   ContentSummary,
+  DecodedImage,
   ElementView,
   ExtractInfo,
   OpState,
@@ -227,6 +228,16 @@ export const api = {
     offset: number,
     len: number,
   ): Promise<Bytes> => bytes(await call(b, "bytes", { op: "streamData", doc, id, decoded, offset, len })),
+  /** An image XObject as it paints (RGBA, not premultiplied), reduced by about `reduce`. */
+  decodeImage: async (
+    b: Backend,
+    doc: DocId,
+    id: ObjRef,
+    reduce: number,
+  ): Promise<{ info: DecodedImage; data: Uint8Array }> => {
+    const r = await call(b, "decodedImage", { op: "decodeImage", doc, id, reduce });
+    return { info: r.body, data: r.body.part === null ? new Uint8Array() : (r.blobs[r.body.part] ?? new Uint8Array()) };
+  },
   nodeSyntax: async (b: Backend, doc: DocId, path: NodePath): Promise<{ text: string; truncated: boolean }> => {
     const r = (await call(b, "syntax", { op: "nodeSyntax", doc, path })).body;
     return { text: r.text, truncated: r.truncated };
