@@ -55,8 +55,9 @@ jobs:
       - run: npm run test:conformance
 
   macos:
-    # The app targets the newest macOS (docs/DESIGN.md §4.10): needs Xcode 27.
-    runs-on: macos-latest
+    # The app targets the newest macOS (docs/DESIGN.md §4.10): needs Xcode 27,
+    # which macos-latest (macOS 26 / Xcode 26) doesn't have.
+    runs-on: xcode-27
     defaults:
       run:
         working-directory: apps/macos

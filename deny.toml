@@ -22,6 +22,11 @@ multiple-versions = "warn"
 
 [advisories]
 yanked = "deny"
+ignore = [
+  # basic-toml is unmaintained; it reaches us only through uniffi's askama
+  # templates (build-time config parsing) and no upgrade drops it yet.
+  { id = "RUSTSEC-2026-0374", reason = "transitive via uniffi -> askama; no fixed release" },
+]
 
 [sources]
 unknown-registry = "deny"
