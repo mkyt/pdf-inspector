@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 17;
+pub const PROTOCOL_VERSION: u32 = 18;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
@@ -300,6 +300,12 @@ pub enum Request {
         doc: DocId,
         path: NodePath,
     },
+    /// Keys the schema type of the dictionary (or array) at `path` defines,
+    /// to complete an entry being edited.
+    Keys {
+        doc: DocId,
+        path: NodePath,
+    },
     /// Apply edits as one undoable step: all of them or none.
     Apply {
         doc: DocId,
@@ -398,6 +404,11 @@ pub enum ResponseBody {
         text: String,
         /// Longer than what is returned: not editable as text.
         truncated: bool,
+    },
+    Keys {
+        /// `None` when no type is known (and `keys` is empty).
+        type_name: Option<String>,
+        keys: Vec<TypeKey>,
     },
     Applied(ApplyResult),
     /// The browser's answer to saving through the Worker: the document as

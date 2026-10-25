@@ -360,7 +360,7 @@ struct PossibleValues: View {
     }
 
     private func chip(_ v: AllowedValue) -> some View {
-        let on = current.map { same(v.value, $0) } ?? false
+        let on = current.map { Self.same(v.value, $0) } ?? false
         let since = v.since == doc.since ? nil : v.since
         return HStack(spacing: 2) {
             if on { Image(systemName: "checkmark").font(.caption2.bold()) }
@@ -378,7 +378,7 @@ struct PossibleValues: View {
     }
 
     /// Same value, numbers by value (`1` and `1.0`).
-    private func same(_ a: String, _ b: String) -> Bool {
+    static func same(_ a: String, _ b: String) -> Bool {
         if a == b { return true }
         guard let x = Double(a), let y = Double(b) else { return false }
         return x == y

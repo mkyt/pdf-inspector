@@ -724,6 +724,7 @@ impl Session {
                 }))
             }
             Request::NodeSyntax { doc, path } => node_syntax(&*self.doc(doc)?, &path),
+            Request::Keys { doc, path } => keys(&*self.doc(doc)?, &path),
             Request::Apply {
                 doc,
                 label,
@@ -1030,7 +1031,7 @@ fn object(d: &Doc, id: ObjRef) -> Result<ObjectView, ApiError> {
 fn children(d: &Doc, path: &NodePath, range: Range) -> Result<NodeViewPage, ApiError> {
     let ck = d.schema.checker(&d.file);
     let held;
-    let (root, mut ty, in_file) = match &path.root {
+    let (root, ty, in_file) = match &path.root {
         NodeRoot::Trailer => (
             Container::Dict(d.file.trailer()),
             Some(ck.trailer_type()),
@@ -1047,17 +1048,7 @@ fn children(d: &Doc, path: &NodePath, range: Range) -> Result<NodeViewPage, ApiE
             )
         }
     };
-    let mut cur = root;
-    for &i in &path.path {
-        let i = i as usize;
-        let child_ty = ty.and_then(|t| ck.entry(t, cur, i, false).ty);
-        let (_, n) = cur
-            .child(i)
-            .ok_or_else(|| ApiError::new(ErrorCode::NotFound, "no such node"))?;
-        cur = Container::of(&n.obj)
-            .ok_or_else(|| ApiError::new(ErrorCode::NotFound, "no such node"))?;
-        ty = child_ty;
-    }
+    let (cur, ty) = descend(&ck, root, ty, &path.path)?;
     Ok(page(cur.len() as u64, range, |o, n| {
         (o..o + n)
             .filter_map(|i| {
@@ -1093,6 +1084,70 @@ fn children(d: &Doc, path: &NodePath, range: Range) -> Result<NodeViewPage, ApiE
             })
             .collect()
     }))
+}
+
+/// The container at `path` below `root` (of type `ty`), and its type.
+fn descend<'a>(
+    ck: &schema::Checker,
+    root: Container<'a>,
+    mut ty: Option<schema::Ty>,
+    path: &[u32],
+) -> Result<(Container<'a>, Option<schema::Ty>), ApiError> {
+    let mut cur = root;
+    for &i in path {
+        let i = i as usize;
+        let child_ty = ty.and_then(|t| ck.entry(t, cur, i, false).ty);
+        let (_, n) = cur
+            .child(i)
+            .ok_or_else(|| ApiError::new(ErrorCode::NotFound, "no such node"))?;
+        cur = Container::of(&n.obj)
+            .ok_or_else(|| ApiError::new(ErrorCode::NotFound, "no such node"))?;
+        ty = child_ty;
+    }
+    Ok((cur, ty))
+}
+
+/// Keys the schema type of the container at `path` defines.
+fn keys(d: &Doc, path: &NodePath) -> Result<ResponseBody, ApiError> {
+    let ck = d.schema.checker(&d.file);
+    let held;
+    let (root, ty) = match &path.root {
+        NodeRoot::Trailer => (Container::Dict(d.file.trailer()), Some(ck.trailer_type())),
+        NodeRoot::Object { id } => {
+            held = d.file.get((*id).into())?;
+            let c = Container::of(&held.node.obj)
+                .ok_or_else(|| ApiError::new(ErrorCode::BadRequest, "not a container"))?;
+            (c, ck.type_of(held.id).map(|(t, _)| t))
+        }
+    };
+    let (c, ty) = descend(&ck, root, ty, &path.path)?;
+    Ok(ResponseBody::Keys {
+        type_name: ty.map(|t| t.name()),
+        keys: ty.map(|t| type_keys(&ck, t, Some(c))).unwrap_or_default(),
+    })
+}
+
+/// Keys (or array elements) type `t` defines, and whether `c` has them.
+fn type_keys(ck: &schema::Checker, t: schema::Ty, c: Option<Container>) -> Vec<TypeKey> {
+    t.def()
+        .map(|def| {
+            def.keys
+                .iter()
+                .map(|k| {
+                    let present =
+                        (!k.key.contains('*')).then(|| c.is_some_and(|c| c.get(k.key).is_some()));
+                    TypeKey {
+                        key: k.key.into(),
+                        present,
+                        inherited: k.inheritable
+                            && present == Some(false)
+                            && matches!(c, Some(Container::Dict(d)) if ck.inherited(d, k.key)),
+                        doc: convert::key_doc(k),
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Longest text `NodeSyntax` returns.
@@ -1175,26 +1230,7 @@ fn object_schema(d: &Doc, root: &NodeRoot) -> Result<ObjectSchema, ApiError> {
         },
         issues: Vec::new(),
         truncated: false,
-        keys: typed
-            .and_then(|(t, _)| t.def())
-            .map(|def| {
-                def.keys
-                    .iter()
-                    .map(|k| {
-                        let present = (!k.key.contains('*'))
-                            .then(|| c.is_some_and(|c| c.get(k.key).is_some()));
-                        TypeKey {
-                            key: k.key.into(),
-                            present,
-                            inherited: k.inheritable
-                                && present == Some(false)
-                                && matches!(c, Some(Container::Dict(d)) if ck.inherited(d, k.key)),
-                            doc: convert::key_doc(k),
-                        }
-                    })
-                    .collect()
-            })
-            .unwrap_or_default(),
+        keys: typed.map(|(t, _)| type_keys(&ck, t, c)).unwrap_or_default(),
     };
     if let (Some(c), Some((t, _))) = (c, typed) {
         let v = ck.validate(t, c, SCHEMA_ENTRIES);

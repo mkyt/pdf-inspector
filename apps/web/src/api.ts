@@ -57,6 +57,7 @@ import type {
   ResponseBody,
   SvgInfo,
   SvgText,
+  TypeKey,
   XmpView,
   XrefRow,
 } from "./protocol/generated";
@@ -256,6 +257,11 @@ export const api = {
   nodeSyntax: async (b: Backend, doc: DocId, path: NodePath): Promise<{ text: string; truncated: boolean }> => {
     const r = (await call(b, "syntax", { op: "nodeSyntax", doc, path })).body;
     return { text: r.text, truncated: r.truncated };
+  },
+  /** Keys the schema type of the dictionary at `path` defines. */
+  keys: async (b: Backend, doc: DocId, path: NodePath): Promise<{ type_name: string | null; keys: TypeKey[] }> => {
+    const r = (await call(b, "keys", { op: "keys", doc, path })).body;
+    return { type_name: r.type_name, keys: r.keys };
   },
   apply: async (b: Backend, doc: DocId, label: string, commands: EditCommand[]): Promise<ApplyResult> =>
     (await call(b, "applied", { op: "apply", doc, label, commands })).body,

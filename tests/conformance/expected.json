@@ -4,7 +4,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 9, backend speaks 17"
+        "message": "client speaks protocol 9, backend speaks 18"
       }
     }
   },
@@ -13,7 +13,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 999, backend speaks 17"
+        "message": "client speaks protocol 999, backend speaks 18"
       }
     }
   },
@@ -5076,6 +5076,138 @@
         "offset": 0,
         "total": 2,
         "type": "children"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "keys": [
+          {
+            "doc": {
+              "allowed": [
+                {
+                  "deprecated": null,
+                  "since": null,
+                  "value": "/Outlines"
+                }
+              ],
+              "allowed_open": false,
+              "constraints": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": "Table 150",
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "name",
+                  "links": []
+                }
+              ]
+            },
+            "inherited": false,
+            "key": "Type",
+            "present": true
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "OutlineItem"
+                  ]
+                }
+              ]
+            },
+            "inherited": false,
+            "key": "First",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "allowed_open": false,
+              "constraints": [],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "dictionary",
+                  "links": [
+                    "OutlineItem"
+                  ]
+                }
+              ]
+            },
+            "inherited": false,
+            "key": "Last",
+            "present": false
+          },
+          {
+            "doc": {
+              "allowed": [],
+              "allowed_open": false,
+              "constraints": [
+                "@Count>=0"
+              ],
+              "default": null,
+              "deprecated": null,
+              "extension": null,
+              "inheritable": false,
+              "note": null,
+              "requirement": {
+                "kind": "optional"
+              },
+              "since": "1.0",
+              "types": [
+                {
+                  "base": "integer",
+                  "links": []
+                }
+              ]
+            },
+            "inherited": false,
+            "key": "Count",
+            "present": true
+          }
+        ],
+        "type": "keys",
+        "type_name": "Outline"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "notFound",
+        "message": "no such node"
       }
     }
   },

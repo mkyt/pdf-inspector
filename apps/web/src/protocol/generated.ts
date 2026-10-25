@@ -1,6 +1,6 @@
 // Generated from crates/pdfi-api by `UPDATE_TS=1 cargo test -p pdfi-api`. Do not edit.
 
-export const PROTOCOL_VERSION = 17;
+export const PROTOCOL_VERSION = 18;
 
 export type DocId = number;
 export type JobId = number;
@@ -1064,7 +1064,7 @@ fit: boolean, text: SvgText, } | { "op": "rawBytes", doc: number, offset: number
 /**
  * Decrypt and apply filters; otherwise the bytes as stored.
  */
-decoded: boolean, offset: number, len: number, } | { "op": "decodeImage", doc: number, id: ObjRef, reduce: number, } | { "op": "startJob", doc: number, job: JobKind, } | { "op": "jobStatus", job: number, } | { "op": "cancelJob", job: number, } | { "op": "jobDiagnostics", job: number, range: Range, } | { "op": "nodeSyntax", doc: number, path: NodePath, } | { "op": "apply", doc: number, 
+decoded: boolean, offset: number, len: number, } | { "op": "decodeImage", doc: number, id: ObjRef, reduce: number, } | { "op": "startJob", doc: number, job: JobKind, } | { "op": "jobStatus", job: number, } | { "op": "cancelJob", job: number, } | { "op": "jobDiagnostics", job: number, range: Range, } | { "op": "nodeSyntax", doc: number, path: NodePath, } | { "op": "keys", doc: number, path: NodePath, } | { "op": "apply", doc: number, 
 /**
  * What `Undo` will say it reverts.
  */
@@ -1080,7 +1080,11 @@ truncated: boolean, } | { "type": "resources", items: Array<ResourceItem>, trunc
 /**
  * Longer than what is returned: not editable as text.
  */
-truncated: boolean, } | { "type": "applied" } & ApplyResult | { "type": "saved", summary: DocSummary, result: SaveResult, } | { "type": "edit" } & EditStatus | { "type": "batch", responses: Array<Response>, } | { "type": "empty" };
+truncated: boolean, } | { "type": "keys", 
+/**
+ * `None` when no type is known (and `keys` is empty).
+ */
+type_name: string | null, keys: Array<TypeKey>, } | { "type": "applied" } & ApplyResult | { "type": "saved", summary: DocSummary, result: SaveResult, } | { "type": "edit" } & EditStatus | { "type": "batch", responses: Array<Response>, } | { "type": "empty" };
 
 export type HelloInfo = { protocol: number, backend: string, version: string, 
 /**

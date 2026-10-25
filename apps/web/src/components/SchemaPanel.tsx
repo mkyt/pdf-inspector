@@ -392,7 +392,7 @@ function ValueChip({ v, on, keySince }: { v: AllowedValue; on: boolean; keySince
 }
 
 /** Same value, numbers by value (`1` and `1.0`). */
-function same(a: string, b: string): boolean {
+export function same(a: string, b: string): boolean {
   if (a === b) return true;
   const x = Number(a);
   const y = Number(b);

@@ -76,6 +76,8 @@
     { "request": { "op": "schema", "doc": 8, "root": { "kind": "object", "id": { "num": 1, "generation": 0 } } } },
     { "request": { "op": "children", "doc": 8, "path": { "root": { "kind": "object", "id": { "num": 3, "generation": 0 } }, "path": [] }, "range": { "offset": 0, "limit": 100 } } },
     { "request": { "op": "children", "doc": 8, "path": { "root": { "kind": "object", "id": { "num": 1, "generation": 0 } }, "path": [3] }, "range": { "offset": 0, "limit": 100 } } },
+    { "request": { "op": "keys", "doc": 8, "path": { "root": { "kind": "object", "id": { "num": 1, "generation": 0 } }, "path": [3] } } },
+    { "request": { "op": "keys", "doc": 8, "path": { "root": { "kind": "trailer" }, "path": [99] } } },
     { "job": { "op": "startJob", "doc": 8, "job": { "kind": "validate", "root": null } } },
     { "request": { "op": "jobDiagnostics", "job": 6, "range": { "offset": 0, "limit": 100 } } },
     { "request": { "op": "jobDiagnostics", "job": 6, "range": { "offset": 9, "limit": 100 } } },

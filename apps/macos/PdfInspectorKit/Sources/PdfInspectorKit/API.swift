@@ -368,6 +368,15 @@ extension Backend {
         }
     }
 
+    /// Keys the schema type of the dictionary at `path` defines.
+    public func keys(_ doc: DocId, path: NodePath) async throws
+        -> (typeName: String?, keys: [TypeKey])
+    {
+        try await call(.keys(doc: doc, path: path)) {
+            if case .keys(let typeName, let keys) = $0 { (typeName, keys) } else { nil }
+        }
+    }
+
     public func apply(_ doc: DocId, label: String, commands: [EditCommand]) async throws
         -> ApplyResult
     {

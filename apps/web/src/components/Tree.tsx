@@ -152,7 +152,7 @@ function RowMenu({ parent, node, here }: { parent: NodePath; node: NodeView; her
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown>
-        <Menu.Item fz="xs" onClick={() => editValue({ kind: "set", path, title: `Edit ${name}` })}>
+        <Menu.Item fz="xs" onClick={() => editValue({ kind: "set", path, title: `Edit ${name}`, doc: node.schema?.key })}>
           Edit value…
         </Menu.Item>
         {(v.type === "dict" || v.type === "stream") && (

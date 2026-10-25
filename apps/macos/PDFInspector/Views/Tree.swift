@@ -164,7 +164,7 @@ struct NodeRow: View {
             let v = node.value
             let path = NodePath(root: parent.root, path: parent.path + [node.index])
             let name = here.isEmpty ? "/" : here
-            Button("Edit Value…") { editValue(ValueEdit(.set(path), title: "Edit \(name)")) }
+            Button("Edit Value…") { editValue(ValueEdit(.set(path, doc: node.schema?.key), title: "Edit \(name)")) }
             switch v {
             case .dict, .stream:
                 Button("Add Entry…") { editValue(ValueEdit(.entry(path), title: "Add an entry to \(name)")) }
