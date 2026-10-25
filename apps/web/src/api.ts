@@ -55,6 +55,8 @@ import type {
   RenderLayer,
   Request,
   ResponseBody,
+  SvgInfo,
+  SvgText,
   XmpView,
   XrefRow,
 } from "./protocol/generated";
@@ -216,6 +218,19 @@ export const api = {
     fit: boolean,
   ): Promise<{ info: ExtractInfo; data: Uint8Array }> => {
     const r = await call(b, "extract", { op: "extractRegion", doc, content, rect, select, fit });
+    return { info: r.body, data: r.blobs[r.body.part] ?? new Uint8Array() };
+  },
+  /** A content as SVG; with `rect`, only what paints there (picked as `extractRegion` picks it). */
+  exportSvg: async (
+    b: Backend,
+    doc: DocId,
+    content: ContentRef,
+    rect: Rect | null,
+    select: RegionSelect,
+    fit: boolean,
+    text: SvgText,
+  ): Promise<{ info: SvgInfo; data: Uint8Array }> => {
+    const r = await call(b, "svg", { op: "exportSvg", doc, content, rect, select, fit, text });
     return { info: r.body, data: r.blobs[r.body.part] ?? new Uint8Array() };
   },
   rawBytes: async (b: Backend, doc: DocId, offset: number, len: number, signal?: AbortSignal): Promise<Bytes> =>

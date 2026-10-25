@@ -18,7 +18,7 @@ private let zooms = [0.1, 0.17, 0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.25, 1.5, 2, 3,
 /// `step`, only the operations up to it are drawn. A page's annotations
 /// can be shown over it: their appearance streams and outlines of where
 /// they are; a label selects one. In region mode, dragging marks a
-/// rectangle to cut out as a PDF.
+/// rectangle to cut out as a PDF or SVG.
 struct RenderView: View {
     let model: DocumentModel
     let content: ContentRef
@@ -426,7 +426,7 @@ struct RenderView: View {
             Toggle(isOn: $cutting) { Label("Cut Region", systemImage: "crop") }
                 .toggleStyle(.button)
                 .labelStyle(.titleAndIcon)
-                .help("Drag a rectangle to cut out the operations painting inside it, as a PDF")
+                .help("Drag a rectangle to cut out what paints inside it, as a PDF or SVG")
                 .padding(.leading, 6)
             if !annots.isEmpty {
                 Toggle("Appearances", isOn: $showAp)
@@ -795,8 +795,11 @@ struct LinkView: View {
 // MARK: Region cut
 
 /// The region dragged over a rendered content, and cutting it out: a
-/// one-page PDF with only the operations painting there.
+/// one-page PDF with only the operations painting there, or SVG to edit in
+/// a drawing program.
 private struct RegionCut: View {
+    enum Format { case pdf, svg }
+
     let model: DocumentModel
     let content: ContentRef
     let view: ViewInfo
@@ -805,8 +808,11 @@ private struct RegionCut: View {
     let onClear: () -> Void
     @State private var select: RegionSelect = .inside
     @State private var fit = true
+    @State private var format = Format.pdf
+    @State private var text = SvgText.text
     @State private var busy = false
     @State private var done: ExtractInfo?
+    @State private var svgDone: SvgInfo?
     @State private var error: String?
 
     var body: some View {
@@ -824,9 +830,26 @@ private struct RegionCut: View {
                 .fixedSize()
                 .help("Which painting operations to keep: those painting wholly inside the region, or also those only touching it")
                 Toggle("Crop to content", isOn: $fit).help("Shrink the page to what is kept (within the region)")
-                Button("Save PDF…") { Task { await run(rect) } }
+                Picker("Format", selection: $format) {
+                    Text("PDF").tag(Format.pdf)
+                    Text("SVG").tag(Format.svg)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+                .help("PDF: a one-page PDF with only the operations painting here, what they use copied as it is in the file. SVG: to edit in a drawing program, groups, clips and layers kept")
+                if format == .svg {
+                    Picker("Text", selection: $text) {
+                        Text("Text").tag(SvgText.text)
+                        Text("Outlines").tag(SvgText.paths)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .help("Text as <text> elements to edit (in the fonts the file names, each character where it paints), or as glyph outlines that look exactly the same")
+                }
+                Button(format == .svg ? "Save SVG…" : "Save PDF…") { Task { await run(rect) } }
                     .disabled(busy)
-                    .help("A one-page PDF with only the operations painting here; what they use is copied as it is in the file")
                 Button("Clear", systemImage: "xmark", action: onClear).labelStyle(.iconOnly).buttonStyle(.borderless)
             }
             .controlSize(.small)
@@ -836,28 +859,48 @@ private struct RegionCut: View {
                 )
                 .foregroundStyle(.secondary)
             }
+            if let d = svgDone {
+                let notes = d.notes.map { " \($0.message)\($0.count > 1 ? " (×\($0.count))" : "")." }.joined()
+                Text(
+                    "\(d.elements.formatted()) element\(d.elements == 1 ? "" : "s")\(d.images > 0 ? " (\(d.images) image\(d.images > 1 ? "s" : ""))" : ""), \(bytesText(d.bytes)); \(numText(d.viewBox.x1 - d.viewBox.x0)) × \(numText(d.viewBox.y1 - d.viewBox.y0)) pt.\(notes)"
+                )
+                .foregroundStyle(.secondary)
+            }
             if let error { Text(error).foregroundStyle(.red) }
         }
         .font(.caption)
-        .onChange(of: region) { done = nil }
+        .onChange(of: region) {
+            done = nil
+            svgDone = nil
+        }
     }
 
     private func run(_ rect: Rect) async {
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.pdf]
+        panel.allowedContentTypes = [format == .svg ? .svg : .pdf]
         let stem = (model.summary.info.name as NSString).deletingPathExtension
         let what = switch content {
         case .page(let i): "p\(i + 1)"
         case .stream(let id): "\(id.num)-\(id.generation)"
         }
-        panel.nameFieldStringValue = "\(stem)-\(what)-region.pdf"
+        panel.nameFieldStringValue = "\(stem)-\(what)-region.\(format == .svg ? "svg" : "pdf")"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         busy = true
         defer { busy = false }
         do {
-            let r = try await model.backend.extractRegion(model.doc, content, rect: rect, select: select, fit: fit)
-            try r.data.write(to: url)
-            done = r.info
+            switch format {
+            case .pdf:
+                let r = try await model.backend.extractRegion(model.doc, content, rect: rect, select: select, fit: fit)
+                try r.data.write(to: url)
+                done = r.info
+                svgDone = nil
+            case .svg:
+                let r = try await model.backend.exportSvg(
+                    model.doc, content, rect: rect, select: select, fit: fit, text: text)
+                try r.data.write(to: url)
+                svgDone = r.info
+                done = nil
+            }
             error = nil
         } catch {
             self.error = error.localizedDescription

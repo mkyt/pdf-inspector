@@ -861,6 +861,9 @@ impl<'r> Interp<'r> {
                 } else {
                     self.s.stack_overflow += 1;
                 }
+                if let Some(d) = rec.device.as_deref_mut() {
+                    d.save(&self.s.g);
+                }
             }
             Operator::Restore => {
                 if self.s.stack_overflow > 0 {
@@ -869,6 +872,10 @@ impl<'r> Interp<'r> {
                     self.s.g = g;
                 } else {
                     rec.error(i, "Unbalanced", "Q without a matching q");
+                    return;
+                }
+                if let Some(d) = rec.device.as_deref_mut() {
+                    d.restore();
                 }
             }
             Operator::Concat => {
@@ -996,6 +1003,11 @@ impl<'r> Interp<'r> {
                         "BT inside a text object (text objects do not nest)",
                     );
                 }
+                if !self.s.in_text {
+                    if let Some(d) = rec.device.as_deref_mut() {
+                        d.begin_text(&self.s.g);
+                    }
+                }
                 self.s.in_text = true;
                 self.s.tm = IDENTITY;
                 self.s.tlm = IDENTITY;
@@ -1005,9 +1017,13 @@ impl<'r> Interp<'r> {
                 if !self.s.in_text {
                     rec.error(i, "Unbalanced", "ET without a matching BT");
                 }
+                let open = self.s.in_text;
                 self.s.in_text = false;
                 if let Some(tc) = self.s.text_clip.take() {
                     self.text_clip(tc, rec);
+                }
+                if let (true, Some(d)) = (open, rec.device.as_deref_mut()) {
+                    d.end_text();
                 }
             }
             Operator::CharSpacing => g.text.char_spacing = num(&args[0]),
@@ -1165,21 +1181,31 @@ impl<'r> Interp<'r> {
             }
             Operator::MarkPoint => {}
             Operator::MarkPointProps | Operator::BeginMarkedProps => {
-                if let Some(n) = args[1].obj.as_name() {
-                    self.resource(env, i, rec, "Properties", n);
-                }
+                let props = match &args[1].obj {
+                    Object::Name(n) => self.resource(env, i, rec, "Properties", n),
+                    o @ Object::Dict(_) => Some((None, o.clone())),
+                    _ => None,
+                };
                 if op.operator == Operator::BeginMarkedProps {
-                    let tag = args[0].obj.as_name().map(name_text).unwrap_or_default();
-                    self.s.marked.push(tag);
+                    let tag = args[0].obj.as_name();
+                    if let (Some(d), Some(t)) = (rec.device.as_deref_mut(), tag) {
+                        d.begin_marked(t, props.as_ref().map(|(id, o)| (*id, o)), &self.s.g);
+                    }
+                    self.s.marked.push(tag.map(name_text).unwrap_or_default());
                 }
             }
             Operator::BeginMarked => {
-                let tag = args[0].obj.as_name().map(name_text).unwrap_or_default();
-                self.s.marked.push(tag);
+                let tag = args[0].obj.as_name();
+                if let (Some(d), Some(t)) = (rec.device.as_deref_mut(), tag) {
+                    d.begin_marked(t, None, &self.s.g);
+                }
+                self.s.marked.push(tag.map(name_text).unwrap_or_default());
             }
             Operator::EndMarked => {
                 if self.s.marked.pop().is_none() {
                     rec.error(i, "Unbalanced", "EMC without a matching BMC or BDC");
+                } else if let Some(d) = rec.device.as_deref_mut() {
+                    d.end_marked();
                 }
             }
             Operator::BeginCompat => self.s.compat += 1,
@@ -1855,7 +1881,7 @@ impl<'r> Interp<'r> {
                 }
             }
             Some(b"Form") => {
-                if let Some(b) = self.form(env, i, id, s, rec) {
+                if let Some(b) = self.form(env, i, id, n, s, rec) {
                     self.element(i, ElementKind::Form, b, rec);
                 }
             }
@@ -1886,6 +1912,7 @@ impl<'r> Interp<'r> {
         env: &mut Env,
         i: u32,
         id: Option<ObjId>,
+        name: &Name,
         s: &Stream,
         rec: &mut Rec,
     ) -> Option<Rect> {
@@ -1957,6 +1984,9 @@ impl<'r> Interp<'r> {
                 }
             });
         let mut g = g;
+        if let Some(d) = rec.device.as_deref_mut() {
+            d.begin_form(id, name, &self.s.g);
+        }
         if let (Some(gr), Some(d)) = (&group, rec.device.as_deref_mut()) {
             d.begin_group(gr, &self.s.g);
             g.fill_alpha = 1.0;
@@ -1968,6 +1998,9 @@ impl<'r> Interp<'r> {
         let inner = self.run_sub(env, i, id, s, &res, g, Kind::Form, rec);
         if let (Some(_), Some(d)) = (&group, rec.device.as_deref_mut()) {
             d.end_group(&self.s.g);
+        }
+        if let Some(d) = rec.device.as_deref_mut() {
+            d.end_form();
         }
         match (inner, bbox_t) {
             (Some(a), Some(b)) => intersect(&a, &b),

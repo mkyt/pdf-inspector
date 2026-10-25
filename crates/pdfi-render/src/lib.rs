@@ -18,6 +18,7 @@ pub mod function;
 pub mod image;
 mod raster;
 pub mod shading;
+pub mod svg;
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};

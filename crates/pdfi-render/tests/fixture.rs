@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use pdfi_content::{DocContent, Target};
 use pdfi_model::DocModel;
-use pdfi_render::{AnnotPaint, DocRender, Layer, Options, Output, Tile, hit_test, render, view};
+use pdfi_render::{
+    AnnotPaint, DocRender, Layer, Options, Output, Tile, hit_test, render, svg, view,
+};
 use pdfi_syntax::{MemSource, OpenOptions, PdfFile};
 
 fn open(name: &str) -> PdfFile {
@@ -336,7 +338,18 @@ fn hostile_contents_finish() {
         let d = one_page(c);
         let o = d.render(Target::Page(0), &opts(1.0));
         assert_eq!((o.width, o.height), (200, 200));
+        svg_text(&d.svg(Target::Page(0), &svg_opts(svg::TextAs::Paths)));
     }
+    // Clips added one after the other, each followed by a fill: the SVG
+    // nests them rather than repeating them for each fill.
+    let mut c = Vec::new();
+    for i in 0..2_000 {
+        c.extend_from_slice(
+            format!("0 0 m 200 0 l {} 200 l h W n 0 0 1 1 re f\n", i % 200).as_bytes(),
+        );
+    }
+    let s = one_page(&c).svg(Target::Page(0), &svg_opts(svg::TextAs::Paths));
+    assert!(s.data.len() < 1 << 20, "{} bytes", s.data.len());
     // Many clips, each followed by a fill: masks build one path at a time.
     let mut c = Vec::new();
     for i in 0..5_000 {
@@ -669,4 +682,153 @@ fn annotation_layer() {
     // The content layer has none of them.
     let c = d.render(Target::Page(0), &opts(1.0));
     assert_eq!(px(&c, 100, 150), WHITE);
+}
+
+impl Doc {
+    fn svg(&self, t: Target, o: &svg::Options) -> svg::Svg {
+        let c = self.content.on(self.model.on(&self.file));
+        let a = c.analyze(t).unwrap();
+        svg::export(&self.render, &c, &a, o, &|| false).unwrap()
+    }
+}
+
+fn svg_opts(text: svg::TextAs) -> svg::Options {
+    svg::Options {
+        text,
+        region: None,
+        fit: false,
+    }
+}
+
+fn svg_text(s: &svg::Svg) -> String {
+    let t = String::from_utf8(s.data.clone()).unwrap();
+    assert_eq!(t.matches("<g").count(), t.matches("</g>").count(), "{t}");
+    t
+}
+
+#[test]
+fn svg_groups_clips_and_regions() {
+    let d = one_page(
+        b"q 0 0 40 100 re W n 1 0 0 rg 10 10 50 50 re f 0 0 1 RG 20 20 m 90 90 l S Q\n\
+          q 0 0 200 200 re W n 1 0 0 rg 120 120 30 30 re f Q\n\
+          0 1 0 rg 0 0 1 RG 150 10 30 30 re B",
+    );
+    let s = d.svg(Target::Page(0), &svg_opts(svg::TextAs::Text));
+    let t = svg_text(&s);
+    assert!(t.contains("viewBox=\"0 0 200 200\""), "{t}");
+    // A clip over a saved state: on its group.
+    assert!(
+        t.contains(
+            "<g clip-path=\"url(#clip1)\">\n<rect x=\"10\" y=\"140\" width=\"50\" height=\"50\" fill=\"#ff0000\"/>\n<path d=\"M20 180L90 110\""
+        ),
+        "{t}"
+    );
+    // A saved state of one element is no group; a clip holding all it
+    // clips is left out.
+    assert!(
+        t.contains(
+            "</g>\n<rect x=\"120\" y=\"50\" width=\"30\" height=\"30\" fill=\"#ff0000\"/>\n"
+        ),
+        "{t}"
+    );
+    assert_eq!(t.matches("<clipPath").count(), 1, "{t}");
+    // `B`: one element.
+    assert!(
+        t.contains("<rect x=\"150\" y=\"160\" width=\"30\" height=\"30\" fill=\"#00ff00\" stroke=\"#0000ff\" stroke-width=\"1\""),
+        "{t}"
+    );
+    assert_eq!(s.elements, 4);
+
+    // A region: what lies inside, the view cropped to it.
+    let region = |select, fit| svg::Options {
+        region: Some((
+            pdfi_model::Rect {
+                x0: 110.0,
+                y0: 30.0,
+                x1: 200.0,
+                y1: 160.0,
+            },
+            select,
+        )),
+        fit,
+        ..svg_opts(svg::TextAs::Text)
+    };
+    let s = d.svg(
+        Target::Page(0),
+        &region(pdfi_content::extract::Select::Inside, true),
+    );
+    let t = svg_text(&s);
+    assert_eq!(s.elements, 1, "{t}");
+    assert!(t.contains("viewBox=\"120 50 30 30\""), "{t}");
+    let s = d.svg(
+        Target::Page(0),
+        &region(pdfi_content::extract::Select::Overlaps, false),
+    );
+    assert_eq!(s.elements, 2, "{}", svg_text(&s));
+    assert!(svg_text(&s).contains("viewBox=\"110 40 90 130\""));
+}
+
+#[test]
+fn svg_text_layers_and_forms() {
+    let d = Doc::new("content.pdf");
+    let s = d.svg(Target::Page(0), &svg_opts(svg::TextAs::Text));
+    let t = svg_text(&s);
+    // Runs of a text object on one line join; invisible text is left out.
+    assert_eq!(t.matches("<text").count(), 2, "{t}");
+    assert!(
+        t.contains("font-family=\"'Helvetica', sans-serif\" font-size=\"24\""),
+        "{t}"
+    );
+    assert!(t.contains(">HelloWorld</text>"), "{t}");
+    assert!(
+        t.contains("fill-opacity=\"0.5\" style=\"mix-blend-mode:multiply\""),
+        "{t}"
+    );
+    // Optional content: a layer; a form: a named group.
+    assert!(
+        t.contains("<g id=\"Layer\" inkscape:groupmode=\"layer\" data-name=\"Layer\" inkscape:label=\"Layer\">"),
+        "{t}"
+    );
+    assert!(
+        t.contains("<g data-name=\"Fm1\" inkscape:label=\"Fm1\""),
+        "{t}"
+    );
+    assert!(t.contains(">in form</text>"), "{t}");
+    assert!(t.contains("<linearGradient"), "{t}");
+    assert_eq!(s.images, 2);
+
+    let s = d.svg(Target::Page(0), &svg_opts(svg::TextAs::Paths));
+    let t = svg_text(&s);
+    assert!(!t.contains("<text"), "{t}");
+    assert!(
+        t.contains("<g aria-label=\"Hello\" fill=\"#1a334d\""),
+        "{t}"
+    );
+}
+
+#[test]
+fn svg_paints() {
+    let d = Doc::new("paint.pdf");
+    // Tiling patterns, one wrapping around its cell.
+    let t = svg_text(&d.svg(Target::Page(2), &svg_opts(svg::TextAs::Text)));
+    assert_eq!(t.matches("<pattern ").count(), 5, "{t}");
+    assert!(
+        t.contains("<use xlink:href=\"#cell8\" transform=\"translate(-20 0)\"/>"),
+        "{t}"
+    );
+    // Soft masks (alpha, transfer function), groups, blend modes.
+    let s = d.svg(Target::Page(3), &svg_opts(svg::TextAs::Text));
+    let t = svg_text(&s);
+    assert_eq!(t.matches("<mask ").count(), 4, "{t}");
+    assert!(t.contains("style=\"mask-type:alpha\""), "{t}");
+    assert!(
+        t.contains("<feFuncR type=\"table\" tableValues=\"1 0.969"),
+        "{t}"
+    );
+    assert!(t.contains("style=\"mix-blend-mode:multiply\""), "{t}");
+    assert!(
+        t.contains("<g data-name=\"Grp\" inkscape:label=\"Grp\" opacity=\"0.5\">"),
+        "{t}"
+    );
+    assert!(s.notes.iter().any(|(n, _)| n.contains("knockout")));
 }

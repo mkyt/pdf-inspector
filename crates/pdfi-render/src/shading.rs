@@ -75,6 +75,28 @@ enum Geom {
     Patches(Vec<Patch>),
 }
 
+/// Halvings of the parametric range when sampling gradient stops.
+const GRADIENT_DEPTH: u32 = 6;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum GradientKind {
+    /// `/Coords`: x0 y0 x1 y1.
+    Axial([f64; 4]),
+    /// `/Coords`: x0 y0 r0 x1 y1 r1.
+    Radial([f64; 6]),
+}
+
+/// A shading as color stops over its parametric variable.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Gradient {
+    pub kind: GradientKind,
+    pub extend: (bool, bool),
+    /// From 0 (the start circle or point) to 1; RGBA, alpha 0 where the
+    /// function failed.
+    pub stops: Vec<(f64, [u8; 4])>,
+    pub approximate: bool,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Shading {
     space: Space,
@@ -231,6 +253,50 @@ impl Shading {
         (0..LUT)
             .map(|k| self.color(&[t0 + (t1 - t0) * k as f64 / (LUT - 1) as f64], approx))
             .collect()
+    }
+
+    /// An axial shading, or a radial one whose circles lie one inside the
+    /// other, as a gradient of color stops (what an SVG gradient can
+    /// say); `None` for the others and for shadings with a `/BBox`.
+    pub fn gradient(&self) -> Option<Gradient> {
+        if self.bbox.is_some() {
+            return None;
+        }
+        let (kind, (t0, t1), extend) = match &self.geom {
+            Geom::Axial { c, t, extend } => (GradientKind::Axial(*c), *t, *extend),
+            Geom::Radial { c, t, extend } => {
+                let d = (c[3] - c[0]).hypot(c[4] - c[1]);
+                if d + c[2] > c[5] + 1e-9 && d + c[5] > c[2] + 1e-9 {
+                    return None;
+                }
+                (GradientKind::Radial(*c), *t, *extend)
+            }
+            _ => return None,
+        };
+        let mut approx = Approx::default();
+        let at = |s: f64, approx: &mut Approx| self.color(&[t0 + (t1 - t0) * s], approx);
+        // Stops where the colors stop changing linearly (stitched and
+        // sampled functions), at most 2^GRADIENT_DEPTH + 1.
+        let mut stops = vec![(0.0, at(0.0, &mut approx))];
+        let mut todo = vec![(0.0, 1.0, stops[0].1, at(1.0, &mut approx), 0)];
+        while let Some((a, b, ca, cb, depth)) = todo.pop() {
+            let m = (a + b) / 2.0;
+            let cm = at(m, &mut approx);
+            let far = (0..4).any(|k| (cm[k] as i32 - (ca[k] as i32 + cb[k] as i32) / 2).abs() > 2);
+            if far && depth < GRADIENT_DEPTH {
+                // The right half after the left one (a stack).
+                todo.push((m, b, cm, cb, depth + 1));
+                todo.push((a, m, ca, cm, depth + 1));
+            } else {
+                stops.push((b, cb));
+            }
+        }
+        Some(Gradient {
+            kind,
+            extend,
+            stops,
+            approximate: approx.tint || self.approximate,
+        })
     }
 
     /// Paint pixels `area` (`x0, y0, x1, y1`) of device space; `m` maps

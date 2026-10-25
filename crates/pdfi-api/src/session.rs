@@ -643,6 +643,23 @@ impl Session {
                 select,
                 fit,
             } => content::extract(&*self.doc(doc)?, content, rect, select, fit, cancel, blobs),
+            Request::ExportSvg {
+                doc,
+                content,
+                rect,
+                select,
+                fit,
+                text,
+            } => content::svg(
+                &*self.doc(doc)?,
+                content,
+                rect,
+                select,
+                fit,
+                text,
+                cancel,
+                blobs,
+            ),
             Request::RawBytes { doc, offset, len } => {
                 let d = self.doc(doc)?;
                 let len = check_chunk(len)?;

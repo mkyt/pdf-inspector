@@ -92,6 +92,8 @@ pub fn typescript() -> String {
         DecodedImage::decl(&cfg),
         RegionSelect::decl(&cfg),
         ExtractInfo::decl(&cfg),
+        SvgText::decl(&cfg),
+        SvgInfo::decl(&cfg),
         ContentIssue::decl(&cfg),
         ElementView::decl(&cfg),
         OpView::decl(&cfg),

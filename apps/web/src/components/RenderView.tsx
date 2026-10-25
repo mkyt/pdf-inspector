@@ -40,7 +40,7 @@ function paint(canvas: HTMLCanvasElement | null, data: Uint8Array, w: number, h:
  * to the selected one are drawn. A page's annotations can be shown over
  * it: their appearance streams (painted after the content, in `/Annots`
  * order) and outlines of where they are; a label selects one. In region
- * mode, dragging marks a rectangle to cut out as a PDF instead.
+ * mode, dragging marks a rectangle to cut out as a PDF or SVG instead.
  */
 export function RenderView({
   content,
@@ -253,7 +253,7 @@ export function RenderView({
             1:1
           </ActionIcon>
         </Tooltip>
-        <Tooltip label="Drag a rectangle to cut out the operations painting inside it, as a PDF">
+        <Tooltip label="Drag a rectangle to cut out what paints inside it, as a PDF or SVG">
           <Button
             size="compact-xs"
             variant={cutting ? "light" : "subtle"}

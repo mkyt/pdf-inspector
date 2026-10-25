@@ -12,14 +12,14 @@ PDF の内部構造を調べ、編集するためのツール群。設計は [do
 | `crates/pdfi-font` | フォント: 符号の切り分け（定義済み・埋め込み CMap）、幅（`/Widths`・`/W`・標準 14 フォントの AFM）、テキスト（`/ToUnicode`・エンコーディング + Adobe Glyph List）、埋め込みプログラム（TrueType / OpenType は `skrifa`、CFF / Type 1 は `hayro-font`）のグリフ選択とアウトライン、埋め込まれていない単純フォントの代替（PDFium の Foxit フォントを内蔵）、Type 3 のグリフ手続き |
 | `crates/pdfi-content` | content stream: 命令列（演算子表・複数ストリームの連結・インライン画像）、validation（オペランド・ネスト・配置・リソース・色）、グラフィックス状態を追うインタプリタと描画要素の bbox（フォーム XObject を辿る）。命令はチェックポイントから読み直して範囲取得。範囲の切り出し（範囲内を描く命令だけを元のバイト列のまま残し、状態・クリップは保持、部分的に掛かるフォームは中身を切る。使うリソースだけを符号化されたまま複製）。命令列の編集（置き換え・挿入・削除・移動を差分で適用し、変わらない命令は元のバイトのまま、変わったストリームだけを書き換え） |
 | `crates/pdfi-edit` | 編集と保存: コマンド（ノードの値・辞書エントリ・配列要素、オブジェクトの追加・削除、ストリームのデータとフィルタ、ページの削除・移動・回転・空白ページ・他の文書からの複製、Info と XMP）をトランザクションとして適用、undo / redo、incremental update / full rewrite（xref stream・オブジェクトストリーム・圧縮・未使用の除去）をチャンク単位で書き出し |
-| `crates/pdfi-render` | 自作ラスタライザ（tiny-skia）: パス・塗り・線（線幅・端・結合・ダッシュ）・クリップ・画像（1–16 bit、Gray / RGB / CMYK / Indexed / Lab / ICCBased / Separation・DeviceN、JPEG、ステンシル、SMask、色キー）、文字（グリフのアウトライン、Type 3 はグリフ手続き、描画モードの塗り・線・クリップ）。タイル描画、ステップ実行、ハイライト層、ヒットテスト |
+| `crates/pdfi-render` | 自作ラスタライザ（tiny-skia）: パス・塗り・線（線幅・端・結合・ダッシュ）・クリップ・画像（1–16 bit、Gray / RGB / CMYK / Indexed / Lab / ICCBased / Separation・DeviceN、JPEG、ステンシル、SMask、色キー）、文字（グリフのアウトライン、Type 3 はグリフ手続き、描画モードの塗り・線・クリップ）。タイル描画、ステップ実行、ハイライト層、ヒットテスト。SVG 書き出し（ページか範囲内を描くもの: パス・線の属性・不透明度、テキストは `<text>`（フォント名・太さ・字形ごとの位置、同じ行は 1 要素に）かグリフのアウトライン、画像は PNG（そのまま見える JPEG はそのまま）、軸・放射シェーディングはグラデーション、タイリングパターン、ソフトマスク。q / Q・テキストオブジェクト・マーク付きコンテンツ・フォーム・透明グループをグループとして残し、オプショナルコンテンツはレイヤー名付きグループ（最上位は Inkscape のレイヤー）、クリップはそれが掛かるグループに） |
 | `crates/pdfi-api` | フロントとの境界。`Session` が `Request` → `Response` / `Event` を処理（範囲 API、ジョブ、Batch、バイナリ別フレーム、編集と保存）。TS 型を生成 |
 | `crates/pdfi-server` | `pdfi serve` のローカルサーバー（axum + WebSocket、Web UI 内蔵、トークン / Host / Origin / 許可ルート検査） |
 | `crates/pdfi-wasm` | ブラウザ完結モード用の wasm バインディング（Worker から `Session` を駆動、Blob から直接読む） |
 | `crates/pdfi-ffi` | macOS アプリ用の UniFFI バインディング（プロトコルの型をそのまま Swift に、`Session` をインプロセスで駆動、パスで開く・保存・再読込） |
 | `crates/pdfi-cli` | `pdfi` コマンド |
 | `apps/macos` | macOS アプリ（AppKit の NSDocument + SwiftUI、`PdfInspectorKit` パッケージ）。骨格: 概要・ページ / オブジェクト / 診断 / フォント / 画像の一覧・ページ描画・ジョブ・undo / 保存の経路。Web UI との対応表は [apps/macos/README.md](apps/macos/README.md) |
-| `apps/web` | Web UI（Vite + React + Mantine）。Document / Pages / Outline / Fonts / Images 画面、フォント画面（プログラム・エンコーディング・問題、符号 → グリフ → テキストの表とアウトライン、埋め込みプログラムの全グリフとそれを選ぶ符号、そのフォントで描かれたテキストの一覧（フォーム内も含む）と使われた符号）、命令列ビュー（ネスト・問題・デコード済みテキスト、命令ごとの前後のグラフィックス状態、描画範囲の図とステップ表示）、ページ描画（タイル・ズーム、クリックで命令を選択、選択した命令のハイライト、ステップ実行、矩形で囲んだ範囲を描く命令だけを無劣化で 1 ページの PDF に切り出し）、オブジェクト一覧・ツリー・hex・ストリーム表示、被参照一覧、スキーマ型・キー定義・問題の表示と検証ジョブ。編集（ツリーの値を PDF 構文で編集・追加・削除、オブジェクトの追加・削除、ストリームのデータ、ページ操作、Info / XMP）、命令列エディタ（ブロックの折りたたみ・範囲選択・キー操作で挿入 / 編集 / 削除 / 移動 / コピー・貼り付け、CodeMirror のテキストモード: 色分け・折りたたみ・オペランドに合う演算子とリソース名の補完・問題表示・ホバーの説明）と undo / redo、保存（サーバーはパスへ、ブラウザは File System Access API）。サーバー / ブラウザ完結の両モード |
+| `apps/web` | Web UI（Vite + React + Mantine）。Document / Pages / Outline / Fonts / Images 画面、フォント画面（プログラム・エンコーディング・問題、符号 → グリフ → テキストの表とアウトライン、埋め込みプログラムの全グリフとそれを選ぶ符号、そのフォントで描かれたテキストの一覧（フォーム内も含む）と使われた符号）、命令列ビュー（ネスト・問題・デコード済みテキスト、命令ごとの前後のグラフィックス状態、描画範囲の図とステップ表示）、ページ描画（タイル・ズーム、クリックで命令を選択、選択した命令のハイライト、ステップ実行、矩形で囲んだ範囲を描く命令だけを無劣化で 1 ページの PDF に切り出し、または編集用の SVG に書き出し（テキストは text かアウトライン））、オブジェクト一覧・ツリー・hex・ストリーム表示、被参照一覧、スキーマ型・キー定義・問題の表示と検証ジョブ。編集（ツリーの値を PDF 構文で編集・追加・削除、オブジェクトの追加・削除、ストリームのデータ、ページ操作、Info / XMP）、命令列エディタ（ブロックの折りたたみ・範囲選択・キー操作で挿入 / 編集 / 削除 / 移動 / コピー・貼り付け、CodeMirror のテキストモード: 色分け・折りたたみ・オペランドに合う演算子とリソース名の補完・問題表示・ホバーの説明）と undo / redo、保存（サーバーはパスへ、ブラウザは File System Access API）。サーバー / ブラウザ完結の両モード |
 
 ## 使い方
 
@@ -50,6 +50,7 @@ target/release/pdfi ops file.pdf N [--from I --count C] # ページ N の命令�
 target/release/pdfi font file.pdf N [--glyphs]        # フォント N: プログラム・エンコーディング・問題（--glyphs: 符号 → グリフ → テキスト）
 target/release/pdfi render file.pdf N -o out.png [--dpi D] # ページ N を描画（--until I: 命令 I まで、--tile x,y,w,h、--highlight I,J、--hit x,y: その点を描く命令）
 target/release/pdfi extract file.pdf N --rect x0,y0,x1,y1 -o out.pdf [--overlaps] [--fit] # 範囲内を描く命令だけの 1 ページ PDF
+target/release/pdfi svg file.pdf N -o out.svg [--rect x0,y0,x1,y1 [--overlaps] [--fit]] [--outlines] # 編集用の SVG（--outlines: テキストをアウトラインに）
 target/release/pdfi edit in.pdf -o out.pdf --info 'Title=New title' --set '1:/PageLayout=/OneColumn' \
     --rotate 1-2:90 --move 5:1 --delete-pages 3 --append other.pdf   # 編集して incremental update で保存
 target/release/pdfi edit in.pdf -o out.pdf --full --object-streams --compress --gc   # 全体を書き直して圧縮

@@ -192,6 +192,30 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Export a page (or a stream, --obj) as SVG to edit in a vector
+    /// graphics program; with --rect, only what paints in that region.
+    Svg {
+        #[command(flatten)]
+        f: FileArgs,
+        page: Option<u64>,
+        #[arg(long)]
+        obj: Option<u32>,
+        /// Only this region in the content's space: x0,y0,x1,y1.
+        #[arg(long, value_delimiter = ',')]
+        rect: Vec<f64>,
+        /// Also take what only overlaps the region.
+        #[arg(long)]
+        overlaps: bool,
+        /// Shrink the view to what is kept.
+        #[arg(long)]
+        fit: bool,
+        /// Text as glyph outlines instead of <text>.
+        #[arg(long)]
+        outlines: bool,
+        /// Output SVG file.
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Edit and save: Info entries, object entries, pages. Edits apply in
     /// the order of the options' kinds as listed here; the result is an
     /// incremental update unless a full rewrite is asked for.
@@ -289,6 +313,16 @@ fn main() -> Result<()> {
             fit,
             out,
         } => content::extract(&open(&f)?, page, obj, &rect, overlaps, fit, &out),
+        Cmd::Svg {
+            f,
+            page,
+            obj,
+            rect,
+            overlaps,
+            fit,
+            outlines,
+            out,
+        } => content::svg(&open(&f)?, page, obj, &rect, overlaps, fit, outlines, &out),
         Cmd::Xref { f, rev } => xref(&open(&f)?, rev),
         Cmd::Obj { f, num, generation } => {
             let file = open(&f)?;

@@ -1,5 +1,6 @@
 //! `pdfi ops`: the operations of a content stream; `pdfi render`: its
-//! rendering; `pdfi extract`: a region of it cut out.
+//! rendering; `pdfi extract`: a region of it cut out; `pdfi svg`: it (or a
+//! region of it) as SVG.
 
 use std::path::Path;
 use std::time::Instant;
@@ -10,6 +11,7 @@ use pdfi_content::interp::{Color, State};
 use pdfi_content::op::Op;
 use pdfi_content::{Analysis, DocContent, Issue, Target};
 use pdfi_model::{DocModel, Rect};
+use pdfi_render::{DocRender, svg};
 use pdfi_syntax::{Object, PdfFile, write};
 
 fn rect_text(r: &Rect) -> String {
@@ -313,6 +315,62 @@ pub fn extract(
         x.objects,
         x.pdf.len(),
         rect_text(&x.media_box),
+        out.display()
+    );
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn svg(
+    file: &PdfFile,
+    page: Option<u64>,
+    obj: Option<u32>,
+    rect: &[f64],
+    overlaps: bool,
+    fit: bool,
+    outlines: bool,
+    out: &Path,
+) -> Result<()> {
+    let region = match *rect {
+        [] => None,
+        [x0, y0, x1, y1] => Some((
+            Rect { x0, y0, x1, y1 },
+            if overlaps {
+                Select::Overlaps
+            } else {
+                Select::Inside
+            },
+        )),
+        _ => bail!("--rect takes x0,y0,x1,y1"),
+    };
+    let dm = DocModel::new();
+    let dc = DocContent::new();
+    let c = dc.on(dm.on(file));
+    let a = c
+        .analyze(target(file, page, obj)?)
+        .map_err(|e| anyhow!(e))?;
+    let o = svg::Options {
+        text: if outlines {
+            svg::TextAs::Paths
+        } else {
+            svg::TextAs::Text
+        },
+        region,
+        fit,
+    };
+    let t0 = Instant::now();
+    let x = svg::export(&DocRender::new(), &c, &a, &o, &|| false).map_err(|e| anyhow!(e))?;
+    std::fs::write(out, &x.data)?;
+    for (n, k) in &x.notes {
+        println!("note: {n} (×{k})");
+    }
+    println!(
+        "{} elements ({} images), {} bytes, view box {}  ({:.1} ms) → {}",
+        x.elements,
+        x.images,
+        x.data.len(),
+        rect_text(&x.view_box),
+        t0.elapsed().as_secs_f64() * 1000.0,
         out.display()
     );
     Ok(())

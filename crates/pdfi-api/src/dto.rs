@@ -1649,6 +1649,33 @@ pub struct ExtractInfo {
     pub objects: u64,
 }
 
+/// How an SVG export writes text.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
+#[serde(rename_all = "camelCase")]
+pub enum SvgText {
+    /// `<text>` with the font's name, each character where it paints
+    /// (glyphs without Unicode text as outlines).
+    Text,
+    /// Glyph outlines.
+    Paths,
+}
+
+/// A content (or a region of it) as SVG, in binary part `part`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct SvgInfo {
+    pub part: u32,
+    pub bytes: u64,
+    /// The view box, in points of the view (from its top left).
+    pub view_box: Rect,
+    /// Elements written (paths, texts, images, shadings), and images.
+    pub elements: u64,
+    pub images: u64,
+    /// What was approximated or left out.
+    pub notes: Vec<RenderNote>,
+}
+
 /// A problem of a content: of one operation, or (`op: None`) of the whole.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]

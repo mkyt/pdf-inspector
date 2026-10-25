@@ -1,5 +1,6 @@
 //! Render arbitrary bytes as the content of a page that has an image, a
-//! form and a few color spaces to use, then hit-test it.
+//! form and a few color spaces to use, then hit-test it and export it as
+//! SVG.
 #![no_main]
 
 use std::sync::Arc;
@@ -7,7 +8,7 @@ use std::sync::Arc;
 use libfuzzer_sys::fuzz_target;
 use pdfi_content::{DocContent, Target};
 use pdfi_model::DocModel;
-use pdfi_render::{DocRender, Layer, Options, hit_test, render};
+use pdfi_render::{DocRender, Layer, Options, hit_test, render, svg};
 use pdfi_syntax::{MemSource, OpenOptions, PdfFile};
 
 fn document(content: &[u8]) -> Vec<u8> {
@@ -59,4 +60,10 @@ fuzz_target!(|data: &[u8]| {
     };
     let _ = render(&dr, &c, &a, &o, &|| false);
     let _ = hit_test(&dr, &c, &a, (25.0, 25.0), 2.0, None, &|| false);
+    let o = svg::Options {
+        text: svg::TextAs::Text,
+        region: None,
+        fit: false,
+    };
+    let _ = svg::export(&dr, &c, &a, &o, &|| false);
 });

@@ -1,6 +1,6 @@
 // Generated from crates/pdfi-api by `UPDATE_TS=1 cargo test -p pdfi-api`. Do not edit.
 
-export const PROTOCOL_VERSION = 15;
+export const PROTOCOL_VERSION = 16;
 
 export type DocId = number;
 export type JobId = number;
@@ -781,6 +781,22 @@ kept: number, dropped: number,
  */
 forms: number, objects: number, };
 
+export type SvgText = "text" | "paths";
+
+export type SvgInfo = { part: number, bytes: number, 
+/**
+ * The view box, in points of the view (from its top left).
+ */
+view_box: Rect, 
+/**
+ * Elements written (paths, texts, images, shadings), and images.
+ */
+elements: number, images: number, 
+/**
+ * What was approximated or left out.
+ */
+notes: Array<RenderNote>, };
+
 export type ContentIssue = { op: number | null, severity: Severity, code: string, message: string, 
 /**
  * For syntax problems: the stream and the bytes in its decoded data.
@@ -1024,7 +1040,11 @@ until: number | null, layer: RenderLayer, } | { "op": "hitTest", doc: number, co
 /**
  * Shrink the page to what is kept.
  */
-fit: boolean, } | { "op": "rawBytes", doc: number, offset: number, len: number, } | { "op": "streamData", doc: number, id: ObjRef, 
+fit: boolean, } | { "op": "exportSvg", doc: number, content: ContentRef, rect: Rect | null, select: RegionSelect, 
+/**
+ * Shrink the view to what is kept (with `rect`).
+ */
+fit: boolean, text: SvgText, } | { "op": "rawBytes", doc: number, offset: number, len: number, } | { "op": "streamData", doc: number, id: ObjRef, 
 /**
  * Decrypt and apply filters; otherwise the bytes as stored.
  */
@@ -1040,7 +1060,7 @@ export type ResponseBody = { "type": "hello" } & HelloInfo | { "type": "dir" } &
 /**
  * More blocks than returned.
  */
-truncated: boolean, } | { "type": "resources", items: Array<ResourceItem>, truncated: boolean, } | { "type": "elements" } & Page<ElementView> | { "type": "opState" } & OpState | { "type": "font" } & FontDetail | { "type": "glyphs" } & Page<GlyphView> | { "type": "programGlyphs" } & Page<ProgramGlyph> | { "type": "fontUses" } & FontUsesView | { "type": "bitmap" } & BitmapInfo | { "type": "decodedImage" } & DecodedImage | { "type": "hits", ops: Array<number>, } | { "type": "extract" } & ExtractInfo | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "syntax", text: string, 
+truncated: boolean, } | { "type": "resources", items: Array<ResourceItem>, truncated: boolean, } | { "type": "elements" } & Page<ElementView> | { "type": "opState" } & OpState | { "type": "font" } & FontDetail | { "type": "glyphs" } & Page<GlyphView> | { "type": "programGlyphs" } & Page<ProgramGlyph> | { "type": "fontUses" } & FontUsesView | { "type": "bitmap" } & BitmapInfo | { "type": "decodedImage" } & DecodedImage | { "type": "hits", ops: Array<number>, } | { "type": "extract" } & ExtractInfo | { "type": "svg" } & SvgInfo | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "syntax", text: string, 
 /**
  * Longer than what is returned: not editable as text.
  */

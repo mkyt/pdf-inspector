@@ -267,6 +267,62 @@ pub fn extract(
     }))
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn svg(
+    d: &Doc,
+    c: ContentRef,
+    r: Option<Rect>,
+    select: RegionSelect,
+    fit: bool,
+    text: SvgText,
+    cancel: &dyn Fn() -> bool,
+    blobs: &mut Vec<Vec<u8>>,
+) -> Result<ResponseBody, ApiError> {
+    use pdfi_render::svg;
+    let a = analysis(d, c)?;
+    let content = d.content.on(d.model.on(&d.file));
+    let o = svg::Options {
+        text: match text {
+            SvgText::Text => svg::TextAs::Text,
+            SvgText::Paths => svg::TextAs::Paths,
+        },
+        region: r.map(|r| {
+            (
+                pdfi_model::Rect {
+                    x0: r.x0,
+                    y0: r.y0,
+                    x1: r.x1,
+                    y1: r.y1,
+                },
+                match select {
+                    RegionSelect::Inside => Select::Inside,
+                    RegionSelect::Overlaps => Select::Overlaps,
+                },
+            )
+        }),
+        fit,
+    };
+    let x = svg::export(&d.render, &content, &a, &o, cancel).map_err(|e| {
+        if cancel() {
+            ApiError::new(ErrorCode::Cancelled, "cancelled")
+        } else {
+            ApiError::new(ErrorCode::BadRequest, e)
+        }
+    })?;
+    Ok(ResponseBody::Svg(SvgInfo {
+        bytes: x.data.len() as u64,
+        part: push_part(blobs, x.data),
+        view_box: rect(x.view_box),
+        elements: x.elements,
+        images: x.images,
+        notes: x
+            .notes
+            .into_iter()
+            .map(|(message, count)| RenderNote { message, count })
+            .collect(),
+    }))
+}
+
 pub fn hit_test(
     d: &Doc,
     c: ContentRef,

@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use pdfi_font::{Code, Seg};
 use pdfi_model::Rect;
-use pdfi_syntax::{Dict, ObjId, Object, PdfFile, Stream};
+use pdfi_syntax::{Dict, Name, ObjId, Object, PdfFile, Stream};
 
 use crate::geom::{Matrix, apply, mul};
 use crate::interp::{FontRef, GState, Resources};
@@ -185,4 +185,35 @@ pub trait Device {
     fn begin_group(&mut self, _group: &Group, _g: &GState) {}
 
     fn end_group(&mut self, _g: &GState) {}
+
+    // How what is painted is put together, for devices that keep the
+    // structure (an SVG export): saved states, text objects, marked
+    // content and forms. Each opening call is matched by its closing one
+    // within the same content (forms close what they leave open).
+
+    /// `q` (in state `g`).
+    fn save(&mut self, _g: &GState) {}
+
+    /// `Q` restoring the state of a `q`.
+    fn restore(&mut self) {}
+
+    /// `BT`.
+    fn begin_text(&mut self, _g: &GState) {}
+
+    /// `ET`.
+    fn end_text(&mut self) {}
+
+    /// `BMC` / `BDC`: the tag, and the properties (inline, or the
+    /// `/Properties` resource and its object).
+    fn begin_marked(&mut self, _tag: &Name, _props: Option<(Option<ObjId>, &Object)>, _g: &GState) {
+    }
+
+    /// `EMC` closing a `BMC` / `BDC`.
+    fn end_marked(&mut self) {}
+
+    /// A form XObject (resource `name`) starts painting, in state `g`
+    /// (before its matrix and `/BBox` apply).
+    fn begin_form(&mut self, _id: ObjId, _name: &Name, _g: &GState) {}
+
+    fn end_form(&mut self) {}
 }

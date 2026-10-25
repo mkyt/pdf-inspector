@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 15;
+pub const PROTOCOL_VERSION: u32 = 16;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
@@ -247,6 +247,18 @@ pub enum Request {
         /// Shrink the page to what is kept.
         fit: bool,
     },
+    /// A content as SVG to edit in a vector graphics program: all of it,
+    /// or (`rect` in the content's space) what paints in a region, picked
+    /// as `ExtractRegion` picks it. A binary part (`SvgInfo`).
+    ExportSvg {
+        doc: DocId,
+        content: ContentRef,
+        rect: Option<Rect>,
+        select: RegionSelect,
+        /// Shrink the view to what is kept (with `rect`).
+        fit: bool,
+        text: SvgText,
+    },
     RawBytes {
         doc: DocId,
         offset: u64,
@@ -379,6 +391,7 @@ pub enum ResponseBody {
         ops: Vec<u32>,
     },
     Extract(ExtractInfo),
+    Svg(SvgInfo),
     Bytes(BytesInfo),
     Job(JobInfo),
     Syntax {

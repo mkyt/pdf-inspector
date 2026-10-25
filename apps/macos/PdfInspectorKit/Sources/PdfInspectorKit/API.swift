@@ -297,6 +297,18 @@ extension Backend {
         return (info, part(blobs, info.part))
     }
 
+    /// SVG of a content; with `rect`, only what paints there (picked as
+    /// `extractRegion` picks it).
+    public func exportSvg(
+        _ doc: DocId, _ content: ContentRef, rect: Rect?, select: RegionSelect, fit: Bool,
+        text: SvgText
+    ) async throws -> (info: SvgInfo, data: Data) {
+        let (info, blobs) = try await callWithBlobs(
+            .exportSvg(doc: doc, content: content, rect: rect, select: select, fit: fit, text: text)
+        ) { if case .svg(let v) = $0 { v } else { nil } }
+        return (info, part(blobs, info.part))
+    }
+
     // MARK: Fonts
 
     public func font(_ doc: DocId, id: ObjRef) async throws -> FontDetail {
