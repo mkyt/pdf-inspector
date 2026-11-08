@@ -19,6 +19,7 @@
 > - v2.14: マクロの設計を確定し、§10 から §4.11 に移した（データのそばで実行: native は QuickJS、Web はマクロ専用の Worker でブラウザの JS。公開 API は prelude で版を付ける。パラメータは宣言したものだけ。CLI の一括処理。安全のための隔離はしない。ドキュメントは `pdfi.d.ts` を唯一の出どころにする）。M14〜M17 を追加
 > - v2.15: macOS アプリの App Sandbox をやめた（§4.10）。マクロのディレクトリは CLI と共有する（§4.11）
 > - v2.16: M14 実装で確定した事項を §4.11 に追記（編集のグループと `ErrorCode::Busy`、プロトコル v20、`__host` の値の渡し方、`Node` の位置の覚え方、パラメータの生の形、CLI の保存と一括処理、`docs/macros/api/` の生成）
+> - v2.17: M15 実装で確定した事項を §4.8 / §4.11 に追記（`ContentFind` の候補・条件・単位とフォームの扱い、`SetOutline` / `SetPageLabels` の形、`PageLabels`、プロトコル v21、同梱のマクロ remove-marks・outline-from-json・page-labels）
 
 ## 1. ゴール
 
@@ -343,6 +344,7 @@ impl Session {
   - ジョブは `step()` を繰り返す有界な作業単位。実行は `Executor` trait（server: ジョブごとのスレッド、wasm: `QueueExecutor` を協調的に回す）
   - ファイルアクセスは `SourceProvider` trait で注入（pdfi-api 自体は fs に触れない）
   - `Cancel(RequestId)` はトランスポート層で未着手のリクエストを破棄する。`Batch` はネスト不可
+- **M15 で追加（プロトコル v21）**: `ContentFind { content, query: FindQuery, range }`（`Found { hits: FindHit[], truncated, forms_truncated }`。`FindHit { from, to, op, kind, bbox, hidden, text, form }`、`to` は含まない）、`PageLabels { doc }`（`PageLabelRange { start, style, prefix, first }` の列）、`EditCommand::SetOutline { items: OutlineEntry[] }`（`{ level, title, target: page { index, fit, params } | named { name } | uri { uri }, open, flags, color }` を読む順に並べた平らな列。UniFFI で再帰する型を避けるため木にしない）、`EditCommand::SetPageLabels { ranges }`
 - **M11 で追加（プロトコル v14）**: `EditCommand::EditOps { content, edits: Vec<OpEdit> }`（`OpEdit`: `replace { from, to, text }` | `move { from, to, before }`。テキストは 1 文字 1 バイト（Latin-1）で、U+00FF を超える文字は拒否。トランザクションの中で直前までの編集を重ねたビューから内容を読むので、他のコマンドや複数の `EditOps` と 1 つの undo 単位にできる）、`ContentText { content, range }`（`OpText { from, to, text }`: 命令の書かれたままのテキスト（命令の間のコメント・空白込み、ストリームの境目は改行）。4 MB で打ち切り、`to` が実際の終わり）、`ContentBlocks { content, depth }`（その深さに開きがあるブロック `[開き, 終わり]`、10 万個まで。全部を折りたたむため）、`ContentResources { content }`（内容が名前で指せるリソースの一覧。補完と説明に使う）。`OpView.end`（ブロックを開く命令なら、その最後の命令）。コマンドの失敗は `command N: …` の形に揃えた
 - **M10 で追加（プロトコル v13）**: `Apply { doc, label, commands }`（`EditCommand` の列を 1 つの undo 単位で。値は PDF 構文の文字列、ストリームのデータは `StreamPayload`（テキストか base64）。応答 `ApplyResult`: 編集の状態、作ったオブジェクト、変わった番号、注記、変わったオブジェクトのスキーマの問題（先頭 50 個のオブジェクト・100 件まで））、`Undo` / `Redo`（`EditStatus`）、`NodeSyntax { doc, path }`（ノードの PDF 構文、1 MB まで。編集欄の初期値）、`JobKind::Save { path, mode }`（`SaveMode`: `incremental` | `full { xref_stream, object_streams, compress, remove_unused }`。結果は `JobResult::Save`、失敗は `JobState::Failed` と `JobInfo.error`）、`ResponseBody::Saved`（Worker 経由で保存したときの応答）。`DocSummary.edit`（`EditStatus`: 未保存か、編集したオブジェクト数、undo / redo の名前、署名の数、update できない理由）。`Event::DocChanged { doc, reason: edit | undo | redo | saved, info }` を受けたら UI はその文書のキャッシュを全部捨てる（編集のたびにスナップショットごと作り直すので、細かい無効化はしない）。`XrefEntry::Edited`、`Location::Edited`
   - Session は文書を `Arc<Doc>` の差し替えで更新する。編集中の文書の読み取り（描画・ジョブ）は古いスナップショットのまま一貫して終わる。編集は文書ごとの履歴のロックで直列化する。インベントリやフォントの使用箇所は新しいスナップショットでは作り直し（UI はジョブの結果を消す）
@@ -668,6 +670,18 @@ pdfi macro run <name|file.js> <in.pdf>... \
 - 一括処理で最初の失敗で止めるのは、まだ始めていないファイル。並列に走っているものは最後まで走らせて結果を出す。結果は入力の順に出す（jsonl も）
 - **ドキュメントの道具**: TypeDoc は TypeScript の JS の API を使い、TypeScript 7（`apps/web` の）では動かないので、`crates/pdfi-macro/js` を TypeScript 6 + TypeDoc の小さな npm パッケージにした（`npm run check` / `npm run docs` / `npm run docs:check`。CI は `macros` ジョブ）。生成物は 1 ファイルにならないので `docs/macros/api/` に置く。prelude は `strict` を外した設定（`tsconfig.prelude.json`）で検査する。`pdfi.d.ts` は `console` / `TextEncoder` / `TextDecoder` も lib.dom と両立する形で宣言する
 - ドキュメント中の ```` ```js macro ```` は `cargo test -p pdfi-macro`（`tests/docs.rs`）が `tests/fixtures/model.pdf` に対して既定のパラメータで実行する。同梱のマクロを wasm の経路でも実行して突き合わせるのは M16
+
+#### M15 で確定したこと
+
+- **`ContentFind` の候補**は描画要素（`pdfi_content::find`）: パスは最初の構築演算子から描画演算子まで（`W` / `W*` を含む）、文字を表示する命令、`Do`、`sh`、インライン画像。クリップだけのパス（`W n`）は `kinds` に `clip` を挙げたときだけ候補にする（消すと隠れていたものが見えるため）。`unit: op` では、描画要素の中の `operators` に挙げた命令を 1 つずつ返し、描画要素にしか無い条件（`kinds` / `color` / `bbox` / `text` / `hidden`）を使わないときは描画しない命令（`gs`、`BDC` など）も候補にする
+- 検索は解析（`Analysis`）とは別に、内容をもう一度インタプリタで走らせて行う（命令ごとの状態を残さない方針（§4.5）のまま、開いている `q` と `BMC` / `BDC` の列、作りかけのパスの演算子を自分で追う）。条件はすべて AND。`bbox` は描画要素の bbox（内容の空間）と矩形の関係で、`outside` は面積のある重なりが無いこと（辺で接するのは外）。`color` は描くときの色（塗り・線。文字は `Tr` で決める）の色空間の family か、`Separation` / `DeviceN` の色材の名前。`marked` は外側も含めて開いているマークのどれかがタグと属性（名前・テキスト文字列・数・真偽値を文字列で比べる）に合うこと。`ocgs` は `/OC` のマーク（`Properties` の名前を引いて、OCG そのものか、`/OCGs` に挙げる OCMD）か、`/OC` を持つフォーム・画像 XObject。OCG の名前から参照への解決は prelude（`doc.ocgs()`）が行う
+- **フォーム XObject**: `Do` そのものが条件を満たせばそれが当たる。満たさなければフォームの中を（外側のマーク・CTM を引き継いで、bbox はページの空間で）同じ条件で探し、何か当たればその `Do` を返す（`form` に中のフォーム）。深さ 12、1 回の検索で 400 万命令まで（超えたら `forms_truncated`）
+- **`unit: block`**: 当たったマーク（`marked` / `ocgs` を指定したとき）の `BDC … EMC`、それ以外は一番内側の `q … Q` か `BMC` / `BDC … EMC`（`BT … ET` は数えない）。囲むブロックが無ければ描画要素のまま。同じ範囲の当たりは 1 つにまとめる（テキストはつなぐ）。重なる範囲はまとめない（`Content.remove` がまとめてから、後ろから順に `EditOps` の `replace { text: "" }` にする）
+- 戻り値は 100,000 件まで。`text` の `RegExp`、2 つ目以降の `bbox` の関係、`where` は prelude が結果を絞る
+- **`SetOutline`**: 項目は読む順の平らな列で、前の項目より 2 段以上深いものはエラー。古い目次の項目（`/Outlines` から `/First` / `/Next` で辿れる辞書で `/Title` を持つものと根）は削除し、根と項目を新しいオブジェクトで作る。`/Count` は開いている項目では見える子孫の数、閉じた項目ではその負数、根は見える項目の総数。ページへの行き先は `[page /Fit]` か `[page /XYZ left top zoom]` の形（`null` はビューアに任せる）、名前付きの行き先はテキスト文字列、URI は `/A << /S /URI >>`
+- **`SetPageLabels`**: 範囲を始まりで並べ、同じ始まりや文書の外はエラー。最初の範囲はページ 0 から。`/Nums` を平らに持つ数の木をカタログに直接置く（元が間接オブジェクトならそのオブジェクトを書き換える。古い木の子は残る）。空なら `/PageLabels` を消す
+- prelude: `Content.find(query)` / `Content.remove(hits | ranges, label?)`、`Doc.setOutline(items)`（`outline()` の結果をそのまま渡せる）/ `pageLabels()` / `setPageLabels(ranges)` / `ocgs()`。人が書くパラメータ（`outline-from-json` の JSON、`page-labels` の指定）はページを 1 始まりで書く
+- テスト用に `tests/fixtures/marks.pdf`（TrimBox の外のトンボ・カラーバー・スラグのフォーム、レジストレーションカラー、透かしの Artifact、レイヤー）を足した
 
 ## 5. 大規模ファイル対応（3000 ページ / 数百 MB）
 

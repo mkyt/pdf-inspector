@@ -774,6 +774,209 @@ pub enum EditCommand {
         content: ContentRef,
         edits: Vec<OpEdit>,
     },
+    /// Replace the outline: items in reading order, each one's children
+    /// after it one level deeper (none: remove the outline). The old
+    /// outline's items are deleted.
+    SetOutline {
+        items: Vec<OutlineEntry>,
+    },
+    /// Replace the page labels (none: remove them). The first range
+    /// starts at page 0.
+    SetPageLabels {
+        ranges: Vec<PageLabelRange>,
+    },
+}
+
+/// One outline item of `SetOutline`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct OutlineEntry {
+    /// 0 for the top level; at most one more than the item before.
+    pub level: u32,
+    pub title: String,
+    #[serde(default)]
+    pub target: Option<OutlineTarget>,
+    /// Its children are shown.
+    #[serde(default)]
+    pub open: bool,
+    /// 1 italic, 2 bold.
+    #[serde(default)]
+    pub flags: i64,
+    /// RGB, 0..1.
+    #[serde(default)]
+    pub color: Option<Vec<f64>>,
+}
+
+/// Where a new outline item goes.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum OutlineTarget {
+    /// A page of this document (0-based), viewed as `fit` (`XYZ`, `Fit`,
+    /// `FitH`, ...; `Fit` when empty) with its parameters (null as null).
+    Page {
+        index: u32,
+        #[serde(default)]
+        fit: String,
+        #[serde(default)]
+        params: Vec<Option<f64>>,
+    },
+    Named {
+        name: String,
+    },
+    Uri {
+        uri: String,
+    },
+}
+
+/// How the page numbers of a label range are written.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
+#[serde(rename_all = "camelCase")]
+pub enum LabelStyle {
+    /// 1, 2, 3
+    Decimal,
+    /// I, II, III
+    UpperRoman,
+    /// i, ii, iii
+    LowerRoman,
+    /// A, B, …, Z, AA
+    UpperLetters,
+    /// a, b, …, z, aa
+    LowerLetters,
+}
+
+/// Labels of the pages from `start` (0-based) up to the next range.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct PageLabelRange {
+    pub start: u32,
+    /// `None`: only the prefix.
+    #[serde(default)]
+    pub style: Option<LabelStyle>,
+    #[serde(default)]
+    pub prefix: Option<String>,
+    /// The number of the first page of the range (1 when `None`).
+    #[serde(default)]
+    pub first: Option<i64>,
+}
+
+/// What `ContentFind` looks for; every criterion given must hold.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct FindQuery {
+    /// Operator names: one of the element's operations is one of them.
+    #[serde(default)]
+    pub operators: Option<Vec<String>>,
+    /// Element kinds (`ElementView.kind`). Clipping paths are found only
+    /// when `clip` is listed.
+    #[serde(default)]
+    pub kinds: Option<Vec<String>>,
+    #[serde(default)]
+    pub marked: Option<MarkedQuery>,
+    /// Optional content groups: the element is in marked content `/OC`
+    /// (or a form or image with `/OC`) naming one, directly or through a
+    /// membership dictionary.
+    #[serde(default)]
+    pub ocgs: Option<Vec<ObjRef>>,
+    #[serde(default)]
+    pub color: Option<ColorQuery>,
+    #[serde(default)]
+    pub bbox: Option<BoxQuery>,
+    /// The decoded text shown contains this.
+    #[serde(default)]
+    pub text: Option<String>,
+    /// Outside the clipping path or invisible text.
+    #[serde(default)]
+    pub hidden: Option<bool>,
+    #[serde(default)]
+    pub unit: FindUnit,
+}
+
+/// Marked content (`BMC` / `BDC`) the element is in, at any level.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct MarkedQuery {
+    /// Tags (`Artifact`, `OC`, ...); empty: any.
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// Entries its property list has (names, text strings, numbers and
+    /// booleans compared as text).
+    #[serde(default)]
+    pub properties: Vec<PropertyMatch>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct PropertyMatch {
+    pub key: String,
+    pub value: String,
+}
+
+/// The color the element paints with (fill or stroke, as it paints).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct ColorQuery {
+    /// Color space families (`DeviceCMYK`, `Separation`, ...); empty: any.
+    #[serde(default)]
+    pub families: Vec<String>,
+    /// Colorants of a `Separation` or `DeviceN` space (`All`: registration
+    /// color); empty: any.
+    #[serde(default)]
+    pub separations: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct BoxQuery {
+    pub relation: BoxRelation,
+    /// In the content's space (default user space for pages).
+    pub rect: Rect,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
+#[serde(rename_all = "camelCase")]
+pub enum BoxRelation {
+    Inside,
+    /// Not overlapping (touching counts as outside).
+    Outside,
+    Intersects,
+}
+
+/// What a hit of `ContentFind` covers.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
+#[serde(rename_all = "camelCase")]
+pub enum FindUnit {
+    /// Single operations (also operations painting nothing).
+    Op,
+    /// The painted element: a path from its first construction operator to
+    /// the painting one, a text-showing operation, `Do`, `sh` or an inline
+    /// image. Removing it leaves the rest painting as it did.
+    #[default]
+    Element,
+    /// The `q`…`Q` or `BMC` / `BDC`…`EMC` around the element (the marked
+    /// content matched, when the query has `marked` or `ocgs`).
+    Block,
+}
+
+/// Operations `from..to` found by `ContentFind`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct FindHit {
+    pub from: u32,
+    pub to: u32,
+    /// The operation that paints (the one found, for `op`).
+    pub op: u32,
+    /// `ElementView.kind`; `None` for an operation painting nothing.
+    pub kind: Option<String>,
+    pub bbox: Option<Rect>,
+    pub hidden: bool,
+    /// The text shown, decoded.
+    pub text: Option<String>,
+    /// Found inside this form XObject, painted by the `Do` at `op`.
+    pub form: Option<ObjRef>,
 }
 
 /// An edit of a content's operations. Text is content stream syntax, one

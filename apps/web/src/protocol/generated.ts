@@ -1,6 +1,6 @@
 // Generated from crates/pdfi-api by `UPDATE_TS=1 cargo test -p pdfi-api`. Do not edit.
 
-export const PROTOCOL_VERSION = 20;
+export const PROTOCOL_VERSION = 21;
 
 export type DocId = number;
 export type JobId = number;
@@ -294,6 +294,115 @@ flags: number,
  * RGB, 0..1.
  */
 color: Array<number> | null, };
+
+export type OutlineEntry = { 
+/**
+ * 0 for the top level; at most one more than the item before.
+ */
+level: number, title: string, target: OutlineTarget | null, 
+/**
+ * Its children are shown.
+ */
+open: boolean, 
+/**
+ * 1 italic, 2 bold.
+ */
+flags: number, 
+/**
+ * RGB, 0..1.
+ */
+color: Array<number> | null, };
+
+export type OutlineTarget = { "kind": "page", index: number, fit: string, params: Array<number | null>, } | { "kind": "named", name: string, } | { "kind": "uri", uri: string, };
+
+export type LabelStyle = "decimal" | "upperRoman" | "lowerRoman" | "upperLetters" | "lowerLetters";
+
+export type PageLabelRange = { start: number, 
+/**
+ * `None`: only the prefix.
+ */
+style: LabelStyle | null, prefix: string | null, 
+/**
+ * The number of the first page of the range (1 when `None`).
+ */
+first: number | null, };
+
+export type FindQuery = { 
+/**
+ * Operator names: one of the element's operations is one of them.
+ */
+operators: Array<string> | null, 
+/**
+ * Element kinds (`ElementView.kind`). Clipping paths are found only
+ * when `clip` is listed.
+ */
+kinds: Array<string> | null, marked: MarkedQuery | null, 
+/**
+ * Optional content groups: the element is in marked content `/OC`
+ * (or a form or image with `/OC`) naming one, directly or through a
+ * membership dictionary.
+ */
+ocgs: Array<ObjRef> | null, color: ColorQuery | null, bbox: BoxQuery | null, 
+/**
+ * The decoded text shown contains this.
+ */
+text: string | null, 
+/**
+ * Outside the clipping path or invisible text.
+ */
+hidden: boolean | null, unit: FindUnit, };
+
+export type MarkedQuery = { 
+/**
+ * Tags (`Artifact`, `OC`, ...); empty: any.
+ */
+tags: Array<string>, 
+/**
+ * Entries its property list has (names, text strings, numbers and
+ * booleans compared as text).
+ */
+properties: Array<PropertyMatch>, };
+
+export type PropertyMatch = { key: string, value: string, };
+
+export type ColorQuery = { 
+/**
+ * Color space families (`DeviceCMYK`, `Separation`, ...); empty: any.
+ */
+families: Array<string>, 
+/**
+ * Colorants of a `Separation` or `DeviceN` space (`All`: registration
+ * color); empty: any.
+ */
+separations: Array<string>, };
+
+export type BoxQuery = { relation: BoxRelation, 
+/**
+ * In the content's space (default user space for pages).
+ */
+rect: Rect, };
+
+export type BoxRelation = "inside" | "outside" | "intersects";
+
+export type FindUnit = "op" | "element" | "block";
+
+export type FindHit = { from: number, to: number, 
+/**
+ * The operation that paints (the one found, for `op`).
+ */
+op: number, 
+/**
+ * `ElementView.kind`; `None` for an operation painting nothing.
+ */
+kind: string | null, bbox: Rect | null, hidden: boolean, 
+/**
+ * The text shown, decoded.
+ */
+text: string | null, 
+/**
+ * Found inside this form XObject, painted by the `Do` at `op`.
+ */
+form: ObjRef | null, };
 
 export type AnnotInfo = { 
 /**
@@ -957,7 +1066,7 @@ failed: number, pages: number, fonts: number, images: number, forms: number,
  */
 references: number, unreferenced: number, };
 
-export type EditCommand = { "op": "setValue", node: NodePath, value: string, } | { "op": "setEntry", node: NodePath, key: string, value: string, } | { "op": "removeEntry", node: NodePath, key: string, } | { "op": "insert", node: NodePath, index: number, value: string, } | { "op": "removeChild", node: NodePath, index: number, } | { "op": "addObject", value: string, data: StreamPayload | null, } | { "op": "deleteObject", id: ObjRef, } | { "op": "setStreamData", id: ObjRef, data: StreamPayload, filter: StreamFilter, } | { "op": "setStreamFilter", id: ObjRef, filter: StreamFilter, } | { "op": "deletePages", pages: Array<number>, } | { "op": "movePages", pages: Array<number>, to: number, } | { "op": "rotatePages", pages: Array<number>, by: number, } | { "op": "insertBlankPage", at: number, width: number, height: number, } | { "op": "insertPages", at: number, from: number, pages: Array<number>, } | { "op": "setInfo", key: string, value: string | null, sync_xmp: boolean, } | { "op": "setXmp", xml: string, } | { "op": "editOps", content: ContentRef, edits: Array<OpEdit>, };
+export type EditCommand = { "op": "setValue", node: NodePath, value: string, } | { "op": "setEntry", node: NodePath, key: string, value: string, } | { "op": "removeEntry", node: NodePath, key: string, } | { "op": "insert", node: NodePath, index: number, value: string, } | { "op": "removeChild", node: NodePath, index: number, } | { "op": "addObject", value: string, data: StreamPayload | null, } | { "op": "deleteObject", id: ObjRef, } | { "op": "setStreamData", id: ObjRef, data: StreamPayload, filter: StreamFilter, } | { "op": "setStreamFilter", id: ObjRef, filter: StreamFilter, } | { "op": "deletePages", pages: Array<number>, } | { "op": "movePages", pages: Array<number>, to: number, } | { "op": "rotatePages", pages: Array<number>, by: number, } | { "op": "insertBlankPage", at: number, width: number, height: number, } | { "op": "insertPages", at: number, from: number, pages: Array<number>, } | { "op": "setInfo", key: string, value: string | null, sync_xmp: boolean, } | { "op": "setXmp", xml: string, } | { "op": "editOps", content: ContentRef, edits: Array<OpEdit>, } | { "op": "setOutline", items: Array<OutlineEntry>, } | { "op": "setPageLabels", ranges: Array<PageLabelRange>, };
 
 export type OpEdit = { "kind": "replace", from: number, to: number, text: string, } | { "kind": "move", from: number, to: number, before: number, };
 
@@ -1044,7 +1153,7 @@ export type Request = { "op": "hello", protocol: number, } | { "op": "listDir", 
 /**
  * Ignore the cross-reference data and rebuild it by scanning.
  */
-recover: boolean, } | { "op": "docs" } | { "op": "close", doc: number, } | { "op": "summary", doc: number, } | { "op": "objects", doc: number, range: Range, filter: ObjectFilter | null, } | { "op": "objectClasses", doc: number, } | { "op": "object", doc: number, id: ObjRef, } | { "op": "children", doc: number, path: NodePath, range: Range, } | { "op": "xref", doc: number, revision: number | null, range: Range, } | { "op": "diagnostics", doc: number, range: Range, } | { "op": "schema", doc: number, root: NodeRoot, } | { "op": "document", doc: number, } | { "op": "xmp", doc: number, range: Range, } | { "op": "pages", doc: number, range: Range, } | { "op": "page", doc: number, index: number, } | { "op": "pageIndex", doc: number, id: ObjRef, } | { "op": "annotations", doc: number, page: number, range: Range, } | { "op": "outline", doc: number, parent: ObjRef | null, range: Range, } | { "op": "fonts", doc: number, range: Range, } | { "op": "images", doc: number, range: Range, } | { "op": "referrers", doc: number, id: ObjRef, range: Range, } | { "op": "refPath", doc: number, id: ObjRef, } | { "op": "unreferenced", doc: number, range: Range, } | { "op": "content", doc: number, content: ContentRef, } | { "op": "contentOps", doc: number, content: ContentRef, range: Range, } | { "op": "contentIssues", doc: number, content: ContentRef, range: Range, } | { "op": "contentText", doc: number, content: ContentRef, range: Range, } | { "op": "contentBlocks", doc: number, content: ContentRef, depth: number, } | { "op": "contentResources", doc: number, content: ContentRef, } | { "op": "contentElements", doc: number, content: ContentRef, range: Range, } | { "op": "opState", doc: number, content: ContentRef, index: number, } | { "op": "font", doc: number, id: ObjRef, } | { "op": "glyphs", doc: number, id: ObjRef, range: Range, } | { "op": "programGlyphs", doc: number, id: ObjRef, range: Range, } | { "op": "fontUses", doc: number, id: ObjRef, range: Range, } | { "op": "render", doc: number, content: ContentRef, scale: number, 
+recover: boolean, } | { "op": "docs" } | { "op": "close", doc: number, } | { "op": "summary", doc: number, } | { "op": "objects", doc: number, range: Range, filter: ObjectFilter | null, } | { "op": "objectClasses", doc: number, } | { "op": "object", doc: number, id: ObjRef, } | { "op": "children", doc: number, path: NodePath, range: Range, } | { "op": "xref", doc: number, revision: number | null, range: Range, } | { "op": "diagnostics", doc: number, range: Range, } | { "op": "schema", doc: number, root: NodeRoot, } | { "op": "document", doc: number, } | { "op": "xmp", doc: number, range: Range, } | { "op": "pages", doc: number, range: Range, } | { "op": "page", doc: number, index: number, } | { "op": "pageIndex", doc: number, id: ObjRef, } | { "op": "annotations", doc: number, page: number, range: Range, } | { "op": "outline", doc: number, parent: ObjRef | null, range: Range, } | { "op": "pageLabels", doc: number, } | { "op": "fonts", doc: number, range: Range, } | { "op": "images", doc: number, range: Range, } | { "op": "referrers", doc: number, id: ObjRef, range: Range, } | { "op": "refPath", doc: number, id: ObjRef, } | { "op": "unreferenced", doc: number, range: Range, } | { "op": "content", doc: number, content: ContentRef, } | { "op": "contentOps", doc: number, content: ContentRef, range: Range, } | { "op": "contentIssues", doc: number, content: ContentRef, range: Range, } | { "op": "contentText", doc: number, content: ContentRef, range: Range, } | { "op": "contentBlocks", doc: number, content: ContentRef, depth: number, } | { "op": "contentResources", doc: number, content: ContentRef, } | { "op": "contentFind", doc: number, content: ContentRef, query: FindQuery, range: Range | null, } | { "op": "contentElements", doc: number, content: ContentRef, range: Range, } | { "op": "opState", doc: number, content: ContentRef, index: number, } | { "op": "font", doc: number, id: ObjRef, } | { "op": "glyphs", doc: number, id: ObjRef, range: Range, } | { "op": "programGlyphs", doc: number, id: ObjRef, range: Range, } | { "op": "fontUses", doc: number, id: ObjRef, range: Range, } | { "op": "render", doc: number, content: ContentRef, scale: number, 
 /**
  * `None`: the whole view.
  */
@@ -1076,7 +1185,15 @@ export type ResponseBody = { "type": "hello" } & HelloInfo | { "type": "dir" } &
 /**
  * More blocks than returned.
  */
-truncated: boolean, } | { "type": "resources", items: Array<ResourceItem>, truncated: boolean, } | { "type": "elements" } & Page<ElementView> | { "type": "opState" } & OpState | { "type": "font" } & FontDetail | { "type": "glyphs" } & Page<GlyphView> | { "type": "programGlyphs" } & Page<ProgramGlyph> | { "type": "fontUses" } & FontUsesView | { "type": "bitmap" } & BitmapInfo | { "type": "decodedImage" } & DecodedImage | { "type": "hits", ops: Array<number>, } | { "type": "extract" } & ExtractInfo | { "type": "svg" } & SvgInfo | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "syntax", text: string, 
+truncated: boolean, } | { "type": "resources", items: Array<ResourceItem>, truncated: boolean, } | { "type": "elements" } & Page<ElementView> | { "type": "found", hits: Array<FindHit>, 
+/**
+ * More than returned.
+ */
+truncated: boolean, 
+/**
+ * Forms were followed only up to an operation budget.
+ */
+forms_truncated: boolean, } | { "type": "pageLabels", ranges: Array<PageLabelRange>, } | { "type": "opState" } & OpState | { "type": "font" } & FontDetail | { "type": "glyphs" } & Page<GlyphView> | { "type": "programGlyphs" } & Page<ProgramGlyph> | { "type": "fontUses" } & FontUsesView | { "type": "bitmap" } & BitmapInfo | { "type": "decodedImage" } & DecodedImage | { "type": "hits", ops: Array<number>, } | { "type": "extract" } & ExtractInfo | { "type": "svg" } & SvgInfo | { "type": "bytes" } & BytesInfo | { "type": "job" } & JobInfo | { "type": "syntax", text: string, 
 /**
  * Longer than what is returned: not editable as text.
  */

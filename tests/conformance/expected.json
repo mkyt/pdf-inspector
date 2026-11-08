@@ -4,7 +4,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 9, backend speaks 20"
+        "message": "client speaks protocol 9, backend speaks 21"
       }
     }
   },
@@ -13,7 +13,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 999, backend speaks 20"
+        "message": "client speaks protocol 999, backend speaks 21"
       }
     }
   },
@@ -6685,6 +6685,28 @@
   {
     "blobs": [],
     "response": {
+      "ok": {
+        "ranges": [
+          {
+            "first": null,
+            "prefix": null,
+            "start": 0,
+            "style": "lowerRoman"
+          },
+          {
+            "first": null,
+            "prefix": "A-",
+            "start": 2,
+            "style": "decimal"
+          }
+        ],
+        "type": "pageLabels"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
       "err": {
         "code": "notReady",
         "message": "the inventory has not been built; run the inventory job"
@@ -8889,6 +8911,132 @@
         "offset": 0,
         "total": 2,
         "type": "contentIssues"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "forms_truncated": false,
+        "hits": [
+          {
+            "bbox": {
+              "x0": 50.0,
+              "x1": 250.0,
+              "y0": 50.0,
+              "y1": 150.0
+            },
+            "form": null,
+            "from": 0,
+            "hidden": false,
+            "kind": "fill",
+            "op": 4,
+            "text": null,
+            "to": 11
+          },
+          {
+            "bbox": {
+              "x0": 100.0,
+              "x1": 201.0,
+              "y0": 100.0,
+              "y1": 201.0
+            },
+            "form": {
+              "generation": 0,
+              "num": 31
+            },
+            "from": 38,
+            "hidden": false,
+            "kind": "form",
+            "op": 40,
+            "text": null,
+            "to": 42
+          }
+        ],
+        "truncated": false,
+        "type": "found"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "forms_truncated": false,
+        "hits": [
+          {
+            "bbox": {
+              "x0": 72.0,
+              "x1": 126.672,
+              "y0": 695.2,
+              "y1": 719.2
+            },
+            "form": null,
+            "from": 21,
+            "hidden": false,
+            "kind": "text",
+            "op": 21,
+            "text": "Hello",
+            "to": 22
+          },
+          {
+            "bbox": {
+              "x0": 126.672,
+              "x1": 195.336,
+              "y0": 695.2,
+              "y1": 719.2
+            },
+            "form": null,
+            "from": 22,
+            "hidden": false,
+            "kind": "text",
+            "op": 22,
+            "text": "W orld",
+            "to": 23
+          },
+          {
+            "bbox": {
+              "x0": 72.0,
+              "x1": 85.2,
+              "y0": 647.6,
+              "y1": 660.8
+            },
+            "form": null,
+            "from": 28,
+            "hidden": true,
+            "kind": "text",
+            "op": 28,
+            "text": "AB",
+            "to": 29
+          },
+          {
+            "bbox": {
+              "x0": 300.0,
+              "x1": 400.0,
+              "y0": 400.0,
+              "y1": 450.0
+            },
+            "form": null,
+            "from": 34,
+            "hidden": false,
+            "kind": "image",
+            "op": 34,
+            "text": null,
+            "to": 35
+          }
+        ],
+        "truncated": false,
+        "type": "found"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "badRequest",
+        "message": "\"bogus\" is not an element kind"
       }
     }
   },
@@ -12680,6 +12828,243 @@
             },
             "index": 5,
             "label": "A-4",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          }
+        ],
+        "offset": 0,
+        "total": 6,
+        "type": "pages"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "changed": [
+          1,
+          30,
+          31,
+          32,
+          33,
+          129,
+          130,
+          131,
+          132
+        ],
+        "created": [
+          {
+            "generation": 0,
+            "num": 129
+          },
+          {
+            "generation": 0,
+            "num": 130
+          },
+          {
+            "generation": 0,
+            "num": 131
+          },
+          {
+            "generation": 0,
+            "num": 132
+          }
+        ],
+        "issues": [],
+        "notes": [],
+        "status": {
+          "dirty": true,
+          "edited_objects": 52,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": "outline and labels"
+        },
+        "trailer_changed": false,
+        "type": "applied"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "color": null,
+            "count": 1,
+            "flags": 0,
+            "has_children": true,
+            "id": {
+              "generation": 0,
+              "num": 130
+            },
+            "link": {
+              "dest": {
+                "error": null,
+                "fit": "Fit",
+                "named": null,
+                "page": {
+                  "generation": 0,
+                  "num": 93
+                },
+                "page_index": 0,
+                "params": [],
+                "remote_page": null
+              },
+              "kind": "dest"
+            },
+            "title": "Front"
+          },
+          {
+            "color": null,
+            "count": null,
+            "flags": 0,
+            "has_children": false,
+            "id": {
+              "generation": 0,
+              "num": 132
+            },
+            "link": {
+              "kind": "uri",
+              "uri": "https://example.com/"
+            },
+            "title": "Site"
+          }
+        ],
+        "offset": 0,
+        "total": 2,
+        "type": "outline"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "ranges": [
+          {
+            "first": null,
+            "prefix": null,
+            "start": 0,
+            "style": "lowerRoman"
+          },
+          {
+            "first": 10,
+            "prefix": "P-",
+            "start": 2,
+            "style": "decimal"
+          }
+        ],
+        "type": "pageLabels"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 93
+            },
+            "index": 0,
+            "label": "i",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 91
+            },
+            "index": 1,
+            "label": "ii",
+            "rotate": 270,
+            "size": {
+              "x0": 0.0,
+              "x1": 200.0,
+              "y0": 0.0,
+              "y1": 100.0
+            }
+          },
+          {
+            "annots": 4,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 10
+            },
+            "index": 2,
+            "label": "P-10",
+            "rotate": 90,
+            "size": {
+              "x0": 10.0,
+              "x1": 602.0,
+              "y0": 10.0,
+              "y1": 782.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 12
+            },
+            "index": 3,
+            "label": "P-11",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 300.0,
+              "y0": 0.0,
+              "y1": 300.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 13
+            },
+            "index": 4,
+            "label": "P-12",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 14
+            },
+            "index": 5,
+            "label": "P-13",
             "rotate": 0,
             "size": {
               "x0": 0.0,

@@ -8,6 +8,7 @@
 //! snapshot, which shares the source and caches with the first.
 
 mod meta;
+mod outline;
 mod pages;
 pub mod save;
 mod value;
@@ -23,6 +24,7 @@ use pdfi_syntax::{
 };
 
 pub use meta::{info_text, pdf_date_text};
+pub use outline::{LabelSpec, LabelStyle, OutlineSpec, OutlineTarget};
 pub use save::{FullOptions, SaveMode, SaveReport, Saver, signature_fields};
 pub use value::{parse_value, text_string};
 
@@ -150,6 +152,17 @@ pub enum Command<'a> {
     /// Replace (or add) the catalog's XMP metadata.
     SetXmp {
         xml: Vec<u8>,
+    },
+    /// Replace the outline: the items in reading order, each one's
+    /// children after it one level deeper (none: no outline). The old
+    /// outline's items are deleted.
+    SetOutline {
+        items: Vec<OutlineSpec>,
+    },
+    /// Replace the page labels (none: no labels). The first range starts
+    /// at page 0.
+    SetPageLabels {
+        ranges: Vec<LabelSpec>,
     },
 }
 
@@ -412,6 +425,8 @@ impl<'f> Tx<'f> {
                 sync_xmp,
             } => meta::set_info(self, &key, value.as_deref(), sync_xmp),
             Command::SetXmp { xml } => meta::set_xmp(self, xml),
+            Command::SetOutline { items } => outline::set_outline(self, &items),
+            Command::SetPageLabels { ranges } => outline::set_page_labels(self, &ranges),
         }
     }
 

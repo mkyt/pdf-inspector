@@ -561,6 +561,124 @@ pub fn issues(d: &Doc, c: ContentRef, range: Range) -> Result<ContentIssuePage, 
     }))
 }
 
+fn element_kind(name: &str) -> Result<interp::ElementKind, ApiError> {
+    use interp::ElementKind as K;
+    [
+        K::Fill,
+        K::Stroke,
+        K::FillStroke,
+        K::Clip,
+        K::Text,
+        K::Image,
+        K::InlineImage,
+        K::Form,
+        K::Shading,
+    ]
+    .into_iter()
+    .find(|k| k.name() == name)
+    .ok_or_else(|| {
+        ApiError::new(
+            ErrorCode::BadRequest,
+            format!("{name:?} is not an element kind"),
+        )
+    })
+}
+
+fn model_rect(r: Rect) -> pdfi_model::Rect {
+    pdfi_model::Rect {
+        x0: r.x0.min(r.x1),
+        y0: r.y0.min(r.y1),
+        x1: r.x0.max(r.x1),
+        y1: r.y0.max(r.y1),
+    }
+}
+
+pub fn find(
+    d: &Doc,
+    c: ContentRef,
+    q: &FindQuery,
+    range: Option<Range>,
+    cancel: &dyn Fn() -> bool,
+) -> Result<ResponseBody, ApiError> {
+    use pdfi_content::find as f;
+    let a = analysis(d, c)?;
+    let query = f::Query {
+        operators: q.operators.clone(),
+        kinds: q
+            .kinds
+            .as_ref()
+            .map(|k| k.iter().map(|n| element_kind(n)).collect::<Result<_, _>>())
+            .transpose()?,
+        marked: q.marked.as_ref().map(|m| f::MarkedQuery {
+            tags: m
+                .tags
+                .iter()
+                .map(|t| t.trim_start_matches('/').to_owned())
+                .collect(),
+            properties: m
+                .properties
+                .iter()
+                .map(|p| (p.key.clone(), p.value.trim_start_matches('/').to_owned()))
+                .collect(),
+        }),
+        ocgs: q
+            .ocgs
+            .as_ref()
+            .map(|v| v.iter().map(|&r| r.into()).collect()),
+        color: q.color.as_ref().map(|c| f::ColorQuery {
+            families: c.families.clone(),
+            separations: c.separations.clone(),
+        }),
+        bbox: q.bbox.as_ref().map(|b| {
+            (
+                match b.relation {
+                    BoxRelation::Inside => f::Relation::Inside,
+                    BoxRelation::Outside => f::Relation::Outside,
+                    BoxRelation::Intersects => f::Relation::Intersects,
+                },
+                model_rect(b.rect),
+            )
+        }),
+        text: q.text.clone(),
+        hidden: q.hidden,
+        unit: match q.unit {
+            FindUnit::Op => f::Unit::Op,
+            FindUnit::Element => f::Unit::Element,
+            FindUnit::Block => f::Unit::Block,
+        },
+        range: range.map(|r| {
+            let from = r.offset.min(u32::MAX as u64) as usize;
+            (from, from.saturating_add(r.limit as usize))
+        }),
+    };
+    let content = d.content.on(d.model.on(&d.file));
+    let found = content.find(&a, &query, cancel).map_err(|e| {
+        if cancel() {
+            ApiError::new(ErrorCode::Cancelled, "cancelled")
+        } else {
+            ApiError::new(ErrorCode::Internal, e)
+        }
+    })?;
+    Ok(ResponseBody::Found {
+        hits: found
+            .hits
+            .into_iter()
+            .map(|h| FindHit {
+                from: h.from,
+                to: h.to,
+                op: h.op,
+                kind: h.kind.map(|k| k.name().into()),
+                bbox: h.bbox.map(rect),
+                hidden: h.hidden,
+                text: h.text,
+                form: h.form.map(Into::into),
+            })
+            .collect(),
+        truncated: found.truncated,
+        forms_truncated: found.forms_truncated,
+    })
+}
+
 pub fn elements(d: &Doc, c: ContentRef, range: Range) -> Result<ElementViewPage, ApiError> {
     let a = analysis(d, c)?;
     Ok(page(a.elements.len() as u64, range, |o, n| {

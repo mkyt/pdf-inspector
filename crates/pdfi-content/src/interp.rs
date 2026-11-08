@@ -388,7 +388,7 @@ impl<'d> Rec<'d> {
     }
 
     /// Record elements only (inside forms).
-    fn elements_only() -> Self {
+    pub(crate) fn elements_only() -> Self {
         Rec {
             report: false,
             ..Self::full()

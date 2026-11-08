@@ -456,3 +456,104 @@ fn extract_cuts_forms() {
     assert_eq!((x.kept, x.dropped, x.forms), (2, 0, 0));
     assert_eq!(text, "q\n1 0 0 1 100 0 cm\n/Fm1 Do\nQ\n/Fm1 Do\n");
 }
+
+fn search(f: &PdfFile, q: &pdfi_content::find::Query) -> Vec<(u32, u32)> {
+    let dm = DocModel::new();
+    let dc = DocContent::new();
+    let c = dc.on(dm.on(f));
+    let a = c.analyze(Target::Page(0)).unwrap();
+    c.find(&a, q, &|| false)
+        .unwrap()
+        .hits
+        .iter()
+        .map(|h| (h.from, h.to))
+        .collect()
+}
+
+#[test]
+fn find_elements_and_blocks() {
+    use pdfi_content::find::{ColorQuery, MarkedQuery, Query, Relation, Unit};
+    let page = stream(
+        "",
+        b"q /CS0 CS 1 SCN 0.5 w 0 10 m 20 10 l S Q\n\
+          q 10 10 500 700 re W n 0 0 1 rg 100 100 50 50 re f Q\n\
+          /Artifact << /Subtype /Watermark /Type /Pagination >> BDC q BT /F1 40 Tf 100 400 Td (CONFIDENTIAL) Tj ET Q EMC\n\
+          /OC /L1 BDC 200 200 10 10 re f EMC\n\
+          /Fm1 Do",
+    );
+    let form = stream(
+        "/Type /XObject /Subtype /Form /BBox [0 0 600 800] /Resources << /ColorSpace << /CS0 [/Separation /All /DeviceCMYK 7 0 R] >> >>",
+        b"/CS0 cs 1 scn 590 0 10 10 re f",
+    );
+    let f = open_bytes(document(&[
+        b"<< /Type /Catalog /Pages 2 0 R /OCProperties << /OCGs [6 0 R] /D << >> >> >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 600 800] >>",
+        b"<< /Type /Page /Parent 2 0 R /Contents 4 0 R /Resources << /XObject << /Fm1 5 0 R >> /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> /ColorSpace << /CS0 [/Separation /All /DeviceCMYK 7 0 R] >> /Properties << /L1 6 0 R >> >> >>",
+        &page,
+        &form,
+        b"<< /Type /OCG /Name (Layer 1) >>",
+        b"<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [1 1 1 1] /N 1 >>",
+    ]));
+    let trim = rect(30.0, 30.0, 570.0, 770.0);
+    // Ops: 0 q, 1 CS, 2 SCN, 3 w, 4 m, 5 l, 6 S, 7 Q, 8 q, 9 re, 10 W,
+    // 11 n, 12 rg, 13 re, 14 f, 15 Q, 16 BDC, 17 q, 18 BT, 19 Tf, 20 Td,
+    // 21 Tj, 22 ET, 23 Q, 24 EMC, 25 BDC, 26 re, 27 f, 28 EMC, 29 Do.
+    let outside = Query {
+        bbox: Some((Relation::Outside, trim)),
+        ..Query::default()
+    };
+    // The stroke from `m`, and the form painting outside.
+    assert_eq!(search(&f, &outside), [(4, 7), (29, 30)]);
+    let blocks = Query {
+        unit: Unit::Block,
+        ..outside.clone()
+    };
+    assert_eq!(search(&f, &blocks), [(0, 8), (29, 30)]);
+    // Registration color, in the page and the form.
+    let all = Query {
+        color: Some(ColorQuery {
+            families: vec![],
+            separations: vec!["All".into()],
+        }),
+        ..Query::default()
+    };
+    assert_eq!(search(&f, &all), [(4, 7), (29, 30)]);
+    // The clip is found only when asked for.
+    let clips = Query {
+        kinds: Some(vec![ElementKind::Clip]),
+        ..Query::default()
+    };
+    assert_eq!(search(&f, &clips), [(9, 12)]);
+    // Watermark artifacts, as the marked content.
+    let wm = Query {
+        marked: Some(MarkedQuery {
+            tags: vec!["Artifact".into()],
+            properties: vec![("Subtype".into(), "Watermark".into())],
+        }),
+        unit: Unit::Block,
+        ..Query::default()
+    };
+    assert_eq!(search(&f, &wm), [(16, 25)]);
+    let text = Query {
+        text: Some("CONFIDENTIAL".into()),
+        ..Query::default()
+    };
+    assert_eq!(search(&f, &text), [(21, 22)]);
+    // An optional content group.
+    let oc = Query {
+        ocgs: Some(vec![ObjId::new(6, 0)]),
+        unit: Unit::Block,
+        ..Query::default()
+    };
+    assert_eq!(search(&f, &oc), [(25, 29)]);
+    // Operations, also those painting nothing.
+    let ops = Query {
+        operators: Some(vec!["re".into(), "BDC".into()]),
+        unit: Unit::Op,
+        ..Query::default()
+    };
+    assert_eq!(
+        search(&f, &ops),
+        [(13, 14), (16, 17), (25, 26), (26, 27), (29, 30)]
+    );
+}

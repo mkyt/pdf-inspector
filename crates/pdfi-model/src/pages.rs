@@ -98,12 +98,15 @@ impl PageInfo {
 }
 
 /// A `/PageLabels` range.
-#[derive(Clone, Debug)]
-pub(crate) struct LabelRange {
-    start: u64,
-    style: Option<u8>,
-    prefix: String,
-    first: i64,
+#[derive(Clone, Debug, PartialEq)]
+pub struct LabelRange {
+    /// The first page (0-based).
+    pub start: u64,
+    /// `/S`: `D`, `R`, `r`, `A` or `a` (`None`: only the prefix).
+    pub style: Option<u8>,
+    pub prefix: String,
+    /// `/St`.
+    pub first: i64,
 }
 
 fn is_leaf(d: &Dict) -> bool {
@@ -493,6 +496,11 @@ impl<'a> Model<'a> {
             Object::Array(a) => a.iter().map(|n| one(&n.obj)).collect(),
             _ => vec![one(c)],
         }
+    }
+
+    /// The page label ranges, by first page.
+    pub fn label_ranges(&self) -> &'a [LabelRange] {
+        self.labels()
     }
 
     fn labels(&self) -> &'a [LabelRange] {

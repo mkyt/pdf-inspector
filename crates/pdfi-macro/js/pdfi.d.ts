@@ -326,6 +326,34 @@ declare namespace pdfi {
     xmp(): Promise<Xmp | null>;
     /** The outline (bookmarks) as a tree. */
     outline(): Promise<OutlineItem[]>;
+    /**
+     * Replace the outline with `items` (an empty array removes it). The
+     * items of {@link Doc.outline} can be given back as they are (an item
+     * going to another file or running another action loses its target).
+     * The old outline's items are deleted.
+     *
+     * @example
+     * await doc.setOutline([
+     *   { title: "Introduction", page: 0, open: true, children: [
+     *     { title: "Scope", page: 1, view: { fit: "XYZ", params: [null, 700, null] } },
+     *   ] },
+     *   { title: "Website", uri: "https://example.com/", bold: true },
+     * ]);
+     */
+    setOutline(items: OutlineInput[], label?: string): Promise<void>;
+    /** The page label ranges, by first page; empty without labels. */
+    pageLabels(): Promise<PageLabelRange[]>;
+    /**
+     * Replace the page labels (an empty array removes them). The first
+     * range starts at page 0; `first` defaults to 1.
+     *
+     * @example
+     * // i, ii, iii, then 1, 2, … from page 3.
+     * await doc.setPageLabels([{ start: 0, style: "lowerRoman" }, { start: 3, style: "decimal" }]);
+     */
+    setPageLabels(ranges: PageLabelInput[], label?: string): Promise<void>;
+    /** The optional content groups (layers) of `/OCProperties /OCGs`. */
+    ocgs(): Promise<{ ref: Ref; name: string }[]>;
     /** Fonts found in the document (runs the inventory first). */
     fonts(): Promise<FontInfo[]>;
     /** Image XObjects found in the document (runs the inventory first). */
@@ -388,6 +416,54 @@ declare namespace pdfi {
     /** RGB, 0 to 1. */
     color: number[] | null;
     children: OutlineItem[];
+  }
+
+  /** An item for {@link Doc.setOutline}; give one of `page`, `dest`, `uri` (or `link`). */
+  interface OutlineInput {
+    title: string;
+    /** A page of this document, 0-based. */
+    page?: number | null;
+    /**
+     * How the page is shown: a fit type (`"Fit"`, the default; `"XYZ"`,
+     * `"FitH"`, ...) with its parameters (`null` keeps the viewer's).
+     */
+    view?: string | { fit: string; params?: (number | null)[] } | null;
+    /** A named destination. */
+    dest?: string | null;
+    uri?: string | null;
+    /** As {@link OutlineItem.link} gives it: a destination or a URI. */
+    link?: any;
+    /** Its children are shown. */
+    open?: boolean | null;
+    bold?: boolean;
+    italic?: boolean;
+    /** 1 italic, 2 bold (instead of `bold` and `italic`). */
+    flags?: number;
+    /** RGB, 0 to 1. */
+    color?: [number, number, number] | number[] | null;
+    children?: OutlineInput[];
+  }
+
+  /** How page numbers are written: 1, I, i, A, a. */
+  type LabelStyle = "decimal" | "upperRoman" | "lowerRoman" | "upperLetters" | "lowerLetters";
+
+  /** The labels of pages from `start` (0-based) to the next range: `prefix` and a number. */
+  interface PageLabelRange {
+    start: number;
+    /** `null`: the prefix only. */
+    style: LabelStyle | null;
+    prefix: string;
+    /** The number of the range's first page. */
+    first: number;
+  }
+
+  interface PageLabelInput {
+    start: number;
+    /** Also `/S` letters: `D`, `R`, `r`, `A`, `a`. */
+    style?: LabelStyle | "D" | "R" | "r" | "A" | "a" | null;
+    prefix?: string | null;
+    /** 1 by default. */
+    first?: number;
   }
 
   interface FontInfo {
@@ -526,6 +602,89 @@ declare namespace pdfi {
     replace(range: OpRange, text: string): Promise<void>;
     /** Insert the operations in `text` before operation `before`. */
     insert(before: number, text: string): Promise<void>;
+    /**
+     * What the content paints that meets every criterion of `query`, in
+     * operation order. The search runs on the document's side; `text` as
+     * a `RegExp`, more than one `bbox` relation and `where` filter its
+     * results here. What a form XObject paints is searched too, and found
+     * as the `Do` painting the form (with `form` set): forms can be shared
+     * by several pages, so only the `Do` can be removed.
+     *
+     * @example
+     * const trim = (await page.boxes()).trim;
+     * const marks = await page.content.find({ bbox: { outside: trim }, colorSpace: { separation: "All" } });
+     * await page.content.remove(marks);
+     */
+    find(query?: FindQuery): Promise<Hit[]>;
+    /**
+     * Remove operations: hits of {@link Content.find} or ranges (they may
+     * overlap). One edit; returns the number of operations removed.
+     */
+    remove(hits: Hit | OpRange | (Hit | OpRange)[], label?: string): Promise<number>;
+  }
+
+  /** Criteria of {@link Content.find}; all those given must hold. */
+  interface FindQuery {
+    /** One of the element's operations is one of these (`"re"`, `"Do"`, ...). */
+    operators?: string | string[];
+    /**
+     * Element kinds ({@link Element.kind}). Clipping paths are found only
+     * when `"clip"` is listed: removing one shows what it hid.
+     */
+    kinds?: string | string[];
+    /** Marked content around the element (any level): its tag and property list entries. */
+    markedContent?: { tag?: string | string[]; properties?: Record<string, string | number | boolean | Name | PdfString> };
+    /**
+     * Optional content groups (layers) by name, `RegExp`, test or `Ref`:
+     * the element is in marked content `/OC` naming one (or a membership
+     * dictionary listing one), or in a form or image with `/OC`.
+     */
+    ocg?: string | RegExp | Ref | ((name: string, ref: Ref) => boolean) | (string | RegExp | Ref)[];
+    /**
+     * The color space it paints with (fill or stroke, as it paints): its
+     * family (`"DeviceCMYK"`, `"Separation"`, ...) or the colorants of a
+     * `Separation` or `DeviceN` space (`"All"`: registration color).
+     */
+    colorSpace?: { family?: string | string[]; separation?: string | string[] };
+    /**
+     * Its bounding box in default user space against a rectangle:
+     * `inside`, `outside` (touching counts as outside), `intersects`.
+     */
+    bbox?: { inside?: Rect | null; outside?: Rect | null; intersects?: Rect | null };
+    /** The decoded text shown: contains this string, or matches this `RegExp`. */
+    text?: string | RegExp;
+    /** Outside the clipping path or invisible text. */
+    hidden?: boolean;
+    /**
+     * What a hit covers: an operation (`"op"`, also those painting
+     * nothing), the painted element (`"element"`, the default: a path
+     * from its first construction operator to the painting one, a
+     * text-showing operation, `Do`, `sh` or an inline image), or the
+     * `q`…`Q` / `BDC`…`EMC` around it (`"block"`: the marked content that
+     * matched, when `markedContent` or `ocg` is given).
+     */
+    unit?: "op" | "element" | "block";
+    /** Only elements ending in this range of operations. */
+    range?: OpRange;
+    /** A last test of each hit. */
+    where?: (hit: Hit) => boolean | Promise<boolean>;
+  }
+
+  /** Operations `from..to` that {@link Content.find} found. */
+  interface Hit {
+    from: number;
+    /** Not included. */
+    to: number;
+    /** The operation that paints (the one found, for `"op"`). */
+    op: number;
+    /** {@link Element.kind}; `null` for an operation that paints nothing. */
+    kind: string | null;
+    bbox: Rect | null;
+    hidden: boolean;
+    /** The text shown, decoded. */
+    text: string | null;
+    /** Found inside this form XObject (painted by the `Do` at `op`). */
+    form: Ref | null;
   }
 
   interface Op {

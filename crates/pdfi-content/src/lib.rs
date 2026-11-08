@@ -11,6 +11,7 @@
 pub mod device;
 pub mod edit;
 pub mod extract;
+pub mod find;
 pub mod geom;
 pub mod interp;
 pub mod op;

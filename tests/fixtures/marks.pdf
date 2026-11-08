@@ -1,0 +1,91 @@
+%PDF-1.7
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /OCProperties << /OCGs [8 0 R] /D << /Order [8 0 R] >> >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 /MediaBox [0 0 640 840] >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /TrimBox [36 36 604 804] /BleedBox [27 27 613 813] /Contents 10 0 R /Resources << /Font << /F1 5 0 R >> /ColorSpace << /CS0 6 0 R >> /XObject << /Slug 9 0 R >> /Properties << /MC0 8 0 R >> >> >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /Contents 11 0 R /Resources << /Font << /F1 5 0 R >> /ColorSpace << /CS0 6 0 R >> /XObject << /Slug 9 0 R >> /Properties << /MC0 8 0 R >> >> >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+6 0 obj
+[/Separation /All /DeviceCMYK 7 0 R]
+endobj
+7 0 obj
+<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [1 1 1 1] /N 1 >>
+endobj
+8 0 obj
+<< /Type /OCG /Name (Review notes) >>
+endobj
+9 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 640 30] /Resources << /Font << /F1 5 0 R >> /ColorSpace << /CS0 6 0 R >> >> /Length 60 >>
+stream
+/CS0 cs 1 scn BT /F1 6 Tf 300 12 Td (Job 1234 page 1) Tj ET
+
+endstream
+endobj
+10 0 obj
+<< /Length 517 >>
+stream
+q 0 0 0 0.1 k 27 27 586 786 re f Q
+q /CS0 CS 1 SCN 0.25 w
+27 36 m 9 36 l S
+36 27 m 36 9 l S
+613 36 m 631 36 l S
+604 27 m 604 9 l S
+27 804 m 9 804 l S
+36 813 m 36 831 l S
+613 804 m 631 804 l S
+604 813 m 604 831 l S
+Q
+q 0 1 1 0 k 100 8 12 12 re f 1 0 1 0 k 112 8 12 12 re f Q
+/Slug Do
+BT /F1 24 Tf 72 700 Td (Hello) Tj ET
+/Artifact << /Type /Pagination /Subtype /Watermark >> BDC q 0.8 g BT /F1 96 Tf 1 0 0 1 120 380 Tm (DRAFT) Tj ET Q EMC
+/OC /MC0 BDC q 1 0 0 rg BT /F1 12 Tf 72 100 Td (Check the figures) Tj ET Q EMC
+
+endstream
+endobj
+11 0 obj
+<< /Length 221 >>
+stream
+q /CS0 CS 1 SCN 0.25 w
+27 36 m 9 36 l S
+36 27 m 36 9 l S
+613 36 m 631 36 l S
+604 27 m 604 9 l S
+27 804 m 9 804 l S
+36 813 m 36 831 l S
+613 804 m 631 804 l S
+604 813 m 604 831 l S
+Q
+BT /F1 24 Tf 72 700 Td (Page two) Tj ET
+
+endstream
+endobj
+xref
+0 12
+0000000000 65535 f
+0000000015 00000 n
+0000000122 00000 n
+0000000209 00000 n
+0000000448 00000 n
+0000000636 00000 n
+0000000706 00000 n
+0000000758 00000 n
+0000000842 00000 n
+0000000895 00000 n
+0000001122 00000 n
+0000001691 00000 n
+trailer
+<< /Size 12 /Root 1 0 R >>
+startxref
+1964
+%%EOF

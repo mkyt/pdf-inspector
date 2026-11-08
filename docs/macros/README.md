@@ -95,7 +95,7 @@ find . -name '*.pdf' | pdfi macro run crop-to-content - --out-dir cropped -p mar
 
 ## 保存場所
 
-- **同梱のマクロ**（バイナリに内蔵）: `fonts`、`metadata`、`set-reading`、`crop-to-content`、`remove-owner-password`。ソースは [`crates/pdfi-macro/macros/`](../../crates/pdfi-macro/macros/)。[cookbook.md](cookbook.md) に解説がある
+- **同梱のマクロ**（バイナリに内蔵）: `fonts`、`metadata`、`set-reading`、`crop-to-content`、`remove-owner-password`、`remove-marks`、`outline-from-json`、`page-labels`。ソースは [`crates/pdfi-macro/macros/`](../../crates/pdfi-macro/macros/)。[cookbook.md](cookbook.md) に解説がある
 - **マクロのディレクトリ**: 1 マクロ 1 ファイル（`*.js`）。`$PDFI_MACRO_PATH`（`:` 区切りで複数）か、既定の場所
   - macOS: `~/Library/Application Support/pdf-inspector/macros`
   - それ以外: `$XDG_CONFIG_HOME/pdf-inspector/macros`（既定 `~/.config/pdf-inspector/macros`）

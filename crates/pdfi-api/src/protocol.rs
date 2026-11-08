@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 20;
+pub const PROTOCOL_VERSION: u32 = 21;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
@@ -113,6 +113,10 @@ pub enum Request {
         parent: Option<ObjRef>,
         range: Range,
     },
+    /// The page label ranges (`/PageLabels`), by first page.
+    PageLabels {
+        doc: DocId,
+    },
     /// Fonts found by the `Inventory` job (`NotReady` before it ran).
     Fonts {
         doc: DocId,
@@ -175,6 +179,18 @@ pub enum Request {
     ContentResources {
         doc: DocId,
         content: ContentRef,
+    },
+    /// What a content paints that meets `query`, in operation order:
+    /// painted elements (also inside form XObjects, found as their `Do`),
+    /// with `unit` the operations to remove for each. 100,000 at most.
+    /// `range`: only elements ending at those operations. Can be
+    /// cancelled while it runs (server).
+    ContentFind {
+        doc: DocId,
+        content: ContentRef,
+        query: FindQuery,
+        #[serde(default)]
+        range: Option<Range>,
     },
     /// What the operations of a content paint, in operation order.
     ContentElements {
@@ -392,6 +408,16 @@ pub enum ResponseBody {
         truncated: bool,
     },
     Elements(ElementViewPage),
+    Found {
+        hits: Vec<FindHit>,
+        /// More than returned.
+        truncated: bool,
+        /// Forms were followed only up to an operation budget.
+        forms_truncated: bool,
+    },
+    PageLabels {
+        ranges: Vec<PageLabelRange>,
+    },
     OpState(Box<OpState>),
     Font(Box<FontDetail>),
     Glyphs(GlyphViewPage),

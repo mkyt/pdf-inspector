@@ -185,6 +185,52 @@ pub(crate) fn command<'a>(
         EditCommand::SetXmp { xml } => Command::SetXmp {
             xml: xml.as_bytes().to_vec(),
         },
+        EditCommand::SetOutline { items } => Command::SetOutline {
+            items: items
+                .iter()
+                .map(|e| {
+                    Ok(ed::OutlineSpec {
+                        level: e.level,
+                        title: e.title.clone(),
+                        target: e.target.as_ref().map(|t| match t {
+                            OutlineTarget::Page { index, fit, params } => ed::OutlineTarget::Page {
+                                index: u64::from(*index),
+                                fit: fit.clone(),
+                                params: params.clone(),
+                            },
+                            OutlineTarget::Named { name } => ed::OutlineTarget::Named(name.clone()),
+                            OutlineTarget::Uri { uri } => ed::OutlineTarget::Uri(uri.clone()),
+                        }),
+                        open: e.open,
+                        flags: e.flags,
+                        color: match e.color.as_deref() {
+                            None => None,
+                            Some(&[r, g, b]) => Some([r, g, b]),
+                            Some(_) => {
+                                return Err(bad(format!("{:?}: a color is [r, g, b]", e.title)));
+                            }
+                        },
+                    })
+                })
+                .collect::<Result<_, ApiError>>()?,
+        },
+        EditCommand::SetPageLabels { ranges } => Command::SetPageLabels {
+            ranges: ranges
+                .iter()
+                .map(|r| ed::LabelSpec {
+                    start: u64::from(r.start),
+                    style: r.style.map(|s| match s {
+                        LabelStyle::Decimal => ed::LabelStyle::Decimal,
+                        LabelStyle::UpperRoman => ed::LabelStyle::UpperRoman,
+                        LabelStyle::LowerRoman => ed::LabelStyle::LowerRoman,
+                        LabelStyle::UpperLetters => ed::LabelStyle::UpperLetters,
+                        LabelStyle::LowerLetters => ed::LabelStyle::LowerLetters,
+                    }),
+                    prefix: r.prefix.clone(),
+                    first: r.first,
+                })
+                .collect(),
+        },
         EditCommand::EditOps { .. } => {
             return Err(bad("operations are edited by the transaction itself"));
         }

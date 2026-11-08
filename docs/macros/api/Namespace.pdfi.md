@@ -477,6 +477,90 @@ The outline (bookmarks) as a tree.
 
 `Promise`\<[`OutlineItem`](#outlineitem)[]\>
 
+##### setOutline()
+
+```ts
+setOutline(items: OutlineInput[], label?: string): Promise<void>;
+```
+
+Replace the outline with `items` (an empty array removes it). The
+items of [Doc.outline](#outline) can be given back as they are (an item
+going to another file or running another action loses its target).
+The old outline's items are deleted.
+
+###### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `items` | [`OutlineInput`](#outlineinput)[] |
+| `label?` | `string` |
+
+###### Returns
+
+`Promise`\<`void`\>
+
+###### Example
+
+```ts
+await doc.setOutline([
+  { title: "Introduction", page: 0, open: true, children: [
+    { title: "Scope", page: 1, view: { fit: "XYZ", params: [null, 700, null] } },
+  ] },
+  { title: "Website", uri: "https://example.com/", bold: true },
+]);
+```
+
+##### pageLabels()
+
+```ts
+pageLabels(): Promise<PageLabelRange[]>;
+```
+
+The page label ranges, by first page; empty without labels.
+
+###### Returns
+
+`Promise`\<[`PageLabelRange`](#pagelabelrange)[]\>
+
+##### setPageLabels()
+
+```ts
+setPageLabels(ranges: PageLabelInput[], label?: string): Promise<void>;
+```
+
+Replace the page labels (an empty array removes them). The first
+range starts at page 0; `first` defaults to 1.
+
+###### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `ranges` | [`PageLabelInput`](#pagelabelinput)[] |
+| `label?` | `string` |
+
+###### Returns
+
+`Promise`\<`void`\>
+
+###### Example
+
+```ts
+// i, ii, iii, then 1, 2, … from page 3.
+await doc.setPageLabels([{ start: 0, style: "lowerRoman" }, { start: 3, style: "decimal" }]);
+```
+
+##### ocgs()
+
+```ts
+ocgs(): Promise<object[]>;
+```
+
+The optional content groups (layers) of `/OCProperties /OCGs`.
+
+###### Returns
+
+`Promise`\<`object`[]\>
+
 ##### fonts()
 
 ```ts
@@ -844,6 +928,57 @@ Insert the operations in `text` before operation `before`.
 
 `Promise`\<`void`\>
 
+##### find()
+
+```ts
+find(query?: FindQuery): Promise<Hit[]>;
+```
+
+What the content paints that meets every criterion of `query`, in
+operation order. The search runs on the document's side; `text` as
+a `RegExp`, more than one `bbox` relation and `where` filter its
+results here. What a form XObject paints is searched too, and found
+as the `Do` painting the form (with `form` set): forms can be shared
+by several pages, so only the `Do` can be removed.
+
+###### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `query?` | [`FindQuery`](#findquery) |
+
+###### Returns
+
+`Promise`\<[`Hit`](#hit)[]\>
+
+###### Example
+
+```ts
+const trim = (await page.boxes()).trim;
+const marks = await page.content.find({ bbox: { outside: trim }, colorSpace: { separation: "All" } });
+await page.content.remove(marks);
+```
+
+##### remove()
+
+```ts
+remove(hits: OpRange | Hit | OpRange | Hit[], label?: string): Promise<number>;
+```
+
+Remove operations: hits of [Content.find](#find) or ranges (they may
+overlap). One edit; returns the number of operations removed.
+
+###### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `hits` | [`OpRange`](#oprange) \| [`Hit`](#hit) \| OpRange \| Hit[] |
+| `label?` | `string` |
+
+###### Returns
+
+`Promise`\<`number`\>
+
 ***
 
 ### PdfiError
@@ -1076,6 +1211,57 @@ A rectangle in default user space, `x0 <= x1`, `y0 <= y1`.
 
 ***
 
+### OutlineInput
+
+An item for [Doc.setOutline](#setoutline); give one of `page`, `dest`, `uri` (or `link`).
+
+#### Properties
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-title-2"></a> `title` | `string` | - |
+| <a id="property-page-1"></a> `page?` | `number` \| `null` | A page of this document, 0-based. |
+| <a id="property-view"></a> `view?` | \| `string` \| \{ `fit`: `string`; `params?`: (`number` \| `null`)[]; \} \| `null` | How the page is shown: a fit type (`"Fit"`, the default; `"XYZ"`, `"FitH"`, ...) with its parameters (`null` keeps the viewer's). |
+| <a id="property-dest"></a> `dest?` | `string` \| `null` | A named destination. |
+| <a id="property-uri"></a> `uri?` | `string` \| `null` | - |
+| <a id="property-link-1"></a> `link?` | `any` | As [OutlineItem.link](#property-link) gives it: a destination or a URI. |
+| <a id="property-open-1"></a> `open?` | `boolean` \| `null` | Its children are shown. |
+| <a id="property-bold"></a> `bold?` | `boolean` | - |
+| <a id="property-italic"></a> `italic?` | `boolean` | - |
+| <a id="property-flags-1"></a> `flags?` | `number` | 1 italic, 2 bold (instead of `bold` and `italic`). |
+| <a id="property-color-1"></a> `color?` | `number`[] \| \[`number`, `number`, `number`\] \| `null` | RGB, 0 to 1. |
+| <a id="property-children-1"></a> `children?` | [`OutlineInput`](#outlineinput)[] | - |
+
+***
+
+### PageLabelRange
+
+The labels of pages from `start` (0-based) to the next range: `prefix` and a number.
+
+#### Properties
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-start"></a> `start` | `number` | - |
+| <a id="property-style"></a> `style` | [`LabelStyle`](#labelstyle) \| `null` | `null`: the prefix only. |
+| <a id="property-prefix"></a> `prefix` | `string` | - |
+| <a id="property-first"></a> `first` | `number` | The number of the range's first page. |
+
+***
+
+### PageLabelInput
+
+#### Properties
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-start-1"></a> `start` | `number` | - |
+| <a id="property-style-1"></a> `style?` | [`LabelStyle`](#labelstyle) \| `"D"` \| `"R"` \| `"r"` \| `"A"` \| `"a"` \| `null` | Also `/S` letters: `D`, `R`, `r`, `A`, `a`. |
+| <a id="property-prefix-1"></a> `prefix?` | `string` \| `null` | - |
+| <a id="property-first-1"></a> `first?` | `number` | 1 by default. |
+
+***
+
 ### FontInfo
 
 #### Properties
@@ -1148,6 +1334,54 @@ A rectangle in default user space, `x0 <= x1`, `y0 <= y1`.
 
 ***
 
+### FindQuery
+
+Criteria of [Content.find](#find); all those given must hold.
+
+#### Properties
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-operators"></a> `operators?` | `string` \| `string`[] | One of the element's operations is one of these (`"re"`, `"Do"`, ...). |
+| <a id="property-kinds"></a> `kinds?` | `string` \| `string`[] | Element kinds ([Element.kind](#property-kind-2)). Clipping paths are found only when `"clip"` is listed: removing one shows what it hid. |
+| <a id="property-markedcontent"></a> `markedContent?` | `object` | Marked content around the element (any level): its tag and property list entries. |
+| `markedContent.tag?` | `string` \| `string`[] | - |
+| `markedContent.properties?` | `Record`\<`string`, `string` \| `number` \| `boolean` \| [`Name`](#name) \| [`PdfString`](#pdfstring)\> | - |
+| <a id="property-ocg"></a> `ocg?` | \| `string` \| `RegExp` \| [`Ref`](#ref) \| ((`name`: `string`, `ref`: [`Ref`](#ref)) => `boolean`) \| (`string` \| `RegExp` \| [`Ref`](#ref))[] | Optional content groups (layers) by name, `RegExp`, test or `Ref`: the element is in marked content `/OC` naming one (or a membership dictionary listing one), or in a form or image with `/OC`. |
+| <a id="property-colorspace-1"></a> `colorSpace?` | `object` | The color space it paints with (fill or stroke, as it paints): its family (`"DeviceCMYK"`, `"Separation"`, ...) or the colorants of a `Separation` or `DeviceN` space (`"All"`: registration color). |
+| `colorSpace.family?` | `string` \| `string`[] | - |
+| `colorSpace.separation?` | `string` \| `string`[] | - |
+| <a id="property-bbox"></a> `bbox?` | `object` | Its bounding box in default user space against a rectangle: `inside`, `outside` (touching counts as outside), `intersects`. |
+| `bbox.inside?` | [`Rect`](#rect) \| `null` | - |
+| `bbox.outside?` | [`Rect`](#rect) \| `null` | - |
+| `bbox.intersects?` | [`Rect`](#rect) \| `null` | - |
+| <a id="property-text-2"></a> `text?` | `string` \| `RegExp` | The decoded text shown: contains this string, or matches this `RegExp`. |
+| <a id="property-hidden"></a> `hidden?` | `boolean` | Outside the clipping path or invisible text. |
+| <a id="property-unit"></a> `unit?` | `"element"` \| `"op"` \| `"block"` | What a hit covers: an operation (`"op"`, also those painting nothing), the painted element (`"element"`, the default: a path from its first construction operator to the painting one, a text-showing operation, `Do`, `sh` or an inline image), or the `q`…`Q` / `BDC`…`EMC` around it (`"block"`: the marked content that matched, when `markedContent` or `ocg` is given). |
+| <a id="property-range"></a> `range?` | [`OpRange`](#oprange) | Only elements ending in this range of operations. |
+| <a id="property-where"></a> `where?` | (`hit`: [`Hit`](#hit)) => `boolean` \| `Promise`\<`boolean`\> | A last test of each hit. |
+
+***
+
+### Hit
+
+Operations `from..to` that [Content.find](#find) found.
+
+#### Properties
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-from"></a> `from` | `number` | - |
+| <a id="property-to"></a> `to` | `number` | Not included. |
+| <a id="property-op"></a> `op` | `number` | The operation that paints (the one found, for `"op"`). |
+| <a id="property-kind-1"></a> `kind` | `string` \| `null` | [Element.kind](#property-kind-2); `null` for an operation that paints nothing. |
+| <a id="property-bbox-1"></a> `bbox` | [`Rect`](#rect) \| `null` | - |
+| <a id="property-hidden-1"></a> `hidden` | `boolean` | - |
+| <a id="property-text-3"></a> `text` | `string` \| `null` | The text shown, decoded. |
+| <a id="property-form"></a> `form` | [`Ref`](#ref) \| `null` | Found inside this form XObject (painted by the `Do` at `op`). |
+
+***
+
 ### Op
 
 #### Properties
@@ -1160,7 +1394,7 @@ A rectangle in default user space, `x0 <= x1`, `y0 <= y1`.
 | <a id="property-operands"></a> `operands` | `string`[] | In PDF syntax, shortened. |
 | <a id="property-depth"></a> `depth` | `number` | Nesting of `q`, `BT` and marked content. |
 | <a id="property-end"></a> `end` | `number` \| `null` | For an opener (`q`, `BT`, `BDC`, ...): its last operation. |
-| <a id="property-text-2"></a> `text` | `string` \| `null` | Text shown, when the font tells it. |
+| <a id="property-text-4"></a> `text` | `string` \| `null` | Text shown, when the font tells it. |
 | <a id="property-resource"></a> `resource` | [`Ref`](#ref) \| `null` | The resource it names, when an object. |
 | <a id="property-element"></a> `element` | [`Element`](#element) \| `null` | - |
 | <a id="property-issues-1"></a> `issues` | `object`[] | - |
@@ -1173,10 +1407,10 @@ A rectangle in default user space, `x0 <= x1`, `y0 <= y1`.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="property-op"></a> `op` | `number` | - |
-| <a id="property-kind-1"></a> `kind` | `string` | `fill`, `stroke`, `fillStroke`, `clip`, `text`, `image`, `inlineImage`, `form`, `shading`. |
-| <a id="property-bbox"></a> `bbox` | [`Rect`](#rect) | - |
-| <a id="property-hidden"></a> `hidden` | `boolean` | Outside the clipping path, or invisible text. |
+| <a id="property-op-1"></a> `op` | `number` | - |
+| <a id="property-kind-2"></a> `kind` | `string` | `fill`, `stroke`, `fillStroke`, `clip`, `text`, `image`, `inlineImage`, `form`, `shading`. |
+| <a id="property-bbox-2"></a> `bbox` | [`Rect`](#rect) | - |
+| <a id="property-hidden-2"></a> `hidden` | `boolean` | Outside the clipping path, or invisible text. |
 
 ## Type Aliases
 
@@ -1316,6 +1550,21 @@ type OpRange =
 ```
 
 A range of operations, `from` included, `to` not.
+
+***
+
+### LabelStyle
+
+```ts
+type LabelStyle = 
+  | "decimal"
+  | "upperRoman"
+  | "lowerRoman"
+  | "upperLetters"
+  | "lowerLetters";
+```
+
+How page numbers are written: 1, I, i, A, a.
 
 ***
 

@@ -860,6 +860,60 @@ for n in range(1, size):
 out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (size, xref)
 open("annots.pdf", "wb").write(out)
 PY
+python3 -I - <<'PY'
+# Printer's marks and watermarks (pdfi-content find, the remove-marks
+# macro): page 1 has a TrimBox inside its MediaBox with crop marks in the
+# registration color (/Separation /All), a color bar and a slug form
+# outside it, a bleed that crosses it, a watermark artifact and a layer
+# (/OC); page 2 has no TrimBox, only crop marks in the registration color.
+objs, streams = {}, {}
+objs[1] = b"<< /Type /Catalog /Pages 2 0 R /OCProperties << /OCGs [8 0 R] /D << /Order [8 0 R] >> >> >>"
+objs[2] = b"<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 /MediaBox [0 0 640 840] >>"
+res = b"/Resources << /Font << /F1 5 0 R >> /ColorSpace << /CS0 6 0 R >> /XObject << /Slug 9 0 R >> /Properties << /MC0 8 0 R >> >>"
+objs[3] = b"<< /Type /Page /Parent 2 0 R /TrimBox [36 36 604 804] /BleedBox [27 27 613 813] /Contents 10 0 R " + res + b" >>"
+objs[4] = b"<< /Type /Page /Parent 2 0 R /Contents 11 0 R " + res + b" >>"
+objs[5] = b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+objs[6] = b"[/Separation /All /DeviceCMYK 7 0 R]"
+objs[7] = b"<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [1 1 1 1] /N 1 >>"
+objs[8] = b"<< /Type /OCG /Name (Review notes) >>"
+
+def crop_marks(x0, y0, x1, y1, gap=9, size=18):
+    out = b"q /CS0 CS 1 SCN 0.25 w\n"
+    for x, y, dx, dy in ((x0, y0, -1, -1), (x1, y0, 1, -1), (x0, y1, -1, 1), (x1, y1, 1, 1)):
+        out += b"%d %d m %d %d l S\n" % (x + dx * gap, y, x + dx * (gap + size), y)
+        out += b"%d %d m %d %d l S\n" % (x, y + dy * gap, x, y + dy * (gap + size))
+    return out + b"Q\n"
+
+page1 = (
+    b"q 0 0 0 0.1 k 27 27 586 786 re f Q\n"
+    + crop_marks(36, 36, 604, 804)
+    + b"q 0 1 1 0 k 100 8 12 12 re f 1 0 1 0 k 112 8 12 12 re f Q\n"
+    + b"/Slug Do\n"
+    + b"BT /F1 24 Tf 72 700 Td (Hello) Tj ET\n"
+    + b"/Artifact << /Type /Pagination /Subtype /Watermark >> BDC q 0.8 g BT /F1 96 Tf 1 0 0 1 120 380 Tm (DRAFT) Tj ET Q EMC\n"
+    + b"/OC /MC0 BDC q 1 0 0 rg BT /F1 12 Tf 72 100 Td (Check the figures) Tj ET Q EMC\n"
+)
+streams[9] = (b"<< /Type /XObject /Subtype /Form /BBox [0 0 640 30] /Resources << /Font << /F1 5 0 R >> /ColorSpace << /CS0 6 0 R >> >> /Length %d >>",
+              b"/CS0 cs 1 scn BT /F1 6 Tf 300 12 Td (Job 1234 page 1) Tj ET\n")
+streams[10] = (b"<< /Length %d >>", page1)
+streams[11] = (b"<< /Length %d >>", crop_marks(36, 36, 604, 804) + b"BT /F1 24 Tf 72 700 Td (Page two) Tj ET\n")
+out = bytearray(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")
+offsets = {}
+for n in sorted(set(objs) | set(streams)):
+    offsets[n] = len(out)
+    if n in streams:
+        d, data = streams[n]
+        out += b"%d 0 obj\n" % n + d % len(data) + b"\nstream\n" + data + b"\nendstream\nendobj\n"
+    else:
+        out += b"%d 0 obj\n" % n + objs[n] + b"\nendobj\n"
+size = max(offsets) + 1
+xref = len(out)
+out += b"xref\n0 %d\n0000000000 65535 f\r\n" % size
+for n in range(1, size):
+    out += (b"%010d 00000 n\r\n" % offsets[n]) if n in offsets else b"0000000000 00000 f\r\n"
+out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (size, xref)
+open("marks.pdf", "wb").write(out)
+PY
 
 qpdf --object-streams=generate base.pdf objstm.pdf
 qpdf --linearize base.pdf linearized.pdf

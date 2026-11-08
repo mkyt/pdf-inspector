@@ -88,7 +88,10 @@ fn bundled_macros_have_meta() {
             "metadata",
             "set-reading",
             "crop-to-content",
-            "remove-owner-password"
+            "remove-owner-password",
+            "remove-marks",
+            "outline-from-json",
+            "page-labels"
         ]
     );
     let (_, m) = bundled("set-reading");
@@ -417,4 +420,166 @@ fn pages_content_and_inserting() {
     assert_eq!(v["threw"], true);
     assert_eq!(v["pages"], 2);
     assert_eq!(summary(&s, other).pages, 5);
+}
+
+fn page_text(s: &Session, doc: DocId, index: u32) -> String {
+    match s
+        .dispatch(Request::ContentText {
+            doc,
+            content: ContentRef::Page { index },
+            range: Range {
+                offset: 0,
+                limit: 100_000,
+            },
+        })
+        .response
+    {
+        Response::Ok(ResponseBody::OpText(t)) => t.text,
+        r => panic!("{r:?}"),
+    }
+}
+
+#[test]
+fn remove_marks() {
+    let (s, doc) = session("marks.pdf");
+    let o = run_bundled(&s, doc, "remove-marks", json!({}));
+    let rows = o.value.as_array().unwrap();
+    assert_eq!(rows.len(), 2, "{rows:?}");
+    // 8 crop marks, 2 color bar squares, the slug form; the same marks and
+    // the slug in the registration color; the watermark.
+    assert_eq!(rows[0]["outsideTrim"], 11, "{rows:?}");
+    assert_eq!(rows[0]["registration"], 9, "{rows:?}");
+    assert_eq!(rows[0]["watermarks"], 1, "{rows:?}");
+    assert_eq!(rows[1]["outsideTrim"], 0, "{rows:?}");
+    assert_eq!(rows[1]["registration"], 8, "{rows:?}");
+    let p1 = page_text(&s, doc, 0);
+    for kept in ["27 27 586 786 re", "(Hello) Tj", "(Check the figures) Tj"] {
+        assert!(p1.contains(kept), "{kept}: {p1}");
+    }
+    for gone in ["l S", "100 8 12 12 re", "/Slug Do", "DRAFT", "/Artifact"] {
+        assert!(!p1.contains(gone), "{gone}: {p1}");
+    }
+    assert!(!page_text(&s, doc, 1).contains("l S"));
+    let e = summary(&s, doc).edit;
+    assert_eq!(
+        e.undo.as_deref(),
+        Some("Remove printer's marks and watermarks")
+    );
+
+    // A layer and text, nothing else.
+    let (s, doc) = session("marks.pdf");
+    let off = json!({ "outsideTrim": false, "registration": false, "watermarks": false });
+    let mut p = off.clone();
+    p["layers"] = json!("^review");
+    p["text"] = json!("Hello");
+    let o = run_bundled(&s, doc, "remove-marks", p);
+    assert_eq!(o.value[0]["layers"], 1, "{}", o.value);
+    assert_eq!(o.value[0]["text"], 1, "{}", o.value);
+    let p1 = page_text(&s, doc, 0);
+    assert!(!p1.contains("Check the figures") && !p1.contains("Hello") && p1.contains("DRAFT"));
+    // Nothing found: no edit.
+    let (s, doc) = session("model.pdf");
+    let o = run_bundled(&s, doc, "remove-marks", off);
+    assert_eq!(o.value, json!([]));
+    assert!(!summary(&s, doc).edit.dirty);
+}
+
+#[test]
+fn outline_from_json() {
+    let (s, doc) = session("model.pdf");
+    let tree = json!([
+        { "title": "Front", "page": 1, "children": [{ "title": "Appendix", "page": "A-1", "bold": true }] },
+        { "title": "Site", "uri": "https://example.com/" }
+    ]);
+    let o = run_bundled(
+        &s,
+        doc,
+        "outline-from-json",
+        json!({ "outline": tree, "open": 1 }),
+    );
+    assert_eq!(o.value["items"], 3);
+    let top = match s
+        .dispatch(Request::Outline {
+            doc,
+            parent: None,
+            range: Range {
+                offset: 0,
+                limit: 10,
+            },
+        })
+        .response
+    {
+        Response::Ok(ResponseBody::Outline(p)) => p.items,
+        r => panic!("{r:?}"),
+    };
+    assert_eq!(top.len(), 2);
+    assert_eq!((top[0].title.as_str(), top[0].count), ("Front", Some(1)));
+    let kids = match s
+        .dispatch(Request::Outline {
+            doc,
+            parent: Some(top[0].id),
+            range: Range {
+                offset: 0,
+                limit: 10,
+            },
+        })
+        .response
+    {
+        Response::Ok(ResponseBody::Outline(p)) => p.items,
+        r => panic!("{r:?}"),
+    };
+    assert_eq!(kids[0].flags, 2);
+    match &kids[0].link {
+        Some(LinkTarget::Dest { dest }) => assert_eq!(dest.page_index, Some(2)),
+        l => panic!("{l:?}"),
+    }
+    // Pages out of the document are refused, and nothing changes.
+    let (s, doc) = session("model.pdf");
+    let (src, meta) = bundled("outline-from-json");
+    let (r, _) = exec_meta(
+        &s,
+        doc,
+        &src.code,
+        &meta,
+        json!({ "outline": [{ "title": "x", "page": 9 }] }),
+        RunOptions::default(),
+    );
+    assert!(r.unwrap_err().to_string().contains("page 9"));
+    assert!(!summary(&s, doc).edit.dirty);
+}
+
+#[test]
+fn page_labels() {
+    let (s, doc) = session("model.pdf");
+    let o = run_bundled(
+        &s,
+        doc,
+        "page-labels",
+        json!({ "labels": "1:R, 3:D:P-:10" }),
+    );
+    assert_eq!(
+        o.value,
+        json!([
+            { "page": 1, "style": "upperRoman", "prefix": "", "first": 1 },
+            { "page": 3, "style": "decimal", "prefix": "P-", "first": 10 }
+        ])
+    );
+    let labels: Vec<String> = match s
+        .dispatch(Request::Pages {
+            doc,
+            range: Range {
+                offset: 0,
+                limit: 10,
+            },
+        })
+        .response
+    {
+        Response::Ok(ResponseBody::Pages(p)) => {
+            p.items.into_iter().map(|p| p.label.unwrap()).collect()
+        }
+        r => panic!("{r:?}"),
+    };
+    assert_eq!(labels, ["I", "II", "P-10", "P-11", "P-12"]);
+    let o = run_bundled(&s, doc, "page-labels", json!({ "labels": "none" }));
+    assert_eq!(o.value, json!([]));
 }

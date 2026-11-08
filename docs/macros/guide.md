@@ -94,6 +94,35 @@ const lang = await doc.catalog.get("Lang");          // PdfString か undefined
 const pages = await doc.catalog.resolve("Pages");    // 参照を辿って Node
 ```
 
+## 命令列の検索と除去
+
+`page.content.find(query)` は、ページが描くもののうち条件をすべて満たすものを命令の範囲で返す。全ページの命令を JS に渡すと数が多すぎるので、絞り込みは文書の側（native / Worker）で行い、JS には当たったものだけが来る。
+
+```js
+const { trim } = await page.boxes();
+const hits = await page.content.find({
+  bbox: { outside: trim },                                   // inside / outside / intersects
+  colorSpace: { separation: "All" },                         // レジストレーションカラー
+  // markedContent: { tag: "Artifact", properties: { Subtype: "Watermark" } },
+  // ocg: /watermark/i,                                     // レイヤーの名前（文字列・RegExp・関数・Ref）
+  // operators: ["re", "f"], kinds: ["text"], text: "CONFIDENTIAL", hidden: false,
+  unit: "element",                                           // "op" | "element" | "block"
+});
+await page.content.remove(hits);                             // 1 回の編集。消した命令の数を返す
+```
+
+- 候補は**描画要素**: パス（最初の構築演算子から描画演算子まで。`W n` のクリップも含む）、文字を表示する命令、`Do`、`sh`、インライン画像。クリップのパスは `kinds` に `"clip"` を挙げたときだけ当たる（消すと隠れていたものが見えるため）
+- `unit` は当たったものごとに返す範囲: `"element"`（既定。描画要素だけを消しても、残りは同じように描かれる）、`"block"`（それを囲む `q`…`Q` か `BMC` / `BDC`…`EMC`。`markedContent` / `ocg` を指定したときは当たったマークの範囲）、`"op"`（命令 1 つ。`operators` に挙げた命令だけ。描画しない命令（`gs` など）も、描画要素にしか無い条件を使わなければ当たる）
+- フォーム XObject の中も検索するが、当たるのはそれを描く `Do`（`hit.form` が中のフォーム）。フォームは複数のページから共有されることがあるので、中の命令は消さない
+- `text` の `RegExp`、2 つ目以降の `bbox` の関係、`where` は、返ってきた結果を JS で絞る
+- 範囲は `{ from, to }`（`to` は含まない）。`remove` は範囲が重なっていても、まとめて 1 回で消す
+- 戻り値の `bbox` はデフォルトのユーザー空間（ページの回転の前）
+
+## 目次とページラベル
+
+- `doc.outline()` は今の目次を木で返し、`doc.setOutline(items)` は木を丸ごと置き換える（`[]` で目次を消す）。`outline()` の結果をそのまま（並べ替え・書き換えて）渡せる。項目は `{ title, page, view, dest, uri, open, bold, italic, color, children }`。`page` は 0 始まり、`view` は `"Fit"`（既定）か `{ fit: "XYZ", params: [left, top, zoom] }`（`null` はビューアに任せる）。古い目次の項目は削除する
+- `doc.pageLabels()` / `doc.setPageLabels(ranges)`: `{ start, style, prefix, first }` の列（`start` は 0 始まりで、最初の範囲は 0 から）。`style` は `decimal`・`upperRoman`・`lowerRoman`・`upperLetters`・`lowerLetters`（`D`・`R`・`r`・`A`・`a` でもよい）か `null`（接頭辞だけ）
+
 ## 編集と undo の単位
 
 - 編集はその場で反映し、後の読み取りには反映後の内容が見える（`doc.pageCount` もページの編集に従う）

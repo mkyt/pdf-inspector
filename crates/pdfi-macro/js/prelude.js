@@ -746,6 +746,120 @@
     async insert(before, text) {
       await this._edit([{ kind: "replace", from: before, to: before, text: String(text) }], "Insert operations");
     }
+
+    /** @param {any} [query] */
+    async find(query = {}) {
+      if (!query || Array.isArray(query) || typeof query !== "object") throw new TypeError("find takes a query object");
+      const known = ["operators", "kinds", "markedContent", "ocg", "colorSpace", "bbox", "text", "hidden", "unit", "range", "where"];
+      for (const k of Object.keys(query)) if (!known.includes(k)) throw new TypeError(`find: unknown criterion ${JSON.stringify(k)} (${known.join(", ")})`);
+      const q = { unit: query.unit ?? "element" };
+      if (!["op", "element", "block"].includes(q.unit)) throw new TypeError(`find: unit is "op", "element" or "block", not ${JSON.stringify(q.unit)}`);
+      if (query.operators !== undefined) q.operators = strings("operators", query.operators);
+      if (query.kinds !== undefined) q.kinds = strings("kinds", query.kinds);
+      if (query.hidden !== undefined) q.hidden = !!query.hidden;
+      const mc = query.markedContent;
+      if (mc !== undefined) {
+        q.marked = {
+          tags: mc.tag === undefined ? [] : strings("markedContent.tag", mc.tag).map(keyText),
+          properties: Object.entries(mc.properties ?? {}).map(([key, v]) => ({
+            key: keyText(key),
+            value: v instanceof Name ? v.name : v instanceof PdfString ? v.text : String(v),
+          })),
+        };
+      }
+      const cs = query.colorSpace;
+      if (cs !== undefined) {
+        q.color = {
+          families: cs.family === undefined ? [] : strings("colorSpace.family", cs.family),
+          separations: cs.separation === undefined ? [] : strings("colorSpace.separation", cs.separation),
+        };
+      }
+      // Rectangles: the first relation is checked by the host, the others here.
+      const boxes = [];
+      if (query.bbox !== undefined) {
+        for (const [rel, r] of Object.entries(query.bbox)) {
+          if (!["inside", "outside", "intersects"].includes(rel)) throw new TypeError(`find: bbox takes inside, outside or intersects, not ${rel}`);
+          if (r === null || r === undefined) continue;
+          boxes.push([rel, rectOf(r)]);
+        }
+        if (boxes.length) q.bbox = { relation: boxes[0][0], rect: boxes[0][1] };
+      }
+      let textRe = null;
+      if (query.text !== undefined) {
+        if (query.text instanceof RegExp) {
+          textRe = query.text;
+          if (!q.kinds) q.kinds = ["text", "form"];
+        } else q.text = String(query.text);
+      }
+      if (query.ocg !== undefined) q.ocgs = await this._doc._ocgRefs(query.ocg);
+      let range = null;
+      if (query.range !== undefined) {
+        const [from, to] = opRange(query.range, Number.MAX_SAFE_INTEGER);
+        range = { offset: from, limit: Math.min(to - from, 0xffffffff) };
+      }
+      const b = await body({ op: "contentFind", doc: this._doc._id, content: this._ref, query: q, range });
+      if (b.truncated) host.log("warn", `find: only the first ${b.hits.length} hits`);
+      const out = [];
+      for (const h of b.hits) {
+        const hit = {
+          from: h.from,
+          to: h.to,
+          op: h.op,
+          kind: h.kind ?? null,
+          bbox: h.bbox ?? null,
+          hidden: h.hidden,
+          text: h.text ?? null,
+          form: refOf(h.form),
+        };
+        if (boxes.slice(1).some(([rel, r]) => !hit.bbox || !relates(hit.bbox, rel, r))) continue;
+        if (textRe) {
+          textRe.lastIndex = 0;
+          if (hit.text === null || !textRe.test(hit.text)) continue;
+        }
+        if (query.where && !(await query.where(hit))) continue;
+        out.push(hit);
+      }
+      return out;
+    }
+
+    async remove(hits, label = "Remove operations") {
+      if (!Array.isArray(hits)) hits = [hits];
+      const count = await this.count();
+      const ranges = hits
+        .map((h) => opRange(h, count))
+        .filter(([a, b]) => b > a)
+        .sort((x, y) => x[0] - y[0]);
+      const merged = [];
+      for (const [a, b] of ranges) {
+        const last = merged[merged.length - 1];
+        if (last && a <= last[1]) last[1] = Math.max(last[1], b);
+        else merged.push([a, b]);
+      }
+      if (!merged.length) return 0;
+      // Each edit sees the result of those before: last first.
+      const edits = merged.reverse().map(([from, to]) => ({ kind: "replace", from, to, text: "" }));
+      await this._edit(edits, label);
+      return merged.reduce((n, [a, b]) => n + b - a, 0);
+    }
+  }
+
+  function strings(what, v) {
+    const a = Array.isArray(v) ? v : [v];
+    if (!a.every((x) => typeof x === "string" || x instanceof Name)) throw new TypeError(`find: ${what} takes strings`);
+    return a.map((x) => (x instanceof Name ? x.name : x));
+  }
+
+  function relates(b, rel, r) {
+    const ix = Math.max(b.x0, r.x0), iy = Math.max(b.y0, r.y0), ax = Math.min(b.x1, r.x1), ay = Math.min(b.y1, r.y1);
+    const overlaps = ix <= ax && iy <= ay;
+    switch (rel) {
+      case "inside":
+        return b.x0 >= r.x0 && b.y0 >= r.y0 && b.x1 <= r.x1 && b.y1 <= r.y1;
+      case "intersects":
+        return overlaps;
+      default:
+        return !overlaps || ix === ax || iy === ay;
+    }
   }
 
   // ------------------------------------------------------------- documents
@@ -919,6 +1033,99 @@
         return out;
       };
       return level(null, 0);
+    }
+
+    async ocgs() {
+      const props = await this.catalog.resolve("OCProperties");
+      if (!(props instanceof Node)) return [];
+      const list = await props.resolve("OCGs");
+      if (!Array.isArray(list)) return [];
+      const out = [];
+      for (const r of list) {
+        if (!(r instanceof Ref)) continue;
+        const g = await this.object(r);
+        const n = g instanceof Node ? await g.get("Name") : undefined;
+        out.push({ ref: r, name: n instanceof PdfString ? n.text : n === undefined ? "" : String(n) });
+      }
+      return out;
+    }
+
+    /** References of the groups an `ocg` criterion picks. */
+    async _ocgRefs(sel) {
+      const list = Array.isArray(sel) ? sel : [sel];
+      if (list.length && list.every((x) => x instanceof Ref)) return list.map(wire);
+      const groups = await this.ocgs();
+      const picked = groups.filter((g) =>
+        list.some((x) =>
+          x instanceof Ref ? x.equals(g.ref) : x instanceof RegExp ? ((x.lastIndex = 0), x.test(g.name)) : typeof x === "function" ? x(g.name, g.ref) : g.name === String(x),
+        ),
+      );
+      return picked.map((g) => wire(g.ref));
+    }
+
+    async setOutline(items, label = "Set the outline") {
+      if (!Array.isArray(items)) throw new TypeError("setOutline takes an array of items");
+      const entries = [];
+      const walk = (list, level) => {
+        for (const it of list) {
+          if (!it || typeof it !== "object") throw new TypeError("an outline item is an object");
+          if (level > 64) throw new RangeError("outline items nest 64 levels at most");
+          const link = it.link ?? null;
+          const dest = link && link.kind === "dest" ? link.dest : null;
+          let target = null;
+          const uri = it.uri ?? (link && link.kind === "uri" ? link.uri : undefined);
+          const named = it.dest ?? (dest && dest.named ? dest.named : undefined);
+          if (uri !== undefined && uri !== null) target = { kind: "uri", uri: String(uri) };
+          else if (named !== undefined && named !== null) target = { kind: "named", name: String(named) };
+          else if (it.page !== undefined && it.page !== null) {
+            if (!Number.isInteger(it.page) || it.page < 0 || it.page >= this.pageCount)
+              throw new RangeError(`outline item ${JSON.stringify(it.title)}: no page ${it.page} (0-based; the document has ${this.pageCount})`);
+            const view = it.view ?? (dest ? { fit: dest.fit, params: dest.params } : null);
+            const fit = typeof view === "string" ? view : view?.fit ?? "Fit";
+            const params = typeof view === "string" ? [] : (view?.params ?? []).map((p) => (p === null || p === undefined ? null : Number(p)));
+            target = { kind: "page", index: it.page, fit, params };
+          }
+          const flags = it.flags ?? ((it.bold ? 2 : 0) | (it.italic ? 1 : 0));
+          const children = it.children ?? [];
+          entries.push({
+            level,
+            title: String(it.title ?? ""),
+            target,
+            open: !!it.open,
+            flags,
+            color: it.color ?? null,
+          });
+          walk(children, level + 1);
+        }
+      };
+      walk(items, 0);
+      await this.apply([{ op: "setOutline", items: entries }], label);
+    }
+
+    async pageLabels() {
+      return (await body({ op: "pageLabels", doc: this._id })).ranges.map((r) => ({
+        start: r.start,
+        style: r.style ?? null,
+        prefix: r.prefix ?? "",
+        first: r.first ?? 1,
+      }));
+    }
+
+    async setPageLabels(ranges, label = "Set page labels") {
+      if (!Array.isArray(ranges)) throw new TypeError("setPageLabels takes an array of ranges");
+      const styles = { D: "decimal", R: "upperRoman", r: "lowerRoman", A: "upperLetters", a: "lowerLetters" };
+      const out = ranges.map((r) => {
+        if (!Number.isInteger(r.start) || r.start < 0 || r.start >= Math.max(1, this.pageCount))
+          throw new RangeError(`label range: no page ${r.start} (0-based; the document has ${this.pageCount})`);
+        let style = r.style ?? null;
+        if (style !== null && styles[style]) style = styles[style];
+        if (style !== null && !Object.values(styles).includes(style))
+          throw new TypeError(`label style ${JSON.stringify(r.style)}: ${Object.values(styles).join(", ")} or null`);
+        const first = r.first ?? 1;
+        if (!Number.isInteger(first) || first < 1) throw new RangeError(`label range at ${r.start}: first is an integer, 1 or more`);
+        return { start: r.start, style, prefix: r.prefix ? String(r.prefix) : null, first: first === 1 ? null : first };
+      });
+      await this.apply([{ op: "setPageLabels", ranges: out }], label);
     }
 
     async _inventory() {

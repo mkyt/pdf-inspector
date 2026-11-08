@@ -572,3 +572,124 @@ fn history_group() {
     assert_eq!(h.redo_label(), Some("macro"));
     assert!(h.commit_group().is_err());
 }
+
+#[test]
+fn outline_and_page_labels() {
+    use pdfi_edit::{LabelSpec, LabelStyle, OutlineSpec, OutlineTarget};
+    let f = open("model.pdf");
+    let item = |level, title: &str, target, open| OutlineSpec {
+        level,
+        title: title.into(),
+        target,
+        open,
+        flags: 0,
+        color: None,
+    };
+    let page = |index| {
+        Some(OutlineTarget::Page {
+            index,
+            fit: "XYZ".into(),
+            params: vec![None, Some(700.0), None],
+        })
+    };
+    let items = vec![
+        item(0, "One", page(0), true),
+        item(1, "One.1", page(1), false),
+        item(2, "One.1.a", page(2), false),
+        item(1, "One.2", None, false),
+        item(
+            0,
+            "Später",
+            Some(OutlineTarget::Uri("https://example.org/".into())),
+            false,
+        ),
+    ];
+    let g = edit(
+        &f,
+        vec![
+            Command::SetOutline { items },
+            Command::SetPageLabels {
+                ranges: vec![
+                    LabelSpec {
+                        start: 2,
+                        style: Some(LabelStyle::Decimal),
+                        prefix: Some("B-".into()),
+                        first: Some(5),
+                    },
+                    LabelSpec {
+                        start: 0,
+                        style: Some(LabelStyle::LowerRoman),
+                        prefix: None,
+                        first: None,
+                    },
+                ],
+            },
+        ],
+    );
+    // The old items are gone.
+    assert!(g.get(ObjId::new(31, 0)).is_err());
+    let dm = DocModel::new();
+    let m = dm.on(&g);
+    let top = m.outline_children(None);
+    assert_eq!(top.len(), 2);
+    let one = m.outline_item(top[0]).unwrap();
+    assert_eq!((one.title.as_str(), one.count), ("One", Some(2)));
+    let later = m.outline_item(top[1]).unwrap();
+    assert_eq!(later.title, "Später");
+    assert_eq!(
+        later.link,
+        Some(pdfi_model::dest::Link::Uri("https://example.org/".into()))
+    );
+    let kids = m.outline_children(Some(top[0]));
+    let k = m.outline_item(kids[0]).unwrap();
+    assert_eq!((k.title.as_str(), k.count), ("One.1", Some(-1)));
+    match k.link {
+        Some(pdfi_model::dest::Link::Dest(d)) => {
+            assert_eq!(d.page_index, Some(1));
+            assert_eq!(d.fit.as_deref(), Some("XYZ"));
+            assert_eq!(d.params, vec![None, Some(700.0), None]);
+        }
+        l => panic!("{l:?}"),
+    }
+    let root = m.outline_root().unwrap();
+    let r = g.get(root).unwrap();
+    assert_eq!(
+        r.node.obj.as_dict().unwrap().get_key("Count"),
+        Some(&Object::Integer(4))
+    );
+    let labels: Vec<_> = (0..5).map(|i| m.label(i).unwrap()).collect();
+    assert_eq!(labels, ["i", "ii", "B-5", "B-6", "B-7"]);
+    qpdf_check(&save(&g, SaveMode::Incremental), None);
+
+    // Levels must not skip; labels start at the first page.
+    let bad = Tx::apply_all(
+        &f,
+        vec![Command::SetOutline {
+            items: vec![item(1, "x", None, false)],
+        }],
+    );
+    assert!(bad.is_err());
+    let bad = Tx::apply_all(
+        &f,
+        vec![Command::SetPageLabels {
+            ranges: vec![LabelSpec {
+                start: 1,
+                style: None,
+                prefix: None,
+                first: None,
+            }],
+        }],
+    );
+    assert!(bad.is_err());
+    // Nothing: no outline, no labels.
+    let h = edit(
+        &g,
+        vec![
+            Command::SetOutline { items: vec![] },
+            Command::SetPageLabels { ranges: vec![] },
+        ],
+    );
+    let dm = DocModel::new();
+    let m = dm.on(&h);
+    assert!(m.outline_root().is_none() && m.label(0).is_none());
+}

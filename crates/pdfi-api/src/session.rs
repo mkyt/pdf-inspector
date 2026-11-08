@@ -631,6 +631,9 @@ impl Session {
                 parent,
                 range,
             ))),
+            Request::PageLabels { doc } => Ok(ResponseBody::PageLabels {
+                ranges: model::page_labels(&*self.doc(doc)?),
+            }),
             Request::Fonts { doc, range } => {
                 Ok(ResponseBody::Fonts(model::fonts(&*self.doc(doc)?, range)?))
             }
@@ -686,6 +689,12 @@ impl Session {
             Request::ContentResources { doc, content } => {
                 content::resources(&*self.doc(doc)?, content)
             }
+            Request::ContentFind {
+                doc,
+                content,
+                query,
+                range,
+            } => content::find(&*self.doc(doc)?, content, &query, range, cancel),
             Request::ContentElements {
                 doc,
                 content,

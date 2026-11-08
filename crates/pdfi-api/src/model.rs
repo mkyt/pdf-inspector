@@ -318,6 +318,27 @@ fn annot_info(a: pdfi_model::annot::Annot) -> AnnotInfo {
     }
 }
 
+pub fn page_labels(d: &Doc) -> Vec<PageLabelRange> {
+    d.model
+        .on(&d.file)
+        .label_ranges()
+        .iter()
+        .map(|r| PageLabelRange {
+            start: r.start.min(u32::MAX as u64) as u32,
+            style: match r.style {
+                Some(b'D') => Some(LabelStyle::Decimal),
+                Some(b'R') => Some(LabelStyle::UpperRoman),
+                Some(b'r') => Some(LabelStyle::LowerRoman),
+                Some(b'A') => Some(LabelStyle::UpperLetters),
+                Some(b'a') => Some(LabelStyle::LowerLetters),
+                _ => None,
+            },
+            prefix: (!r.prefix.is_empty()).then(|| r.prefix.clone()),
+            first: (r.first != 1).then_some(r.first),
+        })
+        .collect()
+}
+
 pub fn outline(d: &Doc, parent: Option<ObjRef>, range: Range) -> OutlineItemPage {
     let m = d.model.on(&d.file);
     let ids = m.outline_children(parent.map(Into::into));

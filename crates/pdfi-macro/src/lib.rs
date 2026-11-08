@@ -42,6 +42,12 @@ pub const BUNDLED: &[(&str, &str)] = &[
         "remove-owner-password.js",
         include_str!("../macros/remove-owner-password.js"),
     ),
+    ("remove-marks.js", include_str!("../macros/remove-marks.js")),
+    (
+        "outline-from-json.js",
+        include_str!("../macros/outline-from-json.js"),
+    ),
+    ("page-labels.js", include_str!("../macros/page-labels.js")),
 ];
 
 /// What `pdfi macro new` writes; `NAME` is replaced.
