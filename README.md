@@ -17,6 +17,7 @@ PDF の内部構造を調べ、編集するためのツール群。設計は [do
 | `crates/pdfi-server` | `pdfi serve` のローカルサーバー（axum + WebSocket、Web UI 内蔵、トークン / Host / Origin / 許可ルート検査） |
 | `crates/pdfi-wasm` | ブラウザ完結モード用の wasm バインディング（Worker から `Session` を駆動、Blob から直接読む） |
 | `crates/pdfi-ffi` | macOS アプリ用の UniFFI バインディング（プロトコルの型をそのまま Swift に、`Session` をインプロセスで駆動、パスで開く・保存・再読込） |
+| `crates/pdfi-macro` | マクロ（JavaScript）: QuickJS（rquickjs）で `Session` のそばで実行、公開 API の prelude（`js/prelude.js`）と型定義・リファレンスの出どころ `js/pdfi.d.ts`、`meta` とパラメータの検証、1 回の実行を 1 つの undo 単位に（失敗・キャンセル・時間切れで戻す）、マクロのディレクトリと同梱のマクロ。書き方は [docs/macros/](docs/macros/README.md) |
 | `crates/pdfi-cli` | `pdfi` コマンド |
 | `apps/macos` | macOS アプリ（AppKit の NSDocument + SwiftUI、`PdfInspectorKit` パッケージ）。骨格: 概要・ページ / オブジェクト / 診断 / フォント / 画像の一覧・ページ描画・ジョブ・undo / 保存の経路。Web UI との対応表は [apps/macos/README.md](apps/macos/README.md) |
 | `apps/web` | Web UI（Vite + React + Mantine）。Document / Pages / Outline / Fonts / Images 画面、フォント画面（プログラム・エンコーディング・問題、符号 → グリフ → テキストの表とアウトライン、埋め込みプログラムの全グリフとそれを選ぶ符号、そのフォントで描かれたテキストの一覧（フォーム内も含む）と使われた符号）、命令列ビュー（ネスト・問題・デコード済みテキスト、命令ごとの前後のグラフィックス状態、描画範囲の図とステップ表示）、ページ描画（タイル・ズーム、クリックで命令を選択、選択した命令のハイライト、ステップ実行、矩形で囲んだ範囲を描く命令だけを無劣化で 1 ページの PDF に切り出し、または編集用の SVG に書き出し（テキストは text かアウトライン））、オブジェクト一覧・ツリー・hex・ストリーム表示、被参照一覧、スキーマ型・キー定義・問題の表示と検証ジョブ。編集（ツリーの値を PDF 構文で編集・追加・削除、オブジェクトの追加・削除、ストリームのデータ、ページ操作、Info / XMP）、命令列エディタ（ブロックの折りたたみ・範囲選択・キー操作で挿入 / 編集 / 削除 / 移動 / コピー・貼り付け、CodeMirror のテキストモード: 色分け・折りたたみ・オペランドに合う演算子とリソース名の補完・問題表示・ホバーの説明）と undo / redo、保存（サーバーはパスへ、ブラウザは File System Access API）。サーバー / ブラウザ完結の両モード |
@@ -30,7 +31,7 @@ make setup        # ツールチェーン（wasm32 ターゲット・wasm-bindge
 make cli          # Web UI を埋め込んだ target/release/pdfi
 make web          # apps/web/dist（ブラウザ完結モード）
 make macos        # macOS アプリ（CONFIGURATION=Debug も可）→ apps/macos/build/DerivedData
-make check        # CI と同じ検査（fmt・clippy・テスト・wasm・Swift）
+make check        # CI と同じ検査（fmt・clippy・テスト・wasm・Swift・マクロの型と API 文書）
 ```
 
 ```sh
@@ -55,6 +56,10 @@ target/release/pdfi edit in.pdf -o out.pdf --info 'Title=New title' --set '1:/Pa
     --rotate 1-2:90 --move 5:1 --delete-pages 3 --append other.pdf   # 編集して incremental update で保存
 target/release/pdfi edit in.pdf -o out.pdf --full --object-streams --compress --gc   # 全体を書き直して圧縮
 target/release/pdfi rewrite in.pdf out.pdf [--reserialize]
+target/release/pdfi macro list                         # マクロ（docs/macros/）: 同梱 + $PDFI_MACRO_PATH
+target/release/pdfi macro run fonts *.pdf --format table
+target/release/pdfi macro run set-reading in.pdf -o out.pdf -p layout=TwoPageRight -p direction=R2L
+target/release/pdfi macro new my-macro                 # ひな形と pdfi.d.ts をマクロのディレクトリに
 ```
 
 暗号化ファイルは `--password`、xref を無視して走査で復元するには `--recover`。
@@ -115,4 +120,6 @@ PDFI_RENDER_CORPUS=~/pdfs cargo test --release -p pdfi-render --test regression 
 tests/fixtures/make.sh                    # フィクスチャ再生成（python3 + fontTools, qpdf が必要）（変えたら描画の基準画像も再生成）
 scripts/make-large-pdf.py big.pdf --pages 3000 --image-kib 100   # 大きな合成 PDF（約 300 MB）
 scripts/corpus-check.sh <dir> [--decode]  # 手元の PDF 群で qpdf とページ数を突き合わせ
+cargo test -p pdfi-macro                  # 同梱のマクロと docs/macros の ```js macro の例を実行
+make macros-check                         # prelude・同梱のマクロを pdfi.d.ts に照らして検査、docs/macros/api/ の差分（make macros-docs で再生成）
 ```

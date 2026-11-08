@@ -18,6 +18,7 @@
 > - v2.13: PDFium バックエンドを取りやめ（自作レンダラで足り、複雑さに見合わない）。M13 はレンダリング回帰テストだけにし、確定した形を §7 に追記
 > - v2.14: マクロの設計を確定し、§10 から §4.11 に移した（データのそばで実行: native は QuickJS、Web はマクロ専用の Worker でブラウザの JS。公開 API は prelude で版を付ける。パラメータは宣言したものだけ。CLI の一括処理。安全のための隔離はしない。ドキュメントは `pdfi.d.ts` を唯一の出どころにする）。M14〜M17 を追加
 > - v2.15: macOS アプリの App Sandbox をやめた（§4.10）。マクロのディレクトリは CLI と共有する（§4.11）
+> - v2.16: M14 実装で確定した事項を §4.11 に追記（編集のグループと `ErrorCode::Busy`、プロトコル v20、`__host` の値の渡し方、`Node` の位置の覚え方、パラメータの生の形、CLI の保存と一括処理、`docs/macros/api/` の生成）
 
 ## 1. ゴール
 
@@ -648,9 +649,25 @@ pdfi macro run <name|file.js> <in.pdf>... \
 - **`docs/macros/`**: 
   - `README.md`: 入門（最初のマクロ、CLI と GUI での実行、一括処理、保存場所）
   - `guide.md`: スクリプトの形・`meta` とパラメータの型・PDF の値の表し方・編集と undo 単位・保存・出力・制限・処理系の違い・プロトコルとの関係
-  - `api.md`: `pdfi.d.ts` から生成するリファレンス（TypeDoc + typedoc-plugin-markdown。生成物はリポジトリに入れ、差分を CI で検出する。ts-rs の `generated.ts` と同じ扱い）
+  - `api/`: `pdfi.d.ts` から生成するリファレンス（TypeDoc + typedoc-plugin-markdown。生成物はリポジトリに入れ、差分を CI で検出する。ts-rs の `generated.ts` と同じ扱い）
   - `cookbook.md`: よくある処理の例（同梱のマクロの解説を兼ねる）
 - **CI での検査**: `tsc --checkJs --noEmit` で prelude と同梱のマクロを `pdfi.d.ts` に照らして検査する。ドキュメント中の ```` ```js macro ```` のコードブロックは取り出してテスト用の PDF に対して実行する（例が古くならないように）。同梱のマクロは native と wasm の両方の経路で実行し、結果を期待値と比べる
+
+#### M14 で確定したこと
+
+- **編集のグループ**: `pdfi-edit` の `History` に `begin_group` / `commit_group` / `abort_group`。グループの中の編集は 1 つの状態にまとめ（ラベルはグループのもの）、`abort_group` は始めたときの履歴（redo も含む）に戻す。`Session` は `begin_group(doc, label) → GroupId` / `end_group(doc, group, commit)` / `dispatch_in_group(req, group, cancel)` を持ち、グループの持ち主以外の編集・undo・redo・保存・閉じるを **`ErrorCode::Busy`**（プロトコル v20）で断る。確かめるのは文書の履歴のロックの中なので、確かめた後に別の編集が割り込むことは無い。プロトコルの `EditGroup` は Web の macro Worker が要る M16 で足す
+- `JobKind::Macro` / `JobResult::Macro` / `Event::MacroLog` も M16 / M17 で足す。M14 の CLI は `pdfi-macro` の `run(session, doc, …) → Outcome { value, columns, emitted }` を同じプロセスで呼ぶ（ファイルごとに `Session` と QuickJS の `Runtime` を 1 つずつ、`--jobs` の数のスレッドで）
+- **`__host`**: 関数は値を直接返してもよい（native は同期。prelude は常に `await` する）。`dispatch` は要求を JSON の文字列で受け、`{ body: 応答の JSON, parts: Uint8Array[] }` を返す。`emit` のデータは 1 文字 1 バイトの文字列で渡す（rquickjs で型付き配列を読むには `unsafe` が要り、workspace は `unsafe_code` を禁じているため）
+- QuickJS の割り込み（キャンセル・時間切れ）は捕まえられない例外になり、その Promise は保留のまま残る。ホストはジョブのキューが尽きたところで止めた理由を確かめて `Cancelled` / `Timeout` にする
+- **`Node` の位置**: プロトコルの `NodePath` は子の番号（辞書はファイル順の項目番号）なので、項目を足すと番号がずれる。`Node` は根（trailer か間接オブジェクト）とキーの列で位置を覚え、文書が変わるたび（prelude が数える世代）に `Children` で番号を引き直す
+- 文字列は `Value::String` が持つ先頭 1 KB だけを読み、それより長いものは `truncated`（書き戻せない）。辞書の中の文字列の多くはこれで足りる
+- **パラメータの生の形**: JSON の値か、コマンドラインの文字列（数・真偽値・ページへの変換は prelude が行う）。`bytes` は `{"$bytes": base64}`、`pdf` は同じ `Session` で開いた文書の `{"$doc": id}`。`json` の文字列とファイルは CLI が解析してから渡す（`--params` の JSON はそのまま）。`k=@@x` は `@x` という文字列。検証は実行前に一度、文書無しで行い（ページの範囲は形だけ）、ファイルごとにページ数に照らしてもう一度行う
+- 返り値がオブジェクトの配列のときは、キーをマクロが書いた順に `columns` として返す（JSON のオブジェクトを Rust に移すと順序が失われるため。CLI の表と GUI の表の列の順に使う）
+- エラーのスタックからは prelude の中の行を除き、マクロのファイルの行だけを残す
+- **CLI の保存**: `meta.edits` が true か、文書が変わっていれば保存する（保存先があれば）。incremental にできない文書（暗号化・xref の破損）は full rewrite に切り替えて、その旨を stderr に出す。保存は出力先と同じディレクトリの一時ファイルに書いてから名前を変える（`--in-place` でも元のファイルは最後まで読める）。`ctx.emit` のファイルは `--out-dir` か `--emit-dir` が無ければ書かず、警告を出す
+- 一括処理で最初の失敗で止めるのは、まだ始めていないファイル。並列に走っているものは最後まで走らせて結果を出す。結果は入力の順に出す（jsonl も）
+- **ドキュメントの道具**: TypeDoc は TypeScript の JS の API を使い、TypeScript 7（`apps/web` の）では動かないので、`crates/pdfi-macro/js` を TypeScript 6 + TypeDoc の小さな npm パッケージにした（`npm run check` / `npm run docs` / `npm run docs:check`。CI は `macros` ジョブ）。生成物は 1 ファイルにならないので `docs/macros/api/` に置く。prelude は `strict` を外した設定（`tsconfig.prelude.json`）で検査する。`pdfi.d.ts` は `console` / `TextEncoder` / `TextDecoder` も lib.dom と両立する形で宣言する
+- ドキュメント中の ```` ```js macro ```` は `cargo test -p pdfi-macro`（`tests/docs.rs`）が `tests/fixtures/model.pdf` に対して既定のパラメータで実行する。同梱のマクロを wasm の経路でも実行して突き合わせるのは M16
 
 ## 5. 大規模ファイル対応（3000 ページ / 数百 MB）
 

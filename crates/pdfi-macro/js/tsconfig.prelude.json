@@ -1,0 +1,8 @@
+{
+  // The prelude against pdfi.d.ts, loosely: it implements the API in plain
+  // JavaScript (`npm run check:macros` in apps/web runs both configs).
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "strict": false },
+  "files": ["pdfi.d.ts", "prelude.js"],
+  "include": []
+}

@@ -13,6 +13,7 @@ use pdfi_syntax::{
 mod content;
 mod edit;
 mod font;
+mod macros;
 mod model;
 
 #[derive(Parser)]
@@ -220,6 +221,9 @@ enum Cmd {
     /// the order of the options' kinds as listed here; the result is an
     /// incremental update unless a full rewrite is asked for.
     Edit(Box<edit::EditArgs>),
+    /// Macros: JavaScript run on documents (docs/macros/).
+    #[command(subcommand)]
+    Macro(macros::MacroCmd),
     /// Rewrite as a plain file (object streams expanded, decrypted).
     Rewrite {
         #[command(flatten)]
@@ -394,6 +398,7 @@ fn main() -> Result<()> {
             )
         }
         Cmd::Edit(a) => edit::run(*a),
+        Cmd::Macro(m) => macros::run(m),
         Cmd::Rewrite {
             f,
             out,

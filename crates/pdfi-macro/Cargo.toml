@@ -1,0 +1,19 @@
+[package]
+name = "pdfi-macro"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+pdfi-api = { version = "0.1.0", path = "../pdfi-api" }
+rquickjs = "0.14.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+pdfi-syntax = { version = "0.1.0", path = "../pdfi-syntax" }

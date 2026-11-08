@@ -573,6 +573,16 @@ fn strip_spans(n: &mut Node) {
 pub struct History {
     states: Vec<(String, Arc<Edits>)>,
     pos: usize,
+    /// An open group: its label, the history as it was when it began, and
+    /// whether an edit was pushed in it yet.
+    group: Option<Box<Group>>,
+}
+
+#[derive(Clone, Debug)]
+struct Group {
+    label: String,
+    before: History,
+    pushed: bool,
 }
 
 impl Default for History {
@@ -580,6 +590,7 @@ impl Default for History {
         Self {
             states: vec![(String::new(), Arc::default())],
             pos: 0,
+            group: None,
         }
     }
 }
@@ -589,9 +600,25 @@ const MAX_UNDO: usize = 200;
 
 impl History {
     /// Record the state after an edit (dropping anything that was undone).
+    /// Inside a group, the edits of the group make one state, labeled
+    /// with the group's label.
     pub fn push(&mut self, label: impl Into<String>, edits: Edits) {
+        if let Some(g) = &mut self.group {
+            let label = g.label.clone();
+            if g.pushed {
+                self.states[self.pos] = (label, Arc::new(edits));
+                return;
+            }
+            g.pushed = true;
+            self.push_state(label, edits);
+            return;
+        }
+        self.push_state(label.into(), edits);
+    }
+
+    fn push_state(&mut self, label: String, edits: Edits) {
         self.states.truncate(self.pos + 1);
-        self.states.push((label.into(), Arc::new(edits)));
+        self.states.push((label, Arc::new(edits)));
         if self.states.len() > MAX_UNDO + 1 {
             // The oldest kept state becomes the floor.
             self.states.remove(0);
@@ -604,9 +631,9 @@ impl History {
         &self.states[self.pos].1
     }
 
-    /// Step back; returns the state to show.
+    /// Step back; returns the state to show. Not inside a group.
     pub fn undo(&mut self) -> Option<&Edits> {
-        if self.pos == 0 {
+        if self.pos == 0 || self.group.is_some() {
             return None;
         }
         self.pos -= 1;
@@ -614,7 +641,7 @@ impl History {
     }
 
     pub fn redo(&mut self) -> Option<&Edits> {
-        if self.pos + 1 >= self.states.len() {
+        if self.pos + 1 >= self.states.len() || self.group.is_some() {
             return None;
         }
         self.pos += 1;
@@ -638,5 +665,51 @@ impl History {
     /// Whether the current state differs from the file.
     pub fn dirty(&self) -> bool {
         !self.current().is_empty()
+    }
+
+    /// Make the edits pushed until [`History::commit_group`] one undoable
+    /// step labeled `label`, or none if there are none. Fails if a group is
+    /// open already.
+    pub fn begin_group(&mut self, label: impl Into<String>) -> Result<()> {
+        if self.group.is_some() {
+            return err("a group of edits is open already");
+        }
+        let before = self.clone();
+        self.group = Some(Box::new(Group {
+            label: label.into(),
+            before,
+            pushed: false,
+        }));
+        Ok(())
+    }
+
+    /// Close the open group, keeping its edits as one step.
+    pub fn commit_group(&mut self) -> Result<()> {
+        match self.group.take() {
+            Some(_) => Ok(()),
+            None => err("no group of edits is open"),
+        }
+    }
+
+    /// Close the open group, going back to the history as it was when the
+    /// group began (redo included); returns the state to show.
+    pub fn abort_group(&mut self) -> Result<&Edits> {
+        match self.group.take() {
+            Some(g) => {
+                *self = g.before;
+                Ok(self.current())
+            }
+            None => err("no group of edits is open"),
+        }
+    }
+
+    /// Whether an edit was pushed in the open group.
+    pub fn group_edited(&self) -> bool {
+        self.group.as_ref().is_some_and(|g| g.pushed)
+    }
+
+    /// The label of the open group.
+    pub fn group(&self) -> Option<&str> {
+        self.group.as_deref().map(|g| g.label.as_str())
     }
 }

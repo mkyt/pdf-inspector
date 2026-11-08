@@ -1,6 +1,6 @@
 // Generated from crates/pdfi-api by `UPDATE_TS=1 cargo test -p pdfi-api`. Do not edit.
 
-export const PROTOCOL_VERSION = 19;
+export const PROTOCOL_VERSION = 20;
 
 export type DocId = number;
 export type JobId = number;
@@ -1109,7 +1109,7 @@ export type HelloInfo = { protocol: number, backend: string, version: string,
  */
 filesystem: boolean, };
 
-export type ErrorCode = "badRequest" | "versionMismatch" | "noSuchDoc" | "noSuchJob" | "notFound" | "forbidden" | "unsupported" | "tooLarge" | "notReady" | "io" | "parse" | "cancelled" | "internal";
+export type ErrorCode = "badRequest" | "versionMismatch" | "noSuchDoc" | "noSuchJob" | "notFound" | "forbidden" | "unsupported" | "tooLarge" | "notReady" | "busy" | "io" | "parse" | "cancelled" | "internal";
 
 export type ApiError = { code: ErrorCode, message: string, };
 

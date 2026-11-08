@@ -1334,3 +1334,55 @@ fn script_of_actions_strings_and_streams() {
     let r = script(list, vec![]);
     assert!(matches!(r.response, Response::Err(e) if e.code == ErrorCode::BadRequest));
 }
+
+#[test]
+fn edit_groups() {
+    let (s, _) = session();
+    let doc = open(&s, "model.pdf", None).info.doc;
+    let delete = |p: u32| Request::Apply {
+        doc,
+        label: "delete".into(),
+        commands: vec![EditCommand::DeletePages { pages: vec![p] }],
+    };
+    let never = || false;
+    let code = |r: Reply| match r.response {
+        Response::Err(e) => Some(e.code),
+        Response::Ok(_) => None,
+    };
+
+    let g = s.begin_group(doc, "macro").unwrap();
+    assert_eq!(
+        s.begin_group(doc, "again").unwrap_err().code,
+        ErrorCode::Busy
+    );
+    ok(s.dispatch_in_group(delete(0), g, &never));
+    ok(s.dispatch_in_group(delete(0), g, &never));
+    // Others may read but not edit, undo or close.
+    assert_eq!(summary(&s, doc).pages, 3);
+    assert_eq!(code(s.dispatch(delete(0))), Some(ErrorCode::Busy));
+    assert_eq!(
+        code(s.dispatch(Request::Undo { doc })),
+        Some(ErrorCode::Busy)
+    );
+    assert_eq!(
+        code(s.dispatch(Request::Close { doc })),
+        Some(ErrorCode::Busy)
+    );
+    let st = s.end_group(doc, g, true).unwrap();
+    assert_eq!(st.undo.as_deref(), Some("macro"));
+    // One step undoes the whole group.
+    ok(s.dispatch(Request::Undo { doc }));
+    assert_eq!(summary(&s, doc).pages, 5);
+    ok(s.dispatch(Request::Redo { doc }));
+
+    // An aborted group puts the document back.
+    let g = s.begin_group(doc, "failing").unwrap();
+    ok(s.dispatch_in_group(delete(0), g, &never));
+    assert_eq!(summary(&s, doc).pages, 2);
+    assert!(s.end_group(doc, g + 1, false).is_err());
+    let st = s.end_group(doc, g, false).unwrap();
+    assert_eq!(st.undo.as_deref(), Some("macro"));
+    assert_eq!(summary(&s, doc).pages, 3);
+    assert!(s.end_group(doc, g, false).is_err());
+    ok(s.dispatch(delete(0)));
+}

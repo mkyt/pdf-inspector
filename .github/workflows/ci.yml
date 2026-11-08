@@ -54,6 +54,24 @@ jobs:
       # The conformance scenario through the Worker host and the wasm build.
       - run: npm run test:conformance
 
+  macros:
+    # The macro API: the prelude and the bundled macros against pdfi.d.ts,
+    # and docs/macros/api/ generated from it (docs/macros/guide.md).
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/pdfi-macro/js
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: crates/pdfi-macro/js/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run docs:check
+
   macos:
     # The app targets the newest macOS (docs/DESIGN.md §4.10): needs Xcode 27,
     # which macos-latest (macOS 26 / Xcode 26) doesn't have.

@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 19;
+pub const PROTOCOL_VERSION: u32 = 20;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
@@ -465,6 +465,9 @@ pub enum ErrorCode {
     TooLarge,
     /// Needs a job to run first (the inventory).
     NotReady,
+    /// The document is being edited by a macro: edits, undo, redo, saving
+    /// and closing wait until it ends.
+    Busy,
     Io,
     Parse,
     Cancelled,

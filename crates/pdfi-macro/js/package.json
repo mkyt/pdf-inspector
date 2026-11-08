@@ -1,0 +1,16 @@
+{
+  "name": "pdfi-macro-docs",
+  "private": true,
+  "type": "module",
+  "description": "Checks of the macro API and docs/macros/api/, generated from pdfi.d.ts",
+  "scripts": {
+    "check": "tsc -p tsconfig.json && tsc -p tsconfig.prelude.json",
+    "docs": "typedoc",
+    "docs:check": "typedoc && test -z \"$(git status --porcelain -- ../../../docs/macros/api)\" || (git status --short -- ../../../docs/macros/api; echo docs/macros/api is out of date: npm run docs; exit 1)"
+  },
+  "devDependencies": {
+    "typedoc": "0.28.20",
+    "typedoc-plugin-markdown": "4.14.1",
+    "typescript": "6.0.3"
+  }
+}

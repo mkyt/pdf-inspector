@@ -8,9 +8,11 @@
 
 .DEFAULT_GOAL := help
 .PHONY: help setup setup-rust setup-web all cli web wasm web-dev core core-debug \
-	macos macos-open fixtures test render-baselines test-web test-macos lint fmt deny check clean
+	macos macos-open fixtures test render-baselines test-web test-macos macros-check macros-docs \
+	lint fmt deny check clean
 
 WEB := apps/web
+MACRO_JS := crates/pdfi-macro/js
 MACOS := apps/macos
 # Must match crates/pdfi-wasm/Cargo.toml (scripts/build-wasm.sh checks it).
 WASM_BINDGEN_VERSION := $(shell sed -n 's/^wasm-bindgen = "=\(.*\)"/\1/p' crates/pdfi-wasm/Cargo.toml)
@@ -34,8 +36,9 @@ setup-rust: ## Rust targets, components and wasm-bindgen-cli
 		cargo install wasm-bindgen-cli --version $(WASM_BINDGEN_VERSION) --locked; \
 	else echo "wasm-bindgen-cli $(WASM_BINDGEN_VERSION) is installed"; fi
 
-setup-web: ## npm packages for the web UI
+setup-web: ## npm packages for the web UI and the macro API checks
 	cd $(WEB) && npm ci
+	cd $(MACRO_JS) && npm ci
 
 ## Builds
 
@@ -81,6 +84,12 @@ render-baselines: ## Rewrite tests/render after a rendering change (check `git d
 test-web: web ## Conformance scenario through the wasm build
 	cd $(WEB) && npm run test:conformance
 
+macros-check: ## The prelude and bundled macros against pdfi.d.ts; docs/macros/api/ up to date
+	cd $(MACRO_JS) && npm run check && npm run docs:check
+
+macros-docs: ## Regenerate docs/macros/api/ from pdfi.d.ts
+	cd $(MACRO_JS) && npm run docs
+
 test-macos: core-debug ## Swift tests of PdfInspectorKit
 	swift test --package-path $(MACOS)/PdfInspectorKit
 
@@ -96,9 +105,10 @@ fmt: ## Format the Rust code
 deny: ## cargo-deny (cargo install cargo-deny)
 	cargo deny check
 
-check: lint test test-web test-macos ## What CI runs (except deny)
+check: lint test test-web test-macos macros-check ## What CI runs (except deny)
 
 clean: ## Remove build outputs
 	cargo clean
 	rm -rf $(WEB)/dist $(WEB)/src/wasm $(WEB)/*.tsbuildinfo $(MACOS)/build \
-		$(MACOS)/PdfInspectorKit/.build $(MACOS)/PdfInspectorKit/Frameworks $(MACOS)/PdfInspectorKit/Sources/PdfiCore
+		$(MACOS)/PdfInspectorKit/.build $(MACOS)/PdfInspectorKit/Frameworks $(MACOS)/PdfInspectorKit/Sources/PdfiCore \
+		$(MACRO_JS)/node_modules

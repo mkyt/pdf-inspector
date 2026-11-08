@@ -23,6 +23,6 @@ mod ts;
 pub use dto::*;
 pub use job::{Executor, QueueExecutor, Task, ThreadExecutor};
 pub use protocol::*;
-pub use session::{MAX_CHUNK, MAX_PAGE, SaveStream, Session, SubscriptionId};
+pub use session::{GroupId, MAX_CHUNK, MAX_PAGE, SaveStream, Session, SubscriptionId};
 pub use source::{NoFilesystem, Opened, SaveTarget, SourceProvider};
 pub use ts::typescript;

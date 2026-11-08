@@ -145,9 +145,23 @@ pub struct Session {
     next_doc: AtomicU32,
     next_job: AtomicU32,
     bus: Arc<EventBus>,
+    /// Open edit groups by document. Changed only with the document's
+    /// history locked, so that a check made under that lock holds.
+    groups: Mutex<HashMap<DocId, GroupId>>,
+    next_group: AtomicU64,
 }
 
 pub type SubscriptionId = u64;
+
+/// An open group of edits (see [`Session::begin_group`]).
+pub type GroupId = u64;
+
+fn busy(doc: DocId) -> ApiError {
+    ApiError::new(
+        ErrorCode::Busy,
+        format!("document {doc} is being edited by a macro"),
+    )
+}
 
 impl Session {
     pub fn new(
@@ -164,6 +178,8 @@ impl Session {
             next_doc: AtomicU32::new(1),
             next_job: AtomicU32::new(1),
             bus: Arc::default(),
+            groups: Mutex::default(),
+            next_group: AtomicU64::new(1),
         }
     }
 
@@ -185,8 +201,28 @@ impl Session {
     /// Like [`Session::dispatch`]; long requests (`Render`, `HitTest`) poll
     /// `cancel` and stop with `ErrorCode::Cancelled` when it says so.
     pub fn dispatch_cancellable(&self, req: Request, cancel: &dyn Fn() -> bool) -> Reply {
+        self.dispatch_as(req, None, cancel)
+    }
+
+    /// Like [`Session::dispatch_cancellable`], on behalf of the holder of an
+    /// edit group: its edits are allowed (and join the group).
+    pub fn dispatch_in_group(
+        &self,
+        req: Request,
+        group: GroupId,
+        cancel: &dyn Fn() -> bool,
+    ) -> Reply {
+        self.dispatch_as(req, Some(group), cancel)
+    }
+
+    fn dispatch_as(
+        &self,
+        req: Request,
+        group: Option<GroupId>,
+        cancel: &dyn Fn() -> bool,
+    ) -> Reply {
         let mut blobs = Vec::new();
-        let response = match self.handle(req, &mut blobs, true, cancel) {
+        let response = match self.handle(req, &mut blobs, true, group, cancel) {
             Ok(b) => Response::Ok(b),
             Err(e) => Response::Err(e),
         };
@@ -276,11 +312,20 @@ impl Session {
         })
     }
 
+    /// Fails with `Busy` if an edit group other than `group` is open.
+    fn check_group(&self, doc: DocId, h: &History, group: Option<GroupId>) -> Result<(), ApiError> {
+        if h.group().is_some() && lock(&self.groups).get(&doc).copied() != group {
+            return Err(busy(doc));
+        }
+        Ok(())
+    }
+
     fn apply(
         &self,
         doc: DocId,
         label: String,
         cmds: &[EditCommand],
+        group: Option<GroupId>,
     ) -> Result<ApplyResult, ApiError> {
         let others: Vec<(DocId, Arc<Doc>)> = edit::sources(cmds, doc)
             .into_iter()
@@ -288,6 +333,7 @@ impl Session {
             .collect::<Result<_, ApiError>>()?;
         let history = self.doc(doc)?.history.clone();
         let mut h = lock(&history);
+        self.check_group(doc, &h, group)?;
         // The newest snapshot, now that no other edit can run.
         let d = self.doc(doc)?;
         let (edits, applied) = edit::transact(&d.file, cmds, doc, &others)?;
@@ -310,9 +356,68 @@ impl Session {
         })
     }
 
+    /// Open a group of edits on a document: until [`Session::end_group`],
+    /// the edits made through [`Session::dispatch_in_group`] make one
+    /// undoable step labeled `label`, and other edits, undo, redo, saving
+    /// and closing fail with `ErrorCode::Busy`. Reading goes on.
+    pub fn begin_group(&self, doc: DocId, label: impl Into<String>) -> Result<GroupId, ApiError> {
+        let history = self.doc(doc)?.history.clone();
+        let mut h = lock(&history);
+        if h.group().is_some() {
+            return Err(busy(doc));
+        }
+        h.begin_group(label)?;
+        let id = self.next_group.fetch_add(1, Ordering::Relaxed);
+        lock(&self.groups).insert(doc, id);
+        Ok(id)
+    }
+
+    /// Close an edit group: keep its edits as one step (`commit`), or go
+    /// back to the document as it was when the group began.
+    pub fn end_group(
+        &self,
+        doc: DocId,
+        group: GroupId,
+        commit: bool,
+    ) -> Result<EditStatus, ApiError> {
+        let history = self.doc(doc)?.history.clone();
+        let mut h = lock(&history);
+        if lock(&self.groups).get(&doc) != Some(&group) {
+            return Err(ApiError::new(
+                ErrorCode::BadRequest,
+                format!("edit group {group} is not open on document {doc}"),
+            ));
+        }
+        let reverted = if commit {
+            h.commit_group()?;
+            None
+        } else {
+            let edited = h.group_edited();
+            let edits = h.abort_group()?.clone();
+            edited.then_some(edits)
+        };
+        lock(&self.groups).remove(&doc);
+        drop(h);
+        let d = self.doc(doc)?;
+        let Some(edits) = reverted else {
+            return Ok(edit::status(&d));
+        };
+        let new = Arc::new(d.with_edits(edits));
+        lock(&self.docs).insert(doc, new.clone());
+        self.bus.emit(&Event::DocChanged {
+            doc,
+            reason: ChangeReason::Undo,
+            info: None,
+        });
+        Ok(edit::status(&new))
+    }
+
     fn step_history(&self, doc: DocId, redo: bool) -> Result<EditStatus, ApiError> {
         let history = self.doc(doc)?.history.clone();
         let mut h = lock(&history);
+        if h.group().is_some() {
+            return Err(busy(doc));
+        }
         let d = self.doc(doc)?;
         let edits = if redo { h.redo() } else { h.undo() };
         let Some(edits) = edits.cloned() else {
@@ -355,6 +460,9 @@ impl Session {
                 ));
             }
         };
+        if lock(&d.history).group().is_some() {
+            return Err(busy(d.id));
+        }
         let saver = edit::saver(d.clone(), mode)?;
         let target = self.provider.create(&path)?;
         let (docs, bus, doc) = (self.docs.clone(), self.bus.clone(), d.id);
@@ -392,6 +500,7 @@ impl Session {
         req: Request,
         blobs: &mut Vec<Vec<u8>>,
         top: bool,
+        group: Option<GroupId>,
         cancel: &dyn Fn() -> bool,
     ) -> Result<ResponseBody, ApiError> {
         match req {
@@ -438,6 +547,9 @@ impl Session {
                 docs: lock(&self.docs).values().map(|d| d.info.clone()).collect(),
             }),
             Request::Close { doc } => {
+                if lock(&self.groups).contains_key(&doc) {
+                    return Err(busy(doc));
+                }
                 let removed = lock(&self.docs).remove(&doc);
                 if removed.is_none() {
                     return Err(ApiError::new(
@@ -730,7 +842,9 @@ impl Session {
                 doc,
                 label,
                 commands,
-            } => Ok(ResponseBody::Applied(self.apply(doc, label, &commands)?)),
+            } => Ok(ResponseBody::Applied(
+                self.apply(doc, label, &commands, group)?,
+            )),
             Request::Undo { doc } => Ok(ResponseBody::Edit(self.step_history(doc, false)?)),
             Request::Redo { doc } => Ok(ResponseBody::Edit(self.step_history(doc, true)?)),
             // Cancellation of queued requests happens in the transport; by
@@ -745,7 +859,7 @@ impl Session {
                 }
                 let responses = requests
                     .into_iter()
-                    .map(|r| match self.handle(r, blobs, false, cancel) {
+                    .map(|r| match self.handle(r, blobs, false, group, cancel) {
                         Ok(b) => Response::Ok(b),
                         Err(e) => Response::Err(e),
                     })

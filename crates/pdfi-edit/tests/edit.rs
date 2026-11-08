@@ -520,3 +520,55 @@ fn history() {
     h.push("rotate", e3);
     assert!(h.redo_label().is_none());
 }
+
+#[test]
+fn history_group() {
+    let f = open("model.pdf");
+    let rotate = |h: &History| {
+        let s = f.with_edits(h.current().clone());
+        Tx::apply_all(
+            &s,
+            vec![Command::RotatePages {
+                pages: vec![0],
+                by: 90,
+            }],
+        )
+        .unwrap()
+        .0
+    };
+    let mut h = History::default();
+    h.push("first", rotate(&h));
+    h.push("second", rotate(&h));
+    h.undo();
+    assert_eq!(h.redo_label(), Some("second"));
+
+    // Edits in a group make one step with the group's label.
+    h.begin_group("macro").unwrap();
+    assert!(h.begin_group("again").is_err());
+    h.push("a", rotate(&h));
+    h.push("b", rotate(&h));
+    assert!(h.undo().is_none());
+    h.commit_group().unwrap();
+    assert_eq!(h.depth(), 2);
+    assert_eq!(h.undo_label(), Some("macro"));
+    assert!(h.redo_label().is_none());
+    h.undo();
+    assert_eq!(h.undo_label(), Some("first"));
+
+    // An aborted group leaves the history as it was, redo included.
+    h.redo();
+    h.undo();
+    let before = h.current().clone();
+    h.begin_group("failing").unwrap();
+    h.push("a", rotate(&h));
+    let shown = h.abort_group().unwrap().clone();
+    assert_eq!(format!("{shown:?}"), format!("{before:?}"));
+    assert_eq!(h.redo_label(), Some("macro"));
+    assert!(h.group().is_none());
+
+    // An empty group adds nothing.
+    h.begin_group("nothing").unwrap();
+    h.commit_group().unwrap();
+    assert_eq!(h.redo_label(), Some("macro"));
+    assert!(h.commit_group().is_err());
+}
