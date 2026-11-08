@@ -8,7 +8,7 @@
     "build:wasm": "../../scripts/build-wasm.sh",
     "build": "npm run build:wasm && tsc -b && vite build",
     "typecheck": "tsc -b",
-    "test:conformance": "node scripts/conformance.ts",
+    "test:conformance": "node --experimental-vm-modules --no-warnings=ExperimentalWarning scripts/conformance.ts",
     "preview": "vite preview"
   },
   "dependencies": {

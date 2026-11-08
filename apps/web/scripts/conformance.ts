@@ -6,6 +6,8 @@
 //   node scripts/conformance.ts
 import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
+import vm from "node:vm";
+import { Engine, MacroFailure, type Link, type Realm } from "../src/macro/engine.ts";
 import init, { WasmSession } from "../src/wasm/pdfi_wasm.js";
 import { Host, type Inbound, type Outbound } from "../src/worker/host.ts";
 import type { Event, Request, Response, ServerMessage } from "../src/protocol/generated.ts";
@@ -16,7 +18,8 @@ const read = (p: string) => readFileSync(new URL(p, root));
 type Step =
   | { request: Request }
   | { open: { file: string; password?: string | null; recover?: boolean } }
-  | { job: Request };
+  | { job: Request }
+  | { inGroup: { group: number; request: Request } };
 
 await init({ module_or_path: read("apps/web/src/wasm/pdfi_wasm_bg.wasm") });
 
@@ -88,6 +91,10 @@ const actual: unknown[] = [];
 for (const step of steps) {
   if ("request" in step) {
     const r = await request(step.request);
+    actual.push(entry(r.response, r.blobs, []));
+  } else if ("inGroup" in step) {
+    const id = ++nextId;
+    const r = await call(id, { kind: "message", message: { id, request: step.inGroup.request, group: step.inGroup.group } });
     actual.push(entry(r.response, r.blobs, []));
   } else if ("open" in step) {
     const { file, password = null, recover = false } = step.open;
@@ -207,5 +214,116 @@ for (let i = 0; i < Math.max(actual.length, expected.length); i++) {
   }
 }
 
+// The bundled macros on this engine (the browser's JavaScript, here Node's
+// `vm`), through the Worker host's port path, against what QuickJS gives
+// (tests/conformance/macros-expected.json, from pdfi-macro's tests).
+let macroCases = 0;
+{
+  const prelude = read("crates/pdfi-macro/js/prelude.js").toString();
+  const nodeRealm = (): Realm => {
+    const context = vm.createContext({}) as Record<string, unknown>;
+    return {
+      async installPrelude(h) {
+        context.__host = h;
+        new vm.Script(prelude, { filename: "prelude.js" }).runInContext(context);
+      },
+      async importModule(code, file) {
+        // Needs --experimental-vm-modules.
+        const VmModule = (vm as unknown as { SourceTextModule: new (code: string, o: object) => any }).SourceTextModule;
+        const m = new VmModule(code, { context, identifier: file });
+        await m.link(() => {
+          throw new Error("macros cannot import");
+        });
+        await m.evaluate();
+        return m.namespace as object;
+      },
+      entry: () => context.__pdfi,
+    };
+  };
+  const fnv = (data: Uint8Array) => {
+    let h = 0x811c9dc5;
+    for (const b of data) h = Math.imul(h ^ b, 0x01000193) >>> 0;
+    return h.toString(16).padStart(8, "0");
+  };
+  type Case = { macro: string; file: string; params: Record<string, unknown> };
+  const spec = JSON.parse(read("tests/conformance/macros.json").toString()) as { cases: Case[]; probes: Request[] };
+  const expectedMacros = JSON.parse(read("tests/conformance/macros-expected.json").toString()) as unknown[];
+  const macroCode = (name: string) => read(`crates/pdfi-macro/macros/${name}.js`).toString();
+  for (const [i, c] of spec.cases.entries()) {
+    const out: Outbound[] = [];
+    const h = new Host({
+      session: new WasmSession(),
+      post: (o) => out.push(o),
+      source: (blob) => {
+        const data = bytesOf.get(blob)!;
+        return { size: data.length, read: (offset, length) => data.subarray(offset, offset + length) };
+      },
+      schedule: (fn) => setImmediate(fn),
+    });
+    let n = 0;
+    // As the macro Worker's port does: answers come back to it, events go to the page.
+    const link: Link = (request, group) =>
+      new Promise((resolve, reject) => {
+        const id = ++n;
+        const message = group === null ? { id, request } : { id, request, group };
+        h.receive({ kind: "message", message }, (o) => {
+          if ("fatal" in o) return reject(new Error(o.fatal));
+          const m = JSON.parse(o.text) as ServerMessage;
+          if (m.kind === "response" && m.id === id) resolve({ response: m.response, blobs: o.blobs });
+        });
+      });
+    const data = new Uint8Array(read(`tests/fixtures/${c.file}`));
+    const blob = new Blob([data]);
+    bytesOf.set(blob, data);
+    h.receive({ kind: "open", id: 0, file: blob, name: c.file, password: null, recover: false });
+    while (!out.some((o) => "text" in o && (JSON.parse(o.text) as ServerMessage).kind === "response")) await tick();
+    const engine = new Engine(nodeRealm());
+    const code = macroCode(c.macro);
+    const file = `bundled:${c.macro}.js`;
+    const meta = await engine.meta(code, file, c.macro);
+    const r: Record<string, unknown> = { macro: c.macro, file: c.file };
+    try {
+      const o = await engine.run(link, {
+        doc: 1,
+        code,
+        file,
+        meta,
+        params: c.params,
+        host: "test",
+        input: { name: c.file, size: data.length },
+      });
+      r.ok = true;
+      r.value = o.value;
+      r.columns = o.columns;
+      r.emitted = o.emitted.map((e) => ({ name: e.name, mime: e.mime, size: e.data.length, fnv: fnv(e.data) }));
+    } catch (e) {
+      r.ok = false;
+      r.error = e instanceof MacroFailure ? e.message : String(e);
+    }
+    const sum = await link({ op: "summary", doc: 1 }, null);
+    r.edit = "ok" in sum.response && sum.response.ok.type === "doc" ? sum.response.ok.edit : null;
+    const probes = [];
+    for (const p of spec.probes) {
+      const x = await link(p, null);
+      probes.push(entry(x.response, x.blobs, []));
+    }
+    r.probes = probes;
+    macroCases++;
+    if (!isDeepStrictEqual(JSON.parse(JSON.stringify(r)), expectedMacros[i])) {
+      console.error(`wasm: macro ${c.macro} on ${c.file} differs from macros-expected.json`);
+      console.error(`  actual:   ${JSON.stringify(r).slice(0, 2000)}`);
+      console.error(`  expected: ${JSON.stringify(expectedMacros[i]).slice(0, 2000)}`);
+      failed = true;
+      break;
+    }
+  }
+  if (!failed && macroCases !== expectedMacros.length) {
+    console.error(`wasm: ${macroCases} macro cases, macros-expected.json has ${expectedMacros.length}`);
+    failed = true;
+  }
+}
+
 if (failed) process.exit(1);
-console.log(`wasm: ${actual.length} steps match expected.json; cancel ok; save ok`);
+console.log(
+  `wasm: ${actual.length} steps match expected.json; cancel ok; save ok; ${macroCases} macro runs match macros-expected.json`,
+);

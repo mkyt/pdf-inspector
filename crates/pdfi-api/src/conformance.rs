@@ -30,6 +30,8 @@ pub enum Step {
     },
     /// Send a `startJob`, then also record the job's events up to `jobDone`.
     Job(Request),
+    /// Send on behalf of an edit group (`ClientMessage.group`).
+    InGroup { group: u64, request: Request },
 }
 
 fn dir() -> PathBuf {

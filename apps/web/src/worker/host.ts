@@ -12,7 +12,13 @@ export type Inbound =
   /** Answered like `Request::Open`; files cannot travel inside JSON. */
   | { kind: "open"; id: RequestId; file: Blob; name: string; password: string | null; recover: boolean }
   /** Write `doc` to the file, then reopen it from there; answered `saved`. */
-  | { kind: "save"; id: RequestId; doc: DocId; mode: SaveMode; handle: SaveHandle | { download: string } };
+  | { kind: "save"; id: RequestId; doc: DocId; mode: SaveMode; handle: SaveHandle | { download: string } }
+  /**
+   * A port of a macro Worker: it sends `{ kind: "message" }` (with
+   * `ClientMessage.group` for its edits) and gets the responses; events
+   * still go to the page.
+   */
+  | { kind: "port"; port: MessagePort };
 
 /** What saving needs of a `FileSystemFileHandle`. */
 export interface SaveHandle {
@@ -63,12 +69,18 @@ export interface HostOptions {
   jobSliceMs?: number;
 }
 
-function idOf(m: Inbound): RequestId {
-  return m.kind === "message" ? m.message.id : m.id;
+function idOf(m: Inbound): RequestId | null {
+  return m.kind === "message" ? m.message.id : m.kind === "port" ? null : m.id;
+}
+
+/** A queued request and where its response goes (`null`: the page). */
+interface Queued {
+  m: Inbound;
+  reply: ((out: Outbound) => void) | null;
 }
 
 export class Host {
-  private queue: Inbound[] = [];
+  private queue: Queued[] = [];
   private scheduled = false;
   private jobs = false;
   /** A save is writing (awaiting the file): nothing else runs meanwhile. */
@@ -79,10 +91,20 @@ export class Host {
     this.opts = opts;
   }
 
-  receive(m: Inbound) {
-    if (m.kind === "message" && m.message.request.op === "cancel") {
+  /** A message from the page, or (`reply`) from a macro Worker's port. */
+  receive(m: Inbound, reply: ((out: Outbound) => void) | null = null) {
+    if (m.kind === "port") {
+      const port = m.port;
+      const post = (out: Outbound) => port.postMessage(out, "blobs" in out ? out.blobs.map((b) => b.buffer as ArrayBuffer) : []);
+      port.onmessage = (e: MessageEvent<Inbound>) => {
+        // Only requests: files and saves come from the page.
+        if (e.data?.kind === "message") this.receive(e.data, post);
+      };
+      return;
+    }
+    if (m.kind === "message" && m.message.request.op === "cancel" && !reply) {
       const target = m.message.request.request;
-      const i = this.queue.findIndex((q) => idOf(q) === target);
+      const i = this.queue.findIndex((q) => !q.reply && idOf(q.m) === target);
       if (i >= 0) {
         this.queue.splice(i, 1);
         this.send({ kind: "response", id: target, response: { err: { code: "cancelled", message: "cancelled" } } });
@@ -90,7 +112,7 @@ export class Host {
       this.send({ kind: "response", id: m.message.id, response: { ok: { type: "empty" } } });
       return;
     }
-    this.queue.push(m);
+    this.queue.push({ m, reply });
     this.kick();
   }
 
@@ -108,7 +130,8 @@ export class Host {
   private turn() {
     this.scheduled = false;
     const { session } = this.opts;
-    const m = this.queue.shift();
+    const q = this.queue.shift();
+    const m = q?.m;
     if (m?.kind === "save") {
       this.saving = true;
       void this.save(m).finally(() => {
@@ -118,7 +141,7 @@ export class Host {
       });
       return;
     }
-    if (m) {
+    if (m && m.kind !== "port") {
       let reply: WasmReply;
       if (m.kind === "open") {
         reply = session.open(m.id, this.opts.source(m.file), m.name, m.password, m.recover);
@@ -130,7 +153,7 @@ export class Host {
       // Events raised by the request (e.g. docOpened) precede its response,
       // as on the WebSocket.
       this.flushEvents();
-      this.opts.post(out);
+      (q?.reply ?? this.opts.post)(out);
       this.jobs = true;
     }
     if (this.jobs) {

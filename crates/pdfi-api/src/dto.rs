@@ -586,6 +586,19 @@ pub enum JobKind {
         path: Option<String>,
         mode: SaveMode,
     },
+    /// Run a macro on the document as one undoable step (a backend with
+    /// macros: the server, macOS). Its log comes as `MacroLog` events, its
+    /// progress as `JobProgress`; the files it writes are read with
+    /// `JobOutput`.
+    Macro {
+        /// The name of a stored macro, or of `source` (shown in messages).
+        name: String,
+        /// The code to run instead of the stored macro (an unsaved editor).
+        source: Option<String>,
+        /// The raw parameters as a JSON object: JSON values, `bytes` as
+        /// `{"$bytes": base64}`, `pdf` as `{"$doc": id}`.
+        params: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -643,6 +656,76 @@ pub enum JobResult {
         uses: u64,
     },
     Save(SaveResult),
+    Macro(MacroResult),
+}
+
+/// What a macro gave back.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct MacroResult {
+    /// The default export's return value as JSON (`null` for none).
+    pub value: String,
+    /// For a value that is a list of objects: their keys in the order the
+    /// macro wrote them (the columns of a table).
+    pub columns: Option<Vec<String>>,
+    /// Files written with `ctx.emit` (read with `JobOutput`).
+    pub emitted: Vec<EmittedFile>,
+    /// Log lines were dropped (after `MAX_MACRO_LOG` of them).
+    pub log_truncated: bool,
+    /// `meta.edits`: the macro means to change the document.
+    pub edits: bool,
+    /// How the macro asks to be saved (`meta.save`).
+    pub save: SaveMode,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct EmittedFile {
+    pub name: String,
+    pub mime: Option<String>,
+    pub size: u64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
+#[serde(rename_all = "camelCase")]
+pub enum LogLevel {
+    Info,
+    Warn,
+    Error,
+}
+
+/// A stored macro (`Macros`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Record))]
+pub struct MacroInfo {
+    /// `meta.name` (the file name without `.js` when it cannot be read).
+    pub name: String,
+    /// The file name without `.js`.
+    pub stem: String,
+    /// Where it is (`bundled:<file>` for a bundled macro).
+    pub file: String,
+    pub bundled: bool,
+    /// Its `meta` with the defaults filled in, as JSON (`None` when the
+    /// macro cannot be evaluated).
+    pub meta: Option<String>,
+    /// Why it cannot be evaluated, or what is wrong with its `meta`.
+    pub error: Option<String>,
+    /// Hidden by a macro of the same name found before it.
+    pub shadowed: bool,
+}
+
+/// The step of an edit group (`EditGroup`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[cfg_attr(feature = "ffi", derive(uniffi::Enum))]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum GroupAction {
+    /// Open a group: its edits become one undoable step named `label`.
+    Begin { label: String },
+    /// Keep the group's edits.
+    Commit { group: u64 },
+    /// Go back to the document as it was when the group began.
+    Abort { group: u64 },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]

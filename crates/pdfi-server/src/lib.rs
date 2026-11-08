@@ -52,6 +52,9 @@ pub struct ServeOptions {
     pub port: u16,
     /// Additional allowed WebSocket origins (e.g. the Vite dev server).
     pub dev_origins: Vec<String>,
+    /// Where macros are stored (`None`: `$PDFI_MACRO_PATH` or the default
+    /// directory).
+    pub macros: Option<pdfi_macro::Library>,
 }
 
 #[derive(rust_embed::Embed)]
@@ -77,6 +80,8 @@ impl Server {
     pub async fn bind(opts: ServeOptions) -> anyhow::Result<Self> {
         let provider = FsProvider::new(&opts.roots, &opts.files)?;
         let session = Arc::new(Session::new("server", provider, ThreadExecutor));
+        let library = opts.macros.unwrap_or_else(pdfi_macro::Library::from_env);
+        pdfi_macro::host::install(&session, library, "server");
         for f in &opts.files {
             let r = session.dispatch(Request::Open {
                 source: OpenSource::Path {
@@ -260,13 +265,14 @@ async fn connection(mut socket: WebSocket, session: Arc<Session>) {
                     rayon::spawn(move || {
                         let id = m.id;
                         let stop = || cancelled_set(&cancelled).contains(&id);
-                        let reply = session.dispatch_cancellable(m.request, &stop);
+                        let reply = session.dispatch_message(m, &stop);
                         cancelled_set(&cancelled).remove(&id);
                         send_reply(&out, id, reply);
                     });
                     continue;
                 }
-                if !send_reply(&out, m.id, session.dispatch(m.request)) {
+                let id = m.id;
+                if !send_reply(&out, id, session.dispatch_message(m, &|| false)) {
                     break;
                 }
             }
@@ -276,7 +282,7 @@ async fn connection(mut socket: WebSocket, session: Arc<Session>) {
         tokio::select! {
             incoming = socket.recv() => match incoming {
                 Some(Ok(Message::Text(t))) => match serde_json::from_str::<ClientMessage>(&t) {
-                    Ok(ClientMessage { id, request: Request::Cancel { request } }) => {
+                    Ok(ClientMessage { id, request: Request::Cancel { request }, .. }) => {
                         let mut c = cancelled.lock().unwrap_or_else(|e| e.into_inner());
                         if c.len() > 10_000 {
                             c.clear();
@@ -319,8 +325,9 @@ async fn connection(mut socket: WebSocket, session: Arc<Session>) {
 }
 
 // `wasm-unsafe-eval`: the same UI also runs the wasm backend when opened
-// without a token.
-const CSP: &str = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; \
+// without a token; `blob:` scripts are the macros it then runs in a
+// Worker (they are the user's own code, imported from a Blob URL).
+const CSP: &str = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; connect-src 'self'; \
                    img-src 'self' data: blob:; \
                    style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; \
                    frame-ancestors 'none'";

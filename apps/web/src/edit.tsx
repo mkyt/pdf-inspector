@@ -2,7 +2,7 @@ import { Alert, CloseButton, Stack, Text } from "@mantine/core";
 import { useHotkeys } from "@mantine/hooks";
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, useBackend } from "./api";
-import type { ApplyResult, DocId, EditCommand, EditStatus } from "./protocol/generated";
+import type { ApplyResult, DocId, EditCommand, EditStatus, SaveMode } from "./protocol/generated";
 
 /** Browser mode: the file each document was opened from or saved to, for "Save" without asking. */
 export const fileHandles = new Map<DocId, FileSystemFileHandle>();
@@ -24,7 +24,8 @@ export interface Edit {
   redo(): void;
   /** Show something about an edit or a save. */
   report(color: Message["color"], title: string, lines?: string[]): void;
-  openSave(): void;
+  /** Open the save dialog, with `mode` chosen (a macro's `meta.save`). */
+  openSave(mode?: SaveMode): void;
 }
 
 const EditContext = createContext<Edit | null>(null);
@@ -54,7 +55,7 @@ export function EditProvider({
 }: {
   doc: DocId;
   status: EditStatus;
-  onSave: () => void;
+  onSave: (mode?: SaveMode) => void;
   children: ReactNode;
 }) {
   const backend = useBackend();
@@ -103,7 +104,7 @@ export function EditProvider({
     ["mod+Z", undo],
     ["mod+shift+Z", redo],
     ["mod+Y", redo],
-    ["mod+S", onSave],
+    ["mod+S", () => onSave()],
   ]);
 
   const value = useMemo(

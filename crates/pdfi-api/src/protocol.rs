@@ -10,13 +10,18 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 21;
+pub const PROTOCOL_VERSION: u32 = 22;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
 pub struct ClientMessage {
     pub id: RequestId,
     pub request: Request,
+    /// On behalf of the holder of this edit group (`EditGroup`): its edits
+    /// are allowed and join the group.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub group: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -305,6 +310,14 @@ pub enum Request {
     CancelJob {
         job: JobId,
     },
+    /// A file a `Macro` job wrote (`MacroResult.emitted[index]`): a binary
+    /// part (`BytesInfo`).
+    JobOutput {
+        job: JobId,
+        index: u32,
+        offset: u64,
+        len: u32,
+    },
     /// Issues found by a `Validate` job (also while it runs).
     JobDiagnostics {
         job: JobId,
@@ -340,6 +353,30 @@ pub enum Request {
     },
     Redo {
         doc: DocId,
+    },
+    /// Open or close a group of edits: until it is closed, the edits sent
+    /// with `ClientMessage.group` make one undoable step, and other edits,
+    /// undo, redo, saving and closing fail with `Busy` (the browser's
+    /// macro Worker). `begin` answers `group`, the others `edit`.
+    EditGroup {
+        doc: DocId,
+        action: GroupAction,
+    },
+    /// The stored macros: the user's, then the bundled ones (a backend
+    /// with macros).
+    Macros,
+    /// The code of a stored macro, by name.
+    MacroSource {
+        name: String,
+    },
+    /// Write `<name>.js` into the user's macro directory (replacing it).
+    SaveMacro {
+        name: String,
+        code: String,
+    },
+    /// Remove `<name>.js` from the user's macro directory.
+    DeleteMacro {
+        name: String,
     },
     /// Drop a request that has not started yet. Handled by the transport.
     Cancel {
@@ -461,6 +498,19 @@ pub enum ResponseBody {
         result: SaveResult,
     },
     Edit(EditStatus),
+    Group {
+        group: u64,
+    },
+    Macros {
+        items: Vec<MacroInfo>,
+        /// Where `SaveMacro` writes (`None`: macros cannot be saved).
+        dir: Option<String>,
+    },
+    MacroSource {
+        info: MacroInfo,
+        code: String,
+    },
+    Macro(MacroInfo),
     Batch {
         responses: Vec<Response>,
     },
@@ -568,6 +618,16 @@ pub enum Event {
         doc: DocId,
         done: u64,
         total: u64,
+        /// What is being done (macros' `ctx.progress`).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        label: Option<String>,
+    },
+    /// A line a macro job logged.
+    MacroLog {
+        job: JobId,
+        level: LogLevel,
+        text: String,
     },
     JobDone {
         info: JobInfo,

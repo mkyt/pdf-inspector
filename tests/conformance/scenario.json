@@ -220,6 +220,22 @@
     ] } },
     { "request": { "op": "outline", "doc": 9, "parent": null, "range": { "offset": 0, "limit": 10 } } },
     { "request": { "op": "pageLabels", "doc": 9 } },
-    { "request": { "op": "pages", "doc": 9, "range": { "offset": 0, "limit": 10 } } }
-  ]
+    { "request": { "op": "pages", "doc": 9, "range": { "offset": 0, "limit": 10 } } },
+    { "request": { "op": "editGroup", "doc": 9, "action": { "type": "begin", "label": "macro" } } },
+    { "request": { "op": "editGroup", "doc": 9, "action": { "type": "begin", "label": "again" } } },
+    { "request": { "op": "undo", "doc": 9 } },
+    { "request": { "op": "apply", "doc": 9, "label": "outside", "commands": [{ "op": "setInfo", "key": "Title", "value": "x", "sync_xmp": false }] } },
+    { "inGroup": { "group": 1, "request": { "op": "apply", "doc": 9, "label": "one", "commands": [{ "op": "rotatePages", "pages": [0], "by": 90 }] } } },
+    { "inGroup": { "group": 1, "request": { "op": "apply", "doc": 9, "label": "two", "commands": [{ "op": "rotatePages", "pages": [1], "by": 180 }] } } },
+    { "request": { "op": "pages", "doc": 9, "range": { "offset": 0, "limit": 3 } } },
+    { "request": { "op": "editGroup", "doc": 9, "action": { "type": "abort", "group": 1 } } },
+    { "inGroup": { "group": 1, "request": { "op": "apply", "doc": 9, "label": "late", "commands": [{ "op": "rotatePages", "pages": [0], "by": 90 }] } } },
+    { "request": { "op": "pages", "doc": 9, "range": { "offset": 0, "limit": 3 } } },
+    { "request": { "op": "editGroup", "doc": 9, "action": { "type": "begin", "label": "kept" } } },
+    { "inGroup": { "group": 2, "request": { "op": "apply", "doc": 9, "label": "one", "commands": [{ "op": "rotatePages", "pages": [0], "by": 90 }] } } },
+    { "request": { "op": "editGroup", "doc": 9, "action": { "type": "commit", "group": 2 } } },
+    { "request": { "op": "editGroup", "doc": 9, "action": { "type": "commit", "group": 2 } } },
+    { "request": { "op": "summary", "doc": 9 } },
+    { "request": { "op": "undo", "doc": 9 } }
+]
 }

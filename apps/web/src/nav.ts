@@ -10,7 +10,9 @@ export type Target =
   /** The operations of a content, with one of them selected. */
   | { kind: "content"; content: ContentRef; op: number | null }
   /** A font dictionary: program, encoding and glyphs. */
-  | { kind: "font"; id: ObjRef };
+  | { kind: "font"; id: ObjRef }
+  /** The macros, with one of them (by file name) open. */
+  | { kind: "macros"; stem: string | null };
 
 /** An entry picked in the structure tree, shown in the schema panel. */
 export interface Selection {
@@ -54,6 +56,8 @@ export function sameTarget(a: Target, b: Target): boolean {
       return b.kind === a.kind && a.id.num === b.id.num && a.id.generation === b.id.generation;
     case "page":
       return b.kind === "page" && a.index === b.index;
+    case "macros":
+      return b.kind === "macros" && a.stem === b.stem;
     case "content":
       return b.kind === "content" && sameContent(a.content, b.content);
   }

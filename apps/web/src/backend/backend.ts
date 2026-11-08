@@ -28,6 +28,11 @@ export interface Backend {
    * Access API) the file is written in memory and comes back as `Reply.file`.
    */
   saveFile?(doc: DocId, mode: SaveMode, handle: FileSystemFileHandle | { download: string }): Promise<Reply>;
+  /**
+   * Give a macro Worker its own line to the session (browser mode, where
+   * macros run in the page): requests sent on `port` are answered there.
+   */
+  connectPort?(port: MessagePort): void;
 }
 
 export class ApiFailure extends Error {

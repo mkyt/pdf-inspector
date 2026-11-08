@@ -4,7 +4,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 9, backend speaks 21"
+        "message": "client speaks protocol 9, backend speaks 22"
       }
     }
   },
@@ -13,7 +13,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 999, backend speaks 21"
+        "message": "client speaks protocol 999, backend speaks 22"
       }
     }
   },
@@ -13077,6 +13077,360 @@
         "offset": 0,
         "total": 6,
         "type": "pages"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "group": 1,
+        "type": "group"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "busy",
+        "message": "document 9 is being edited by a macro"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "busy",
+        "message": "document 9 is being edited by a macro"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "busy",
+        "message": "document 9 is being edited by a macro"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "changed": [
+          93
+        ],
+        "created": [],
+        "issues": [],
+        "notes": [],
+        "status": {
+          "dirty": true,
+          "edited_objects": 52,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": "macro"
+        },
+        "trailer_changed": false,
+        "type": "applied"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "changed": [
+          91
+        ],
+        "created": [],
+        "issues": [],
+        "notes": [],
+        "status": {
+          "dirty": true,
+          "edited_objects": 52,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": "macro"
+        },
+        "trailer_changed": false,
+        "type": "applied"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 93
+            },
+            "index": 0,
+            "label": "i",
+            "rotate": 90,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 91
+            },
+            "index": 1,
+            "label": "ii",
+            "rotate": 90,
+            "size": {
+              "x0": 0.0,
+              "x1": 200.0,
+              "y0": 0.0,
+              "y1": 100.0
+            }
+          },
+          {
+            "annots": 4,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 10
+            },
+            "index": 2,
+            "label": "P-10",
+            "rotate": 90,
+            "size": {
+              "x0": 10.0,
+              "x1": 602.0,
+              "y0": 10.0,
+              "y1": 782.0
+            }
+          }
+        ],
+        "offset": 0,
+        "total": 6,
+        "type": "pages"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "dirty": true,
+        "edited_objects": 52,
+        "no_incremental": null,
+        "redo": null,
+        "signatures": 0,
+        "type": "edit",
+        "undo": "outline and labels"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "badRequest",
+        "message": "edit group 1 is not open on document 9"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "items": [
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 93
+            },
+            "index": 0,
+            "label": "i",
+            "rotate": 0,
+            "size": {
+              "x0": 0.0,
+              "x1": 612.0,
+              "y0": 0.0,
+              "y1": 792.0
+            }
+          },
+          {
+            "annots": 0,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 91
+            },
+            "index": 1,
+            "label": "ii",
+            "rotate": 270,
+            "size": {
+              "x0": 0.0,
+              "x1": 200.0,
+              "y0": 0.0,
+              "y1": 100.0
+            }
+          },
+          {
+            "annots": 4,
+            "error": null,
+            "id": {
+              "generation": 0,
+              "num": 10
+            },
+            "index": 2,
+            "label": "P-10",
+            "rotate": 90,
+            "size": {
+              "x0": 10.0,
+              "x1": 602.0,
+              "y0": 10.0,
+              "y1": 782.0
+            }
+          }
+        ],
+        "offset": 0,
+        "total": 6,
+        "type": "pages"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "group": 2,
+        "type": "group"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "changed": [
+          93
+        ],
+        "created": [],
+        "issues": [],
+        "notes": [],
+        "status": {
+          "dirty": true,
+          "edited_objects": 52,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": "kept"
+        },
+        "trailer_changed": false,
+        "type": "applied"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "dirty": true,
+        "edited_objects": 52,
+        "no_incremental": null,
+        "redo": null,
+        "signatures": 0,
+        "type": "edit",
+        "undo": "kept"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "badRequest",
+        "message": "edit group 2 is not open on document 9"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "diagnostics": 0,
+        "edit": {
+          "dirty": true,
+          "edited_objects": 52,
+          "no_incremental": null,
+          "redo": null,
+          "signatures": 0,
+          "undo": "kept"
+        },
+        "encryption": null,
+        "header_offset": 0,
+        "info": {
+          "doc": 9,
+          "name": "model.pdf",
+          "path": null,
+          "size": 7314
+        },
+        "info_dict": {
+          "generation": 0,
+          "num": 80
+        },
+        "inventory": null,
+        "live_objects": 78,
+        "object_slots": 133,
+        "pages": 6,
+        "pdf_version": "1.7",
+        "recovered": false,
+        "revisions": [
+          {
+            "entries": 91,
+            "index": 0,
+            "kind": "table",
+            "offset": 5415,
+            "span": {
+              "end": 7292,
+              "start": 5415
+            },
+            "xref_stream": null
+          }
+        ],
+        "root": {
+          "generation": 0,
+          "num": 1
+        },
+        "type": "doc",
+        "version": "1.7",
+        "xref_entries": 133
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "ok": {
+        "dirty": true,
+        "edited_objects": 52,
+        "no_incremental": null,
+        "redo": "kept",
+        "signatures": 0,
+        "type": "edit",
+        "undo": "outline and labels"
       }
     }
   }

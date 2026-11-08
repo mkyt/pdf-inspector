@@ -19,6 +19,8 @@ export const DEFAULT_TAB = "pages";
 function parseTarget(v: string | null, op: string | null): Target {
   let m: RegExpMatchArray | null;
   if (v === "trailer") return { kind: "trailer" };
+  if (v === "macros") return { kind: "macros", stem: null };
+  if ((m = v?.match(/^macros:(.+)$/) ?? null)) return { kind: "macros", stem: m[1] };
   if ((m = v?.match(/^obj:(\d+)\.(\d+)$/) ?? null)) {
     return { kind: "object", id: { num: Number(m[1]), generation: Number(m[2]) } };
   }
@@ -43,6 +45,8 @@ function targetParam(t: Target): string | null {
       return null;
     case "trailer":
       return "trailer";
+    case "macros":
+      return t.stem === null ? "macros" : `macros:${t.stem}`;
     case "object":
       return `obj:${t.id.num}.${t.id.generation}`;
     case "font":

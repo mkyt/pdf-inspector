@@ -70,6 +70,11 @@ fn conformance() {
                 let (resp, blobs) = response(&r);
                 conformance::entry(&resp, blobs, &[])
             }
+            Step::InGroup { group, request } => {
+                let r = s.dispatch_in_group(request, group);
+                let (resp, blobs) = response(&r);
+                conformance::entry(&resp, blobs, &[])
+            }
             Step::Open {
                 file,
                 password,

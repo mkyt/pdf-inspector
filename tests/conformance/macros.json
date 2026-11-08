@@ -1,0 +1,22 @@
+{
+  "//": "Bundled macros run through every macro engine (QuickJS natively, the browser's JavaScript through the wasm session). pdfi-macro's tests/conformance.rs writes macros-expected.json (UPDATE_CONFORMANCE=1); apps/web/scripts/conformance.ts must match it.",
+  "cases": [
+    { "macro": "fonts", "file": "fonts.pdf", "params": {} },
+    { "macro": "metadata", "file": "model.pdf", "params": {} },
+    { "macro": "set-reading", "file": "model.pdf", "params": { "layout": "TwoPageLeft", "direction": "L2R" } },
+    { "macro": "set-reading", "file": "model.pdf", "params": { "layout": "Sideways" } },
+    { "macro": "crop-to-content", "file": "content.pdf", "params": { "margin": "4.5", "pages": "1" } },
+    { "macro": "remove-marks", "file": "marks.pdf", "params": {} },
+    { "macro": "remove-marks", "file": "marks.pdf", "params": { "outsideTrim": "false", "registration": false, "watermarks": false, "layers": "^Notes", "text": "DRAFT" } },
+    { "macro": "outline-from-json", "file": "model.pdf", "params": { "outline": [{ "title": "Start", "page": 1, "children": [{ "title": "Two", "page": 2, "bold": true }] }, { "title": "Site", "uri": "https://example.com" }], "open": 1 } },
+    { "macro": "outline-from-json", "file": "model.pdf", "params": {} },
+    { "macro": "page-labels", "file": "model.pdf", "params": { "labels": "1:r,3:D:P-:7" } },
+    { "macro": "page-labels", "file": "model.pdf", "params": { "labels": "9:D" } },
+    { "macro": "remove-owner-password", "file": "aes-256-nopw.pdf", "params": {} }
+  ],
+  "probes": [
+    { "op": "pages", "doc": 1, "range": { "offset": 0, "limit": 20 } },
+    { "op": "document", "doc": 1 },
+    { "op": "outline", "doc": 1, "parent": null, "range": { "offset": 0, "limit": 20 } }
+  ]
+}

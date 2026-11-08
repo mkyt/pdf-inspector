@@ -24,6 +24,17 @@ fn conformance() {
                 let r = s.dispatch(r);
                 conformance::entry(&r.response, &r.blobs, &[])
             }
+            Step::InGroup { group, request } => {
+                let r = s.dispatch_message(
+                    ClientMessage {
+                        id: 0,
+                        request,
+                        group: Some(group),
+                    },
+                    &|| false,
+                );
+                conformance::entry(&r.response, &r.blobs, &[])
+            }
             Step::Open {
                 file,
                 password,

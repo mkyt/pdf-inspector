@@ -111,6 +111,10 @@ export class WorkerBackend implements Backend {
     return this.post((id) => ({ kind: "open", id, file, name: file.name, password, recover }));
   }
 
+  connectPort(port: MessagePort) {
+    this.worker.postMessage({ kind: "port", port } satisfies Inbound, [port]);
+  }
+
   async saveFile(doc: DocId, mode: SaveMode, handle: FileSystemFileHandle | { download: string }): Promise<Reply> {
     await this.ready;
     return this.post((id) => ({ kind: "save", id, doc, mode, handle: handle as unknown as SaveHandle }));

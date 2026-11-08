@@ -1,0 +1,2860 @@
+[
+  {
+    "columns": [
+      "font",
+      "type",
+      "encoding",
+      "embedded",
+      "subset",
+      "toUnicode",
+      "pages",
+      "object"
+    ],
+    "edit": {
+      "dirty": false,
+      "edited_objects": 0,
+      "no_incremental": null,
+      "redo": null,
+      "signatures": 0,
+      "undo": null
+    },
+    "emitted": [],
+    "file": "fonts.pdf",
+    "macro": "fonts",
+    "ok": true,
+    "probes": [
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 3
+                },
+                "index": 0,
+                "label": null,
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              }
+            ],
+            "offset": 0,
+            "total": 1,
+            "type": "pages"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "catalog": {
+              "generation": 0,
+              "num": 1
+            },
+            "features": [],
+            "info": null,
+            "info_entries": [],
+            "issues": [],
+            "metadata": null,
+            "pages": 1,
+            "type": "document"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [],
+            "offset": 0,
+            "total": 0,
+            "type": "outline"
+          }
+        }
+      }
+    ],
+    "value": [
+      {
+        "embedded": "FontFile2",
+        "encoding": "/WinAnsiEncoding",
+        "font": "PdfiTT",
+        "object": 21,
+        "pages": 1,
+        "subset": false,
+        "toUnicode": false,
+        "type": "TrueType"
+      },
+      {
+        "embedded": "FontFile2",
+        "encoding": "",
+        "font": "PdfiTTSymbol",
+        "object": 22,
+        "pages": 1,
+        "subset": false,
+        "toUnicode": false,
+        "type": "TrueType"
+      },
+      {
+        "embedded": "FontFile3/Type1C",
+        "encoding": "/WinAnsiEncoding + Differences",
+        "font": "PdfiCFF",
+        "object": 23,
+        "pages": 1,
+        "subset": false,
+        "toUnicode": false,
+        "type": "Type1"
+      },
+      {
+        "embedded": "FontFile3/OpenType",
+        "encoding": "/WinAnsiEncoding",
+        "font": "PdfiOTF",
+        "object": 24,
+        "pages": 1,
+        "subset": false,
+        "toUnicode": false,
+        "type": "Type1"
+      },
+      {
+        "embedded": "FontFile2",
+        "encoding": "/Identity-H",
+        "font": "PdfiTT",
+        "object": 25,
+        "pages": 1,
+        "subset": false,
+        "toUnicode": true,
+        "type": "Type0"
+      },
+      {
+        "embedded": "FontFile",
+        "encoding": "",
+        "font": "PdfiType1",
+        "object": 26,
+        "pages": 1,
+        "subset": false,
+        "toUnicode": false,
+        "type": "Type1"
+      },
+      {
+        "embedded": "Type3 glyph procedures",
+        "encoding": "Differences",
+        "font": "",
+        "object": 27,
+        "pages": 1,
+        "subset": false,
+        "toUnicode": false,
+        "type": "Type3"
+      },
+      {
+        "embedded": "no",
+        "encoding": "/WinAnsiEncoding",
+        "font": "Helvetica",
+        "object": 28,
+        "pages": 1,
+        "subset": false,
+        "toUnicode": false,
+        "type": "Type1"
+      },
+      {
+        "embedded": "no",
+        "encoding": "/Identity-H",
+        "font": "PdfiMissingCID",
+        "object": 29,
+        "pages": 1,
+        "subset": false,
+        "toUnicode": false,
+        "type": "Type0"
+      },
+      {
+        "embedded": "no",
+        "encoding": "/Identity-H",
+        "font": "Ryumin-Light-Identity-H",
+        "object": 30,
+        "pages": 1,
+        "subset": false,
+        "toUnicode": false,
+        "type": "Type0"
+      },
+      {
+        "embedded": "no",
+        "encoding": "/Identity-H",
+        "font": "PdfiGothic",
+        "object": 31,
+        "pages": 1,
+        "subset": false,
+        "toUnicode": true,
+        "type": "Type0"
+      },
+      {
+        "embedded": "no",
+        "encoding": "/90ms-RKSJ-H",
+        "font": "MS-Mincho",
+        "object": 32,
+        "pages": 1,
+        "subset": false,
+        "toUnicode": false,
+        "type": "Type0"
+      },
+      {
+        "embedded": "no",
+        "encoding": "/Identity-V",
+        "font": "Ryumin-Light-Identity-V",
+        "object": 33,
+        "pages": 1,
+        "subset": false,
+        "toUnicode": false,
+        "type": "Type0"
+      },
+      {
+        "embedded": "no",
+        "encoding": "/Identity-V",
+        "font": "Ryumin-Light-Identity-V",
+        "object": 34,
+        "pages": 1,
+        "subset": false,
+        "toUnicode": false,
+        "type": "Type0"
+      },
+      {
+        "embedded": "FontFile2",
+        "encoding": "",
+        "font": "PdfiTT",
+        "object": 35,
+        "pages": 0,
+        "subset": false,
+        "toUnicode": false,
+        "type": "CIDFontType2"
+      }
+    ]
+  },
+  {
+    "columns": null,
+    "edit": {
+      "dirty": false,
+      "edited_objects": 0,
+      "no_incremental": null,
+      "redo": null,
+      "signatures": 0,
+      "undo": null
+    },
+    "emitted": [],
+    "file": "model.pdf",
+    "macro": "metadata",
+    "ok": true,
+    "probes": [
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "annots": 4,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 10
+                },
+                "index": 0,
+                "label": "i",
+                "rotate": 90,
+                "size": {
+                  "x0": 10.0,
+                  "x1": 602.0,
+                  "y0": 10.0,
+                  "y1": 782.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 11
+                },
+                "index": 1,
+                "label": "ii",
+                "rotate": 90,
+                "size": {
+                  "x0": 10.0,
+                  "x1": 602.0,
+                  "y0": 10.0,
+                  "y1": 782.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 12
+                },
+                "index": 2,
+                "label": "A-1",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 300.0,
+                  "y0": 0.0,
+                  "y1": 300.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 13
+                },
+                "index": 3,
+                "label": "A-2",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 14
+                },
+                "index": 4,
+                "label": "A-3",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              }
+            ],
+            "offset": 0,
+            "total": 5,
+            "type": "pages"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "catalog": {
+              "generation": 0,
+              "num": 1
+            },
+            "features": [
+              {
+                "key": "Outlines",
+                "obj": {
+                  "generation": 0,
+                  "num": 30
+                },
+                "text": "2 top-level items"
+              },
+              {
+                "key": "PageMode",
+                "obj": null,
+                "text": "/UseOutlines"
+              },
+              {
+                "key": "Lang",
+                "obj": null,
+                "text": "en"
+              },
+              {
+                "key": "PageLabels",
+                "obj": null,
+                "text": "2 ranges"
+              },
+              {
+                "key": "Names/Dests",
+                "obj": {
+                  "generation": 0,
+                  "num": 40
+                },
+                "text": "2 entries"
+              },
+              {
+                "key": "OpenAction",
+                "obj": null,
+                "text": "page 1"
+              }
+            ],
+            "info": {
+              "generation": 0,
+              "num": 80
+            },
+            "info_entries": [
+              {
+                "date": null,
+                "key": "Title",
+                "text": "Model fixture"
+              },
+              {
+                "date": null,
+                "key": "Author",
+                "text": "pdf-inspector"
+              },
+              {
+                "date": null,
+                "key": "Producer",
+                "text": "make.sh"
+              },
+              {
+                "date": "2024-01-31T12:34:56+09:00",
+                "key": "CreationDate",
+                "text": "D:20240131123456+09'00'"
+              },
+              {
+                "date": "2024-02-01T00:00:00Z",
+                "key": "ModDate",
+                "text": "D:20240201000000Z"
+              },
+              {
+                "date": null,
+                "key": "Trapped",
+                "text": "/False"
+              }
+            ],
+            "issues": [
+              {
+                "code": "InfoXmp",
+                "message": "/Info /Producer (make.sh) differs from XMP pdf:Producer (something else)",
+                "obj": {
+                  "generation": 0,
+                  "num": 50
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              },
+              {
+                "code": "InfoXmp",
+                "message": "/Info /ModDate (D:20240201000000Z) differs from XMP xmp:ModifyDate (2024-02-02T00:00:00Z)",
+                "obj": {
+                  "generation": 0,
+                  "num": 50
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              },
+              {
+                "code": "PageTree",
+                "message": "page tree node 4 0 has no valid /Count",
+                "obj": {
+                  "generation": 0,
+                  "num": 4
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              }
+            ],
+            "metadata": {
+              "generation": 0,
+              "num": 50
+            },
+            "pages": 5,
+            "type": "document"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "color": null,
+                "count": 1,
+                "flags": 0,
+                "has_children": true,
+                "id": {
+                  "generation": 0,
+                  "num": 31
+                },
+                "link": {
+                  "dest": {
+                    "error": null,
+                    "fit": "Fit",
+                    "named": "chap1",
+                    "page": {
+                      "generation": 0,
+                      "num": 10
+                    },
+                    "page_index": 0,
+                    "params": [],
+                    "remote_page": null
+                  },
+                  "kind": "dest"
+                },
+                "title": "Chapter 1"
+              },
+              {
+                "color": null,
+                "count": null,
+                "flags": 0,
+                "has_children": false,
+                "id": {
+                  "generation": 0,
+                  "num": 33
+                },
+                "link": {
+                  "kind": "uri",
+                  "uri": "https://example.com/"
+                },
+                "title": "Web"
+              }
+            ],
+            "offset": 0,
+            "total": 2,
+            "type": "outline"
+          }
+        }
+      }
+    ],
+    "value": {
+      "catalog": {
+        "Lang": "en",
+        "PageMode": "UseOutlines"
+      },
+      "encryption": null,
+      "info": {
+        "Author": "pdf-inspector",
+        "CreationDate": "2024-01-31T12:34:56+09:00",
+        "ModDate": "2024-02-01T00:00:00Z",
+        "Producer": "make.sh",
+        "Title": "Model fixture",
+        "Trapped": "/False"
+      },
+      "pages": 5,
+      "version": "1.7",
+      "xmp": {
+        "dc:title": "Model fixture",
+        "pdf:Producer": "something else",
+        "xmp:CreateDate": "2024-01-31T03:34:56Z",
+        "xmp:ModifyDate": "2024-02-02T00:00:00Z"
+      }
+    }
+  },
+  {
+    "columns": null,
+    "edit": {
+      "dirty": true,
+      "edited_objects": 1,
+      "no_incremental": null,
+      "redo": null,
+      "signatures": 0,
+      "undo": "Set page layout and reading direction"
+    },
+    "emitted": [],
+    "file": "model.pdf",
+    "macro": "set-reading",
+    "ok": true,
+    "probes": [
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "annots": 4,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 10
+                },
+                "index": 0,
+                "label": "i",
+                "rotate": 90,
+                "size": {
+                  "x0": 10.0,
+                  "x1": 602.0,
+                  "y0": 10.0,
+                  "y1": 782.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 11
+                },
+                "index": 1,
+                "label": "ii",
+                "rotate": 90,
+                "size": {
+                  "x0": 10.0,
+                  "x1": 602.0,
+                  "y0": 10.0,
+                  "y1": 782.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 12
+                },
+                "index": 2,
+                "label": "A-1",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 300.0,
+                  "y0": 0.0,
+                  "y1": 300.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 13
+                },
+                "index": 3,
+                "label": "A-2",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 14
+                },
+                "index": 4,
+                "label": "A-3",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              }
+            ],
+            "offset": 0,
+            "total": 5,
+            "type": "pages"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "catalog": {
+              "generation": 0,
+              "num": 1
+            },
+            "features": [
+              {
+                "key": "Outlines",
+                "obj": {
+                  "generation": 0,
+                  "num": 30
+                },
+                "text": "2 top-level items"
+              },
+              {
+                "key": "PageMode",
+                "obj": null,
+                "text": "/UseOutlines"
+              },
+              {
+                "key": "Lang",
+                "obj": null,
+                "text": "en"
+              },
+              {
+                "key": "PageLabels",
+                "obj": null,
+                "text": "2 ranges"
+              },
+              {
+                "key": "Names/Dests",
+                "obj": {
+                  "generation": 0,
+                  "num": 40
+                },
+                "text": "2 entries"
+              },
+              {
+                "key": "OpenAction",
+                "obj": null,
+                "text": "page 1"
+              },
+              {
+                "key": "PageLayout",
+                "obj": null,
+                "text": "/TwoPageLeft"
+              },
+              {
+                "key": "ViewerPreferences",
+                "obj": null,
+                "text": "dictionary (1 entries)"
+              }
+            ],
+            "info": {
+              "generation": 0,
+              "num": 80
+            },
+            "info_entries": [
+              {
+                "date": null,
+                "key": "Title",
+                "text": "Model fixture"
+              },
+              {
+                "date": null,
+                "key": "Author",
+                "text": "pdf-inspector"
+              },
+              {
+                "date": null,
+                "key": "Producer",
+                "text": "make.sh"
+              },
+              {
+                "date": "2024-01-31T12:34:56+09:00",
+                "key": "CreationDate",
+                "text": "D:20240131123456+09'00'"
+              },
+              {
+                "date": "2024-02-01T00:00:00Z",
+                "key": "ModDate",
+                "text": "D:20240201000000Z"
+              },
+              {
+                "date": null,
+                "key": "Trapped",
+                "text": "/False"
+              }
+            ],
+            "issues": [
+              {
+                "code": "InfoXmp",
+                "message": "/Info /Producer (make.sh) differs from XMP pdf:Producer (something else)",
+                "obj": {
+                  "generation": 0,
+                  "num": 50
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              },
+              {
+                "code": "InfoXmp",
+                "message": "/Info /ModDate (D:20240201000000Z) differs from XMP xmp:ModifyDate (2024-02-02T00:00:00Z)",
+                "obj": {
+                  "generation": 0,
+                  "num": 50
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              },
+              {
+                "code": "PageTree",
+                "message": "page tree node 4 0 has no valid /Count",
+                "obj": {
+                  "generation": 0,
+                  "num": 4
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              }
+            ],
+            "metadata": {
+              "generation": 0,
+              "num": 50
+            },
+            "pages": 5,
+            "type": "document"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "color": null,
+                "count": 1,
+                "flags": 0,
+                "has_children": true,
+                "id": {
+                  "generation": 0,
+                  "num": 31
+                },
+                "link": {
+                  "dest": {
+                    "error": null,
+                    "fit": "Fit",
+                    "named": "chap1",
+                    "page": {
+                      "generation": 0,
+                      "num": 10
+                    },
+                    "page_index": 0,
+                    "params": [],
+                    "remote_page": null
+                  },
+                  "kind": "dest"
+                },
+                "title": "Chapter 1"
+              },
+              {
+                "color": null,
+                "count": null,
+                "flags": 0,
+                "has_children": false,
+                "id": {
+                  "generation": 0,
+                  "num": 33
+                },
+                "link": {
+                  "kind": "uri",
+                  "uri": "https://example.com/"
+                },
+                "title": "Web"
+              }
+            ],
+            "offset": 0,
+            "total": 2,
+            "type": "outline"
+          }
+        }
+      }
+    ],
+    "value": {
+      "direction": "L2R",
+      "layout": "TwoPageLeft"
+    }
+  },
+  {
+    "edit": {
+      "dirty": false,
+      "edited_objects": 0,
+      "no_incremental": null,
+      "redo": null,
+      "signatures": 0,
+      "undo": null
+    },
+    "error": "parameter layout: \"Sideways\" is not one of SinglePage, OneColumn, TwoColumnLeft, TwoColumnRight, TwoPageLeft, TwoPageRight",
+    "file": "model.pdf",
+    "macro": "set-reading",
+    "ok": false,
+    "probes": [
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "annots": 4,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 10
+                },
+                "index": 0,
+                "label": "i",
+                "rotate": 90,
+                "size": {
+                  "x0": 10.0,
+                  "x1": 602.0,
+                  "y0": 10.0,
+                  "y1": 782.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 11
+                },
+                "index": 1,
+                "label": "ii",
+                "rotate": 90,
+                "size": {
+                  "x0": 10.0,
+                  "x1": 602.0,
+                  "y0": 10.0,
+                  "y1": 782.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 12
+                },
+                "index": 2,
+                "label": "A-1",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 300.0,
+                  "y0": 0.0,
+                  "y1": 300.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 13
+                },
+                "index": 3,
+                "label": "A-2",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 14
+                },
+                "index": 4,
+                "label": "A-3",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              }
+            ],
+            "offset": 0,
+            "total": 5,
+            "type": "pages"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "catalog": {
+              "generation": 0,
+              "num": 1
+            },
+            "features": [
+              {
+                "key": "Outlines",
+                "obj": {
+                  "generation": 0,
+                  "num": 30
+                },
+                "text": "2 top-level items"
+              },
+              {
+                "key": "PageMode",
+                "obj": null,
+                "text": "/UseOutlines"
+              },
+              {
+                "key": "Lang",
+                "obj": null,
+                "text": "en"
+              },
+              {
+                "key": "PageLabels",
+                "obj": null,
+                "text": "2 ranges"
+              },
+              {
+                "key": "Names/Dests",
+                "obj": {
+                  "generation": 0,
+                  "num": 40
+                },
+                "text": "2 entries"
+              },
+              {
+                "key": "OpenAction",
+                "obj": null,
+                "text": "page 1"
+              }
+            ],
+            "info": {
+              "generation": 0,
+              "num": 80
+            },
+            "info_entries": [
+              {
+                "date": null,
+                "key": "Title",
+                "text": "Model fixture"
+              },
+              {
+                "date": null,
+                "key": "Author",
+                "text": "pdf-inspector"
+              },
+              {
+                "date": null,
+                "key": "Producer",
+                "text": "make.sh"
+              },
+              {
+                "date": "2024-01-31T12:34:56+09:00",
+                "key": "CreationDate",
+                "text": "D:20240131123456+09'00'"
+              },
+              {
+                "date": "2024-02-01T00:00:00Z",
+                "key": "ModDate",
+                "text": "D:20240201000000Z"
+              },
+              {
+                "date": null,
+                "key": "Trapped",
+                "text": "/False"
+              }
+            ],
+            "issues": [
+              {
+                "code": "InfoXmp",
+                "message": "/Info /Producer (make.sh) differs from XMP pdf:Producer (something else)",
+                "obj": {
+                  "generation": 0,
+                  "num": 50
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              },
+              {
+                "code": "InfoXmp",
+                "message": "/Info /ModDate (D:20240201000000Z) differs from XMP xmp:ModifyDate (2024-02-02T00:00:00Z)",
+                "obj": {
+                  "generation": 0,
+                  "num": 50
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              },
+              {
+                "code": "PageTree",
+                "message": "page tree node 4 0 has no valid /Count",
+                "obj": {
+                  "generation": 0,
+                  "num": 4
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              }
+            ],
+            "metadata": {
+              "generation": 0,
+              "num": 50
+            },
+            "pages": 5,
+            "type": "document"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "color": null,
+                "count": 1,
+                "flags": 0,
+                "has_children": true,
+                "id": {
+                  "generation": 0,
+                  "num": 31
+                },
+                "link": {
+                  "dest": {
+                    "error": null,
+                    "fit": "Fit",
+                    "named": "chap1",
+                    "page": {
+                      "generation": 0,
+                      "num": 10
+                    },
+                    "page_index": 0,
+                    "params": [],
+                    "remote_page": null
+                  },
+                  "kind": "dest"
+                },
+                "title": "Chapter 1"
+              },
+              {
+                "color": null,
+                "count": null,
+                "flags": 0,
+                "has_children": false,
+                "id": {
+                  "generation": 0,
+                  "num": 33
+                },
+                "link": {
+                  "kind": "uri",
+                  "uri": "https://example.com/"
+                },
+                "title": "Web"
+              }
+            ],
+            "offset": 0,
+            "total": 2,
+            "type": "outline"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "columns": [
+      "page",
+      "x0",
+      "y0",
+      "x1",
+      "y1"
+    ],
+    "edit": {
+      "dirty": true,
+      "edited_objects": 1,
+      "no_incremental": null,
+      "redo": null,
+      "signatures": 0,
+      "undo": "Crop to content"
+    },
+    "emitted": [],
+    "file": "content.pdf",
+    "macro": "crop-to-content",
+    "ok": true,
+    "probes": [
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 3
+                },
+                "index": 0,
+                "label": null,
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 4
+                },
+                "index": 1,
+                "label": null,
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 5
+                },
+                "index": 2,
+                "label": null,
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              }
+            ],
+            "offset": 0,
+            "total": 3,
+            "type": "pages"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "catalog": {
+              "generation": 0,
+              "num": 1
+            },
+            "features": [],
+            "info": null,
+            "info_entries": [],
+            "issues": [],
+            "metadata": null,
+            "pages": 3,
+            "type": "document"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [],
+            "offset": 0,
+            "total": 0,
+            "type": "outline"
+          }
+        }
+      }
+    ],
+    "value": [
+      {
+        "page": 1,
+        "x0": 0,
+        "x1": 612,
+        "y0": 0,
+        "y1": 792
+      }
+    ]
+  },
+  {
+    "columns": [
+      "page",
+      "outsideTrim",
+      "registration",
+      "watermarks",
+      "layers",
+      "text",
+      "operations"
+    ],
+    "edit": {
+      "dirty": true,
+      "edited_objects": 2,
+      "no_incremental": null,
+      "redo": null,
+      "signatures": 0,
+      "undo": "Remove printer's marks and watermarks"
+    },
+    "emitted": [],
+    "file": "marks.pdf",
+    "macro": "remove-marks",
+    "ok": true,
+    "probes": [
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 3
+                },
+                "index": 0,
+                "label": null,
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 640.0,
+                  "y0": 0.0,
+                  "y1": 840.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 4
+                },
+                "index": 1,
+                "label": null,
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 640.0,
+                  "y0": 0.0,
+                  "y1": 840.0
+                }
+              }
+            ],
+            "offset": 0,
+            "total": 2,
+            "type": "pages"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "catalog": {
+              "generation": 0,
+              "num": 1
+            },
+            "features": [
+              {
+                "key": "OCProperties",
+                "obj": null,
+                "text": "1 optional content groups"
+              }
+            ],
+            "info": null,
+            "info_entries": [],
+            "issues": [],
+            "metadata": null,
+            "pages": 2,
+            "type": "document"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [],
+            "offset": 0,
+            "total": 0,
+            "type": "outline"
+          }
+        }
+      }
+    ],
+    "value": [
+      {
+        "layers": 0,
+        "operations": 39,
+        "outsideTrim": 11,
+        "page": 1,
+        "registration": 9,
+        "text": 0,
+        "watermarks": 1
+      },
+      {
+        "layers": 0,
+        "operations": 24,
+        "outsideTrim": 0,
+        "page": 2,
+        "registration": 8,
+        "text": 0,
+        "watermarks": 0
+      }
+    ]
+  },
+  {
+    "columns": [
+      "page",
+      "outsideTrim",
+      "registration",
+      "watermarks",
+      "layers",
+      "text",
+      "operations"
+    ],
+    "edit": {
+      "dirty": true,
+      "edited_objects": 1,
+      "no_incremental": null,
+      "redo": null,
+      "signatures": 0,
+      "undo": "Remove printer's marks and watermarks"
+    },
+    "emitted": [],
+    "file": "marks.pdf",
+    "macro": "remove-marks",
+    "ok": true,
+    "probes": [
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 3
+                },
+                "index": 0,
+                "label": null,
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 640.0,
+                  "y0": 0.0,
+                  "y1": 840.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 4
+                },
+                "index": 1,
+                "label": null,
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 640.0,
+                  "y0": 0.0,
+                  "y1": 840.0
+                }
+              }
+            ],
+            "offset": 0,
+            "total": 2,
+            "type": "pages"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "catalog": {
+              "generation": 0,
+              "num": 1
+            },
+            "features": [
+              {
+                "key": "OCProperties",
+                "obj": null,
+                "text": "1 optional content groups"
+              }
+            ],
+            "info": null,
+            "info_entries": [],
+            "issues": [],
+            "metadata": null,
+            "pages": 2,
+            "type": "document"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [],
+            "offset": 0,
+            "total": 0,
+            "type": "outline"
+          }
+        }
+      }
+    ],
+    "value": [
+      {
+        "layers": 0,
+        "operations": 1,
+        "outsideTrim": 0,
+        "page": 1,
+        "registration": 0,
+        "text": 1,
+        "watermarks": 0
+      }
+    ]
+  },
+  {
+    "columns": null,
+    "edit": {
+      "dirty": true,
+      "edited_objects": 9,
+      "no_incremental": null,
+      "redo": null,
+      "signatures": 0,
+      "undo": "Outline from JSON"
+    },
+    "emitted": [],
+    "file": "model.pdf",
+    "macro": "outline-from-json",
+    "ok": true,
+    "probes": [
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "annots": 4,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 10
+                },
+                "index": 0,
+                "label": "i",
+                "rotate": 90,
+                "size": {
+                  "x0": 10.0,
+                  "x1": 602.0,
+                  "y0": 10.0,
+                  "y1": 782.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 11
+                },
+                "index": 1,
+                "label": "ii",
+                "rotate": 90,
+                "size": {
+                  "x0": 10.0,
+                  "x1": 602.0,
+                  "y0": 10.0,
+                  "y1": 782.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 12
+                },
+                "index": 2,
+                "label": "A-1",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 300.0,
+                  "y0": 0.0,
+                  "y1": 300.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 13
+                },
+                "index": 3,
+                "label": "A-2",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 14
+                },
+                "index": 4,
+                "label": "A-3",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              }
+            ],
+            "offset": 0,
+            "total": 5,
+            "type": "pages"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "catalog": {
+              "generation": 0,
+              "num": 1
+            },
+            "features": [
+              {
+                "key": "Outlines",
+                "obj": {
+                  "generation": 0,
+                  "num": 91
+                },
+                "text": "2 top-level items"
+              },
+              {
+                "key": "PageMode",
+                "obj": null,
+                "text": "/UseOutlines"
+              },
+              {
+                "key": "Lang",
+                "obj": null,
+                "text": "en"
+              },
+              {
+                "key": "PageLabels",
+                "obj": null,
+                "text": "2 ranges"
+              },
+              {
+                "key": "Names/Dests",
+                "obj": {
+                  "generation": 0,
+                  "num": 40
+                },
+                "text": "2 entries"
+              },
+              {
+                "key": "OpenAction",
+                "obj": null,
+                "text": "page 1"
+              }
+            ],
+            "info": {
+              "generation": 0,
+              "num": 80
+            },
+            "info_entries": [
+              {
+                "date": null,
+                "key": "Title",
+                "text": "Model fixture"
+              },
+              {
+                "date": null,
+                "key": "Author",
+                "text": "pdf-inspector"
+              },
+              {
+                "date": null,
+                "key": "Producer",
+                "text": "make.sh"
+              },
+              {
+                "date": "2024-01-31T12:34:56+09:00",
+                "key": "CreationDate",
+                "text": "D:20240131123456+09'00'"
+              },
+              {
+                "date": "2024-02-01T00:00:00Z",
+                "key": "ModDate",
+                "text": "D:20240201000000Z"
+              },
+              {
+                "date": null,
+                "key": "Trapped",
+                "text": "/False"
+              }
+            ],
+            "issues": [
+              {
+                "code": "InfoXmp",
+                "message": "/Info /Producer (make.sh) differs from XMP pdf:Producer (something else)",
+                "obj": {
+                  "generation": 0,
+                  "num": 50
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              },
+              {
+                "code": "InfoXmp",
+                "message": "/Info /ModDate (D:20240201000000Z) differs from XMP xmp:ModifyDate (2024-02-02T00:00:00Z)",
+                "obj": {
+                  "generation": 0,
+                  "num": 50
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              },
+              {
+                "code": "PageTree",
+                "message": "page tree node 4 0 has no valid /Count",
+                "obj": {
+                  "generation": 0,
+                  "num": 4
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              }
+            ],
+            "metadata": {
+              "generation": 0,
+              "num": 50
+            },
+            "pages": 5,
+            "type": "document"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "color": null,
+                "count": 1,
+                "flags": 0,
+                "has_children": true,
+                "id": {
+                  "generation": 0,
+                  "num": 92
+                },
+                "link": {
+                  "dest": {
+                    "error": null,
+                    "fit": "Fit",
+                    "named": null,
+                    "page": {
+                      "generation": 0,
+                      "num": 10
+                    },
+                    "page_index": 0,
+                    "params": [],
+                    "remote_page": null
+                  },
+                  "kind": "dest"
+                },
+                "title": "Start"
+              },
+              {
+                "color": null,
+                "count": null,
+                "flags": 0,
+                "has_children": false,
+                "id": {
+                  "generation": 0,
+                  "num": 94
+                },
+                "link": {
+                  "kind": "uri",
+                  "uri": "https://example.com"
+                },
+                "title": "Site"
+              }
+            ],
+            "offset": 0,
+            "total": 2,
+            "type": "outline"
+          }
+        }
+      }
+    ],
+    "value": {
+      "items": 3
+    }
+  },
+  {
+    "edit": {
+      "dirty": false,
+      "edited_objects": 0,
+      "no_incremental": null,
+      "redo": null,
+      "signatures": 0,
+      "undo": null
+    },
+    "error": "parameter outline: missing",
+    "file": "model.pdf",
+    "macro": "outline-from-json",
+    "ok": false,
+    "probes": [
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "annots": 4,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 10
+                },
+                "index": 0,
+                "label": "i",
+                "rotate": 90,
+                "size": {
+                  "x0": 10.0,
+                  "x1": 602.0,
+                  "y0": 10.0,
+                  "y1": 782.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 11
+                },
+                "index": 1,
+                "label": "ii",
+                "rotate": 90,
+                "size": {
+                  "x0": 10.0,
+                  "x1": 602.0,
+                  "y0": 10.0,
+                  "y1": 782.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 12
+                },
+                "index": 2,
+                "label": "A-1",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 300.0,
+                  "y0": 0.0,
+                  "y1": 300.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 13
+                },
+                "index": 3,
+                "label": "A-2",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 14
+                },
+                "index": 4,
+                "label": "A-3",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              }
+            ],
+            "offset": 0,
+            "total": 5,
+            "type": "pages"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "catalog": {
+              "generation": 0,
+              "num": 1
+            },
+            "features": [
+              {
+                "key": "Outlines",
+                "obj": {
+                  "generation": 0,
+                  "num": 30
+                },
+                "text": "2 top-level items"
+              },
+              {
+                "key": "PageMode",
+                "obj": null,
+                "text": "/UseOutlines"
+              },
+              {
+                "key": "Lang",
+                "obj": null,
+                "text": "en"
+              },
+              {
+                "key": "PageLabels",
+                "obj": null,
+                "text": "2 ranges"
+              },
+              {
+                "key": "Names/Dests",
+                "obj": {
+                  "generation": 0,
+                  "num": 40
+                },
+                "text": "2 entries"
+              },
+              {
+                "key": "OpenAction",
+                "obj": null,
+                "text": "page 1"
+              }
+            ],
+            "info": {
+              "generation": 0,
+              "num": 80
+            },
+            "info_entries": [
+              {
+                "date": null,
+                "key": "Title",
+                "text": "Model fixture"
+              },
+              {
+                "date": null,
+                "key": "Author",
+                "text": "pdf-inspector"
+              },
+              {
+                "date": null,
+                "key": "Producer",
+                "text": "make.sh"
+              },
+              {
+                "date": "2024-01-31T12:34:56+09:00",
+                "key": "CreationDate",
+                "text": "D:20240131123456+09'00'"
+              },
+              {
+                "date": "2024-02-01T00:00:00Z",
+                "key": "ModDate",
+                "text": "D:20240201000000Z"
+              },
+              {
+                "date": null,
+                "key": "Trapped",
+                "text": "/False"
+              }
+            ],
+            "issues": [
+              {
+                "code": "InfoXmp",
+                "message": "/Info /Producer (make.sh) differs from XMP pdf:Producer (something else)",
+                "obj": {
+                  "generation": 0,
+                  "num": 50
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              },
+              {
+                "code": "InfoXmp",
+                "message": "/Info /ModDate (D:20240201000000Z) differs from XMP xmp:ModifyDate (2024-02-02T00:00:00Z)",
+                "obj": {
+                  "generation": 0,
+                  "num": 50
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              },
+              {
+                "code": "PageTree",
+                "message": "page tree node 4 0 has no valid /Count",
+                "obj": {
+                  "generation": 0,
+                  "num": 4
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              }
+            ],
+            "metadata": {
+              "generation": 0,
+              "num": 50
+            },
+            "pages": 5,
+            "type": "document"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "color": null,
+                "count": 1,
+                "flags": 0,
+                "has_children": true,
+                "id": {
+                  "generation": 0,
+                  "num": 31
+                },
+                "link": {
+                  "dest": {
+                    "error": null,
+                    "fit": "Fit",
+                    "named": "chap1",
+                    "page": {
+                      "generation": 0,
+                      "num": 10
+                    },
+                    "page_index": 0,
+                    "params": [],
+                    "remote_page": null
+                  },
+                  "kind": "dest"
+                },
+                "title": "Chapter 1"
+              },
+              {
+                "color": null,
+                "count": null,
+                "flags": 0,
+                "has_children": false,
+                "id": {
+                  "generation": 0,
+                  "num": 33
+                },
+                "link": {
+                  "kind": "uri",
+                  "uri": "https://example.com/"
+                },
+                "title": "Web"
+              }
+            ],
+            "offset": 0,
+            "total": 2,
+            "type": "outline"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "columns": [
+      "page",
+      "style",
+      "prefix",
+      "first"
+    ],
+    "edit": {
+      "dirty": true,
+      "edited_objects": 1,
+      "no_incremental": null,
+      "redo": null,
+      "signatures": 0,
+      "undo": "Set page labels"
+    },
+    "emitted": [],
+    "file": "model.pdf",
+    "macro": "page-labels",
+    "ok": true,
+    "probes": [
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "annots": 4,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 10
+                },
+                "index": 0,
+                "label": "i",
+                "rotate": 90,
+                "size": {
+                  "x0": 10.0,
+                  "x1": 602.0,
+                  "y0": 10.0,
+                  "y1": 782.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 11
+                },
+                "index": 1,
+                "label": "ii",
+                "rotate": 90,
+                "size": {
+                  "x0": 10.0,
+                  "x1": 602.0,
+                  "y0": 10.0,
+                  "y1": 782.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 12
+                },
+                "index": 2,
+                "label": "P-7",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 300.0,
+                  "y0": 0.0,
+                  "y1": 300.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 13
+                },
+                "index": 3,
+                "label": "P-8",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 14
+                },
+                "index": 4,
+                "label": "P-9",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              }
+            ],
+            "offset": 0,
+            "total": 5,
+            "type": "pages"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "catalog": {
+              "generation": 0,
+              "num": 1
+            },
+            "features": [
+              {
+                "key": "Outlines",
+                "obj": {
+                  "generation": 0,
+                  "num": 30
+                },
+                "text": "2 top-level items"
+              },
+              {
+                "key": "PageMode",
+                "obj": null,
+                "text": "/UseOutlines"
+              },
+              {
+                "key": "Lang",
+                "obj": null,
+                "text": "en"
+              },
+              {
+                "key": "PageLabels",
+                "obj": null,
+                "text": "2 ranges"
+              },
+              {
+                "key": "Names/Dests",
+                "obj": {
+                  "generation": 0,
+                  "num": 40
+                },
+                "text": "2 entries"
+              },
+              {
+                "key": "OpenAction",
+                "obj": null,
+                "text": "page 1"
+              }
+            ],
+            "info": {
+              "generation": 0,
+              "num": 80
+            },
+            "info_entries": [
+              {
+                "date": null,
+                "key": "Title",
+                "text": "Model fixture"
+              },
+              {
+                "date": null,
+                "key": "Author",
+                "text": "pdf-inspector"
+              },
+              {
+                "date": null,
+                "key": "Producer",
+                "text": "make.sh"
+              },
+              {
+                "date": "2024-01-31T12:34:56+09:00",
+                "key": "CreationDate",
+                "text": "D:20240131123456+09'00'"
+              },
+              {
+                "date": "2024-02-01T00:00:00Z",
+                "key": "ModDate",
+                "text": "D:20240201000000Z"
+              },
+              {
+                "date": null,
+                "key": "Trapped",
+                "text": "/False"
+              }
+            ],
+            "issues": [
+              {
+                "code": "InfoXmp",
+                "message": "/Info /Producer (make.sh) differs from XMP pdf:Producer (something else)",
+                "obj": {
+                  "generation": 0,
+                  "num": 50
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              },
+              {
+                "code": "InfoXmp",
+                "message": "/Info /ModDate (D:20240201000000Z) differs from XMP xmp:ModifyDate (2024-02-02T00:00:00Z)",
+                "obj": {
+                  "generation": 0,
+                  "num": 50
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              },
+              {
+                "code": "PageTree",
+                "message": "page tree node 4 0 has no valid /Count",
+                "obj": {
+                  "generation": 0,
+                  "num": 4
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              }
+            ],
+            "metadata": {
+              "generation": 0,
+              "num": 50
+            },
+            "pages": 5,
+            "type": "document"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "color": null,
+                "count": 1,
+                "flags": 0,
+                "has_children": true,
+                "id": {
+                  "generation": 0,
+                  "num": 31
+                },
+                "link": {
+                  "dest": {
+                    "error": null,
+                    "fit": "Fit",
+                    "named": "chap1",
+                    "page": {
+                      "generation": 0,
+                      "num": 10
+                    },
+                    "page_index": 0,
+                    "params": [],
+                    "remote_page": null
+                  },
+                  "kind": "dest"
+                },
+                "title": "Chapter 1"
+              },
+              {
+                "color": null,
+                "count": null,
+                "flags": 0,
+                "has_children": false,
+                "id": {
+                  "generation": 0,
+                  "num": 33
+                },
+                "link": {
+                  "kind": "uri",
+                  "uri": "https://example.com/"
+                },
+                "title": "Web"
+              }
+            ],
+            "offset": 0,
+            "total": 2,
+            "type": "outline"
+          }
+        }
+      }
+    ],
+    "value": [
+      {
+        "first": 1,
+        "page": 1,
+        "prefix": "",
+        "style": "lowerRoman"
+      },
+      {
+        "first": 7,
+        "page": 3,
+        "prefix": "P-",
+        "style": "decimal"
+      }
+    ]
+  },
+  {
+    "edit": {
+      "dirty": false,
+      "edited_objects": 0,
+      "no_incremental": null,
+      "redo": null,
+      "signatures": 0,
+      "undo": null
+    },
+    "error": "\"9:D\": page 9 is not in the document (pages 1 to 5)",
+    "file": "model.pdf",
+    "macro": "page-labels",
+    "ok": false,
+    "probes": [
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "annots": 4,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 10
+                },
+                "index": 0,
+                "label": "i",
+                "rotate": 90,
+                "size": {
+                  "x0": 10.0,
+                  "x1": 602.0,
+                  "y0": 10.0,
+                  "y1": 782.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 11
+                },
+                "index": 1,
+                "label": "ii",
+                "rotate": 90,
+                "size": {
+                  "x0": 10.0,
+                  "x1": 602.0,
+                  "y0": 10.0,
+                  "y1": 782.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 12
+                },
+                "index": 2,
+                "label": "A-1",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 300.0,
+                  "y0": 0.0,
+                  "y1": 300.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 13
+                },
+                "index": 3,
+                "label": "A-2",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 14
+                },
+                "index": 4,
+                "label": "A-3",
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              }
+            ],
+            "offset": 0,
+            "total": 5,
+            "type": "pages"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "catalog": {
+              "generation": 0,
+              "num": 1
+            },
+            "features": [
+              {
+                "key": "Outlines",
+                "obj": {
+                  "generation": 0,
+                  "num": 30
+                },
+                "text": "2 top-level items"
+              },
+              {
+                "key": "PageMode",
+                "obj": null,
+                "text": "/UseOutlines"
+              },
+              {
+                "key": "Lang",
+                "obj": null,
+                "text": "en"
+              },
+              {
+                "key": "PageLabels",
+                "obj": null,
+                "text": "2 ranges"
+              },
+              {
+                "key": "Names/Dests",
+                "obj": {
+                  "generation": 0,
+                  "num": 40
+                },
+                "text": "2 entries"
+              },
+              {
+                "key": "OpenAction",
+                "obj": null,
+                "text": "page 1"
+              }
+            ],
+            "info": {
+              "generation": 0,
+              "num": 80
+            },
+            "info_entries": [
+              {
+                "date": null,
+                "key": "Title",
+                "text": "Model fixture"
+              },
+              {
+                "date": null,
+                "key": "Author",
+                "text": "pdf-inspector"
+              },
+              {
+                "date": null,
+                "key": "Producer",
+                "text": "make.sh"
+              },
+              {
+                "date": "2024-01-31T12:34:56+09:00",
+                "key": "CreationDate",
+                "text": "D:20240131123456+09'00'"
+              },
+              {
+                "date": "2024-02-01T00:00:00Z",
+                "key": "ModDate",
+                "text": "D:20240201000000Z"
+              },
+              {
+                "date": null,
+                "key": "Trapped",
+                "text": "/False"
+              }
+            ],
+            "issues": [
+              {
+                "code": "InfoXmp",
+                "message": "/Info /Producer (make.sh) differs from XMP pdf:Producer (something else)",
+                "obj": {
+                  "generation": 0,
+                  "num": 50
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              },
+              {
+                "code": "InfoXmp",
+                "message": "/Info /ModDate (D:20240201000000Z) differs from XMP xmp:ModifyDate (2024-02-02T00:00:00Z)",
+                "obj": {
+                  "generation": 0,
+                  "num": 50
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              },
+              {
+                "code": "PageTree",
+                "message": "page tree node 4 0 has no valid /Count",
+                "obj": {
+                  "generation": 0,
+                  "num": 4
+                },
+                "path": null,
+                "severity": "warning",
+                "span": null
+              }
+            ],
+            "metadata": {
+              "generation": 0,
+              "num": 50
+            },
+            "pages": 5,
+            "type": "document"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "color": null,
+                "count": 1,
+                "flags": 0,
+                "has_children": true,
+                "id": {
+                  "generation": 0,
+                  "num": 31
+                },
+                "link": {
+                  "dest": {
+                    "error": null,
+                    "fit": "Fit",
+                    "named": "chap1",
+                    "page": {
+                      "generation": 0,
+                      "num": 10
+                    },
+                    "page_index": 0,
+                    "params": [],
+                    "remote_page": null
+                  },
+                  "kind": "dest"
+                },
+                "title": "Chapter 1"
+              },
+              {
+                "color": null,
+                "count": null,
+                "flags": 0,
+                "has_children": false,
+                "id": {
+                  "generation": 0,
+                  "num": 33
+                },
+                "link": {
+                  "kind": "uri",
+                  "uri": "https://example.com/"
+                },
+                "title": "Web"
+              }
+            ],
+            "offset": 0,
+            "total": 2,
+            "type": "outline"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "columns": null,
+    "edit": {
+      "dirty": false,
+      "edited_objects": 0,
+      "no_incremental": "the file is encrypted: it can only be saved decrypted, as a full rewrite",
+      "redo": null,
+      "signatures": 0,
+      "undo": null
+    },
+    "emitted": [],
+    "file": "aes-256-nopw.pdf",
+    "macro": "remove-owner-password",
+    "ok": true,
+    "probes": [
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 5
+                },
+                "index": 0,
+                "label": null,
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 6
+                },
+                "index": 1,
+                "label": null,
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              },
+              {
+                "annots": 0,
+                "error": null,
+                "id": {
+                  "generation": 0,
+                  "num": 7
+                },
+                "index": 2,
+                "label": null,
+                "rotate": 0,
+                "size": {
+                  "x0": 0.0,
+                  "x1": 612.0,
+                  "y0": 0.0,
+                  "y1": 792.0
+                }
+              }
+            ],
+            "offset": 0,
+            "total": 3,
+            "type": "pages"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "catalog": {
+              "generation": 0,
+              "num": 1
+            },
+            "features": [
+              {
+                "key": "Extensions",
+                "obj": null,
+                "text": "dictionary (1 entries)"
+              },
+              {
+                "key": "Outlines",
+                "obj": {
+                  "generation": 0,
+                  "num": 3
+                },
+                "text": "0 top-level items"
+              }
+            ],
+            "info": {
+              "generation": 0,
+              "num": 2
+            },
+            "info_entries": [
+              {
+                "date": null,
+                "key": "Author",
+                "text": "AB"
+              },
+              {
+                "date": null,
+                "key": "Producer",
+                "text": "pdf-inspector"
+              },
+              {
+                "date": null,
+                "key": "Title",
+                "text": "Fixture (test)"
+              }
+            ],
+            "issues": [],
+            "metadata": null,
+            "pages": 3,
+            "type": "document"
+          }
+        }
+      },
+      {
+        "blobs": [],
+        "response": {
+          "ok": {
+            "items": [],
+            "offset": 0,
+            "total": 0,
+            "type": "outline"
+          }
+        }
+      }
+    ],
+    "value": {
+      "encrypted": true,
+      "filter": "Standard",
+      "permissions": -4,
+      "revision": 6
+    }
+  }
+]

@@ -16,6 +16,7 @@ use crate::convert;
 use crate::dto::{DiagnosticInfo, JobInfo, JobKind, JobResult, JobState, SaveResult};
 use crate::edit::DocFile;
 use crate::font::{self, FontUsage};
+use crate::macros::MacroOutput;
 use crate::protocol::Event;
 use crate::protocol::{ApiError, ErrorCode};
 use crate::session::{Doc, EventBus, lock};
@@ -92,13 +93,17 @@ const SAVE_CHUNKS: usize = 4;
 pub(crate) struct Job {
     pub doc: Arc<Doc>,
     info: Mutex<JobInfo>,
-    cancel: AtomicBool,
+    cancel: Arc<AtomicBool>,
     work: Mutex<Work>,
     diags: Mutex<Vec<DiagnosticInfo>>,
+    /// Files a macro job wrote.
+    outputs: Mutex<Vec<Vec<u8>>>,
     bus: Arc<EventBus>,
 }
 
 enum Work {
+    /// Done by someone else (a macro's thread), not by steps.
+    External,
     Check(CheckWork),
     Validate(ValidateWork),
     Inventory(InventoryWork),
@@ -188,6 +193,7 @@ impl Job {
                 Work::Inventory(InventoryWork::Scan(Builder::new(&doc.model.on(&doc.file))))
             }
             JobKind::Save { .. } => unreachable!("save jobs are made by Job::save"),
+            JobKind::Macro { .. } => Work::External,
             JobKind::FontUses { font } => Work::FontUses(FontUsesWork {
                 font: (*font).into(),
                 pages: font::pages_to_scan(&doc, (*font).into()),
@@ -196,6 +202,7 @@ impl Job {
             }),
         };
         let total = match &work {
+            Work::External => 0,
             Work::Check(w) => w.ids.len() as u64,
             Work::Validate(w) => w.walk.pending() as u64,
             // Typing visits about as many objects as the scan.
@@ -218,9 +225,10 @@ impl Job {
                 error: None,
             }),
             doc,
-            cancel: AtomicBool::new(false),
+            cancel: Arc::default(),
             work: Mutex::new(work),
             diags: Mutex::default(),
+            outputs: Mutex::default(),
             bus,
         }
     }
@@ -252,7 +260,7 @@ impl Job {
                 error: None,
             }),
             doc,
-            cancel: AtomicBool::new(false),
+            cancel: Arc::default(),
             work: Mutex::new(Work::Save(SaveWork {
                 saver,
                 target: Some(target),
@@ -260,6 +268,7 @@ impl Job {
                 reopen: Some(reopen),
             })),
             diags: Mutex::default(),
+            outputs: Mutex::default(),
             bus,
         }
     }
@@ -270,6 +279,56 @@ impl Job {
 
     pub fn cancel(&self) {
         self.cancel.store(true, Ordering::Relaxed);
+    }
+
+    pub fn cancel_flag(&self) -> Arc<AtomicBool> {
+        self.cancel.clone()
+    }
+
+    pub fn emit(&self, ev: &Event) {
+        self.bus.emit(ev);
+    }
+
+    /// Progress of an external job.
+    pub fn set_progress(&self, done: u64, total: u64, label: Option<&str>) {
+        let job = {
+            let mut info = lock(&self.info);
+            info.done = done;
+            info.total = total;
+            info.job
+        };
+        self.bus.emit(&Event::JobProgress {
+            job,
+            doc: self.doc.id,
+            done,
+            total,
+            label: label.map(str::to_string),
+        });
+    }
+
+    /// End a macro job with what its thread returned.
+    pub fn finish_macro(&self, r: Result<MacroOutput, ApiError>) {
+        match r {
+            Ok(out) => {
+                *lock(&self.outputs) = out.files;
+                self.finish(JobState::Completed, Some(JobResult::Macro(out.result)));
+            }
+            Err(e) if e.code == ErrorCode::Cancelled => self.finish(JobState::Cancelled, None),
+            Err(e) => {
+                lock(&self.info).error = Some(e.message);
+                self.finish(JobState::Failed, None);
+            }
+        }
+    }
+
+    /// Bytes `offset..offset + len` of the `index`th file a macro wrote,
+    /// and the file's size.
+    pub fn output(&self, index: u32, offset: u64, len: u32) -> Option<(Vec<u8>, u64)> {
+        let o = lock(&self.outputs);
+        let f = o.get(index as usize)?;
+        let start = (offset as usize).min(f.len());
+        let end = start.saturating_add(len as usize).min(f.len());
+        Some((f[start..end].to_vec(), f.len() as u64))
     }
 
     /// Issues found so far: total kept and the requested slice.
@@ -283,6 +342,9 @@ impl Job {
     /// Do one bounded unit of work. Returns whether more remains.
     pub fn step(&self) -> bool {
         if lock(&self.info).state != JobState::Running {
+            return false;
+        }
+        if matches!(*lock(&self.work), Work::External) {
             return false;
         }
         if self.cancel.load(Ordering::Relaxed) {
@@ -307,6 +369,7 @@ impl Job {
                         doc: self.doc.id,
                         done,
                         total,
+                        label: None,
                     });
                     true
                 }
@@ -330,7 +393,7 @@ impl Job {
             };
         }
         let (done, total, result) = match &mut *work {
-            Work::Save(_) => unreachable!("handled above"),
+            Work::Save(_) | Work::External => unreachable!("handled above"),
             Work::Check(w) => {
                 let (done, r) = self.check_step(w);
                 (done, None, r)
@@ -365,6 +428,7 @@ impl Job {
                     doc: self.doc.id,
                     done,
                     total,
+                    label: None,
                 });
                 true
             }

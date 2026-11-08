@@ -51,7 +51,7 @@ public final class DocumentModel {
             jobs = [:]
             generation += 1
             Task { await refresh() }
-        case .jobProgress(let job, _, let done, let total):
+        case .jobProgress(let job, _, let done, let total, _):
             guard let j = jobs[job] else { return }
             jobs[job] = JobInfo(
                 job: j.job, doc: j.doc, kind: j.kind, state: j.state, done: done, total: total,

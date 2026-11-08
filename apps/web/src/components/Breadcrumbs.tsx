@@ -81,6 +81,9 @@ export function Breadcrumbs() {
     crumbs.push({ label: "Document" });
   } else if (t.kind === "trailer") {
     crumbs.push({ label: "Trailer" });
+  } else if (t.kind === "macros") {
+    crumbs.push({ label: "Macros", to: t.stem === null ? undefined : { kind: "macros", stem: null } });
+    if (t.stem !== null) crumbs.push({ label: t.stem });
   } else if (id) {
     const steps = path.data?.steps;
     if (steps) {

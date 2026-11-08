@@ -283,11 +283,13 @@ async fn conformance() {
         ws: &mut Ws,
         id: u64,
         request: &pdfi_api::Request,
+        group: Option<u64>,
         events: &mut Vec<Event>,
     ) -> (Response, Vec<Vec<u8>>) {
         let msg = pdfi_api::ClientMessage {
             id,
             request: request.clone(),
+            group,
         };
         ws.send(Message::text(serde_json::to_string(&msg).unwrap()))
             .await
@@ -318,7 +320,11 @@ async fn conformance() {
         next_id += 1;
         let entry = match step {
             Step::Request(req) => {
-                let (res, blobs) = send(&mut ws, next_id, &req, &mut events).await;
+                let (res, blobs) = send(&mut ws, next_id, &req, None, &mut events).await;
+                conformance::entry(&res, &blobs, &[])
+            }
+            Step::InGroup { group, request } => {
+                let (res, blobs) = send(&mut ws, next_id, &request, Some(group), &mut events).await;
                 conformance::entry(&res, &blobs, &[])
             }
             Step::Open {
@@ -333,12 +339,12 @@ async fn conformance() {
                     password,
                     recover,
                 };
-                let (res, blobs) = send(&mut ws, next_id, &req, &mut events).await;
+                let (res, blobs) = send(&mut ws, next_id, &req, None, &mut events).await;
                 conformance::entry(&res, &blobs, &[])
             }
             Step::Job(req) => {
                 events.clear();
-                let (res, blobs) = send(&mut ws, next_id, &req, &mut events).await;
+                let (res, blobs) = send(&mut ws, next_id, &req, None, &mut events).await;
                 let job = conformance::started_job(&res).expect("job started");
                 // Jobs run on their own thread; wait for the last event.
                 while !events
@@ -589,5 +595,96 @@ async fn saves_within_roots() {
         .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
         .collect();
     assert!(names.iter().all(|n| !n.contains("pdfi-tmp")), "{names:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn macros_run_in_the_server() {
+    let dir = std::env::temp_dir().join(format!("pdfi-server-macros-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let r = start(ServeOptions {
+        files: vec![fixtures().join("model.pdf")],
+        macros: Some(pdfi_macro::Library::new(vec![dir.clone()])),
+        ..Default::default()
+    })
+    .await;
+    let mut ws = good(&r).await;
+    let (res, _) = call(&mut ws, 1, serde_json::json!({ "op": "macros" })).await;
+    let Response::Ok(ResponseBody::Macros { items, dir: d }) = res else {
+        panic!("{res:?}")
+    };
+    assert!(items.iter().any(|m| m.name == "set-reading" && m.bundled));
+    assert_eq!(d, Some(dir.display().to_string()));
+
+    let code = r#"export const meta = { api: 1, name: "hi", edits: true };
+export default async function (doc, _p, ctx) {
+  ctx.log("host", ctx.host);
+  await doc.catalog.set("PageLayout", pdf.name("TwoPageRight"));
+  return doc.pageCount;
+}"#;
+    let (res, _) = call(
+        &mut ws,
+        2,
+        serde_json::json!({ "op": "saveMacro", "name": "hi", "code": code }),
+    )
+    .await;
+    assert!(
+        matches!(res, Response::Ok(ResponseBody::Macro(_))),
+        "{res:?}"
+    );
+    let (res, _) = call(&mut ws, 3, serde_json::json!({ "op": "docs" })).await;
+    let Response::Ok(ResponseBody::Docs { docs }) = res else {
+        panic!("{res:?}")
+    };
+    let doc = docs[0].doc;
+    let (res, _) = call(
+        &mut ws,
+        4,
+        serde_json::json!({ "op": "startJob", "doc": doc, "job": { "kind": "macro", "name": "hi", "source": null, "params": "{}" } }),
+    )
+    .await;
+    let Response::Ok(ResponseBody::Job(job)) = res else {
+        panic!("{res:?}")
+    };
+    // The log line, then the end.
+    let mut logged = false;
+    let info = loop {
+        let Some(Ok(Message::Text(t))) = ws.next().await else {
+            panic!("connection closed")
+        };
+        match serde_json::from_str(&t).unwrap() {
+            ServerMessage::Event {
+                event: pdfi_api::Event::MacroLog { job: j, text, .. },
+            } if j == job.job => {
+                assert_eq!(text, "host server");
+                logged = true;
+            }
+            ServerMessage::Event {
+                event: pdfi_api::Event::JobDone { info },
+            } if info.job == job.job => break info,
+            _ => {}
+        }
+    };
+    assert!(logged);
+    assert_eq!(
+        info.state,
+        pdfi_api::JobState::Completed,
+        "{:?}",
+        info.error
+    );
+    let Some(pdfi_api::JobResult::Macro(m)) = info.result else {
+        panic!("{:?}", info.result)
+    };
+    assert_eq!(m.value, "5");
+    let (res, _) = call(
+        &mut ws,
+        5,
+        serde_json::json!({ "op": "summary", "doc": doc }),
+    )
+    .await;
+    let Response::Ok(ResponseBody::Doc(s)) = res else {
+        panic!("{res:?}")
+    };
+    assert_eq!(s.edit.undo.as_deref(), Some("hi"));
     let _ = std::fs::remove_dir_all(&dir);
 }

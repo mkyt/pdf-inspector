@@ -19,6 +19,7 @@ use syn::file::Edits;
 use crate::convert::{self, value_of};
 use crate::dto::*;
 use crate::job::{Executor, Job};
+use crate::macros::{MacroHost, MacroRun};
 use crate::protocol::*;
 use crate::source::{Opened, SourceProvider};
 use crate::{content, edit, font, model};
@@ -149,6 +150,7 @@ pub struct Session {
     /// history locked, so that a check made under that lock holds.
     groups: Mutex<HashMap<DocId, GroupId>>,
     next_group: AtomicU64,
+    macros: OnceLock<Arc<dyn MacroHost>>,
 }
 
 pub type SubscriptionId = u64;
@@ -180,7 +182,28 @@ impl Session {
             bus: Arc::default(),
             groups: Mutex::default(),
             next_group: AtomicU64::new(1),
+            macros: OnceLock::new(),
         }
+    }
+
+    /// Run macro jobs and answer the stored-macro requests with `host`
+    /// (once; later calls are ignored).
+    pub fn set_macro_host(&self, host: Arc<dyn MacroHost>) {
+        let _ = self.macros.set(host);
+    }
+
+    fn macros(&self) -> Result<&Arc<dyn MacroHost>, ApiError> {
+        self.macros.get().ok_or_else(|| {
+            ApiError::new(
+                ErrorCode::Unsupported,
+                "this backend does not run macros itself",
+            )
+        })
+    }
+
+    /// Dispatch a [`ClientMessage`], in its edit group if it names one.
+    pub fn dispatch_message(&self, m: ClientMessage, cancel: &dyn Fn() -> bool) -> Reply {
+        self.dispatch_as(m.request, m.group, cancel)
     }
 
     /// Receive every event of this session until [`Session::unsubscribe`].
@@ -233,7 +256,7 @@ impl Session {
     /// error response with id 0.
     pub fn dispatch_json(&self, msg: &str) -> (RequestId, Reply) {
         match serde_json::from_str::<ClientMessage>(msg) {
-            Ok(m) => (m.id, self.dispatch(m.request)),
+            Ok(m) => (m.id, self.dispatch_message(m, &|| false)),
             Err(e) => (
                 0,
                 Reply {
@@ -312,12 +335,19 @@ impl Session {
         })
     }
 
-    /// Fails with `Busy` if an edit group other than `group` is open.
+    /// Fails with `Busy` if an edit group other than `group` is open, and
+    /// when `group` is not open (any more: a late edit of a macro that was
+    /// stopped must not land outside its group).
     fn check_group(&self, doc: DocId, h: &History, group: Option<GroupId>) -> Result<(), ApiError> {
-        if h.group().is_some() && lock(&self.groups).get(&doc).copied() != group {
-            return Err(busy(doc));
+        let open = lock(&self.groups).get(&doc).copied();
+        match group {
+            Some(g) if open != Some(g) => Err(ApiError::new(
+                ErrorCode::BadRequest,
+                format!("edit group {g} is not open on document {doc}"),
+            )),
+            None if h.group().is_some() => Err(busy(doc)),
+            _ => Ok(()),
         }
-        Ok(())
     }
 
     fn apply(
@@ -818,6 +848,28 @@ impl Session {
                 let d = self.doc(doc)?;
                 let j = match job {
                     JobKind::Save { path, mode } => self.start_save(d, path, mode)?,
+                    JobKind::Macro {
+                        name,
+                        source,
+                        params,
+                    } => {
+                        let host = self.macros()?.clone();
+                        let id = self.next_job.fetch_add(1, Ordering::Relaxed);
+                        let kind = JobKind::Macro {
+                            name: name.clone(),
+                            source: None,
+                            params: params.clone(),
+                        };
+                        let j = Arc::new(Job::new(id, d, kind, self.bus.clone()));
+                        lock(&self.jobs).insert(id, j.clone());
+                        let info = j.info();
+                        let run = MacroRun::new(j.clone(), name, source, params);
+                        std::thread::Builder::new()
+                            .name(format!("macro {id}"))
+                            .spawn(move || j.finish_macro(host.run(&run)))
+                            .map_err(|e| ApiError::new(ErrorCode::Internal, e.to_string()))?;
+                        return Ok(ResponseBody::Job(info));
+                    }
                     job => {
                         let id = self.next_job.fetch_add(1, Ordering::Relaxed);
                         Arc::new(Job::new(id, d, job, self.bus.clone()))
@@ -834,6 +886,34 @@ impl Session {
                 let j = self.job(job)?;
                 j.cancel();
                 Ok(ResponseBody::Job(j.info()))
+            }
+            Request::JobOutput {
+                job,
+                index,
+                offset,
+                len,
+            } => {
+                let len = check_chunk(len)?;
+                let (data, size) = self.job(job)?.output(index, offset, len).ok_or_else(|| {
+                    ApiError::new(
+                        ErrorCode::NotFound,
+                        format!("job {job} has no file {index}"),
+                    )
+                })?;
+                let eof = offset.saturating_add(data.len() as u64) >= size;
+                Ok(push_blob(
+                    blobs,
+                    data,
+                    BytesInfo {
+                        part: 0,
+                        offset,
+                        len: 0,
+                        total: Some(size),
+                        eof,
+                        stopped_at: None,
+                        errors: Vec::new(),
+                    },
+                ))
             }
             Request::JobDiagnostics { job, range } => {
                 let j = self.job(job)?;
@@ -856,6 +936,32 @@ impl Session {
             )),
             Request::Undo { doc } => Ok(ResponseBody::Edit(self.step_history(doc, false)?)),
             Request::Redo { doc } => Ok(ResponseBody::Edit(self.step_history(doc, true)?)),
+            Request::EditGroup { doc, action } => match action {
+                GroupAction::Begin { label } => Ok(ResponseBody::Group {
+                    group: self.begin_group(doc, label)?,
+                }),
+                GroupAction::Commit { group } => {
+                    Ok(ResponseBody::Edit(self.end_group(doc, group, true)?))
+                }
+                GroupAction::Abort { group } => {
+                    Ok(ResponseBody::Edit(self.end_group(doc, group, false)?))
+                }
+            },
+            Request::Macros => {
+                let (items, dir) = self.macros()?.list()?;
+                Ok(ResponseBody::Macros { items, dir })
+            }
+            Request::MacroSource { name } => {
+                let (info, code) = self.macros()?.source(&name)?;
+                Ok(ResponseBody::MacroSource { info, code })
+            }
+            Request::SaveMacro { name, code } => {
+                Ok(ResponseBody::Macro(self.macros()?.save(&name, &code)?))
+            }
+            Request::DeleteMacro { name } => {
+                self.macros()?.delete(&name)?;
+                Ok(ResponseBody::Empty)
+            }
             // Cancellation of queued requests happens in the transport; by
             // the time a request reaches the session it has started.
             Request::Cancel { .. } => Ok(ResponseBody::Empty),

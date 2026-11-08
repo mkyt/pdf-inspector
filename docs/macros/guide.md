@@ -137,12 +137,12 @@ await page.content.remove(hits);                             // 1 回の編集�
 マクロ自身は保存しない。`meta.save` は希望で、実際の保存はホストが行う。
 
 - CLI: `-o` / `--out-dir` / `--in-place` に保存する。`--save` で方法を上書きできる。`meta.edits` が false でも文書が変わっていれば、保存先があれば保存する
-- GUI（M16 / M17）: 未保存の編集として残り、`meta.save` を初期値にして保存を勧める
+- GUI（Web、macOS は M17）: 未保存の編集として残り、`meta.save` を初期値にして保存を勧める
 - 暗号化されたファイルや xref の壊れたファイルは incremental にできないので、full rewrite になる（暗号化は外れる）。owner password の除去は「空の user password で開いて full rewrite で保存」で実現できる（`remove-owner-password` が `save: "full"` でこれを行う）
 
 ## 出力
 
-| 種類 | CLI | GUI（M16 / M17） |
+| 種類 | CLI | GUI（Web、macOS は M17） |
 |---|---|---|
 | 返り値 | stdout に JSON（`--format json` / `jsonl` / `table`） | 表か JSON の木。コピー・書き出し |
 | `ctx.log` / `ctx.warn` / `console.*` | stderr（`-q` で消す） | ログ欄 |
@@ -163,6 +163,7 @@ await page.content.remove(hits);                             // 1 回の編集�
 
 - キャンセル（CLI の Ctrl-C、GUI のボタン）と `--timeout`。JavaScript を実行している最中でも止まる（ホスト関数を呼ばない無限ループでも）
 - 長い繰り返しでは `ctx.cancelled` を見て自分で抜けてもよい
+- ブラウザ完結モードでは、止めるとマクロの Worker ごと終わらせる（`ctx.cancelled` は true にならない。`finally` も走らない）。編集は文書を持つ側で戻す
 
 ## 使えるもの・処理系の違い
 
@@ -178,7 +179,9 @@ await page.content.remove(hits);                             // 1 回の編集�
 
 - `doc.apply(commands, label)` はプロトコルの `EditCommand` をそのまま適用する低水準の手段（値は PDF 構文の文字列）
 - `doc.raw.dispatch(request)` は生のプロトコル。何でもできるが、互換性は約束しない
-- ホストの側（`__host`）は `dispatch`・`waitJob`・`log`・`progress`・`emit`・`cancelled` の小さな関数群で、マクロからは直接使わない（prelude の先頭に説明がある）
+- ホストの側（`__host`）は `dispatch`・`waitJob`・`log`・`progress`・`emit`・`cancelled` の小さな関数群で、マクロからは直接使わない（prelude の先頭に説明がある）。native は `crates/pdfi-macro/src/engine.rs`、ブラウザは `apps/web/src/macro/engine.ts`
+- サーバー（と macOS）では、マクロの実行はプロトコルの `JobKind::Macro` のジョブ。ログは `MacroLog` イベント、進捗は `JobProgress`（`label` 付き）、結果は `JobResult::Macro`、`ctx.emit` のファイルは `JobOutput` で読む。ブラウザでは macro Worker が `EditGroup` で undo の単位を開き、要求に `ClientMessage.group` を付けて送る
+- 同梱のマクロは両方の処理系で実行して結果を突き合わせる（`tests/conformance/macros.json`、期待値は `macros-expected.json`。`UPDATE_CONFORMANCE=1 cargo test -p pdfi-macro --test conformance` で作り直す）
 
 ## API を変えるとき
 

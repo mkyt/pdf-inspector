@@ -10,6 +10,7 @@
 //! Native only: the browser runs the same prelude in a Worker of its own.
 
 pub mod engine;
+pub mod host;
 mod library;
 pub mod meta;
 pub mod params;
@@ -17,7 +18,7 @@ pub mod params;
 pub use engine::{
     Emitted, Level, LogFn, Outcome, ProgressFn, RunOptions, check_params, read_meta, run,
 };
-pub use library::{Library, Listed, MacroSource, Origin};
+pub use library::{Library, Listed, MacroSource, Origin, check_name};
 pub use meta::{FullOptions, Meta, Param, ParamType, SaveKind, SaveSpec};
 
 /// The public API, evaluated before every macro.

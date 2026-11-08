@@ -1115,6 +1115,7 @@ dependencies = [
  "futures-util",
  "getrandom 0.4.3",
  "pdfi-api",
+ "pdfi-macro",
  "pdfi-syntax",
  "rayon",
  "rust-embed",

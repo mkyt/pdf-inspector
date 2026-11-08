@@ -13,7 +13,7 @@ import { objText } from "../format";
 import { useNav } from "../nav";
 import type { NodePath } from "../protocol/generated";
 
-const highlight = HighlightStyle.define([
+export const jsHighlight = HighlightStyle.define([
   { tag: [t.keyword, t.controlKeyword, t.moduleKeyword, t.operatorKeyword], color: "var(--mantine-color-violet-text)", fontWeight: "600" },
   { tag: [t.definitionKeyword, t.modifier], color: "var(--mantine-color-violet-text)" },
   { tag: [t.string, t.special(t.string)], color: "var(--mantine-color-orange-text)" },
@@ -51,7 +51,7 @@ function ScriptCode({ text, height }: { text: string; height: number | string })
           search({ top: true }),
           keymap.of([...searchKeymap, ...foldKeymap]),
           javascript(),
-          syntaxHighlighting(highlight),
+          syntaxHighlighting(jsHighlight),
           EditorView.lineWrapping,
           theme,
           EditorView.darkTheme.of(dark),

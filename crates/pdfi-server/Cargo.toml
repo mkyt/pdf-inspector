@@ -11,6 +11,7 @@ anyhow = "1.0.104"
 axum = { version = "0.8.9", features = ["ws"] }
 getrandom = "0.4.3"
 pdfi-api = { version = "0.1.0", path = "../pdfi-api" }
+pdfi-macro = { version = "0.1.0", path = "../pdfi-macro" }
 pdfi-syntax = { version = "0.1.0", path = "../pdfi-syntax" }
 rayon = "1.12.0"
 rust-embed = { version = "8.13.0", features = ["mime-guess"] }

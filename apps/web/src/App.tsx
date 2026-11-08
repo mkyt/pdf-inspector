@@ -44,6 +44,7 @@ import {
 } from "./components/Icons";
 import { Inspector } from "./components/Inspector";
 import { Landmarks } from "./components/Landmarks";
+import { MacroPanel } from "./components/MacroPanel";
 import { ObjectList } from "./components/ObjectList";
 import { OpenDialog } from "./components/OpenDialog";
 import { SchemaPanel } from "./components/SchemaPanel";
@@ -57,7 +58,7 @@ import { SaveDialog } from "./components/SaveDialog";
 import { useJob } from "./jobs";
 import { useLayout, type Layout } from "./layout";
 import { contentKey, NavContext, sameTarget, type Nav, type Selection, type Target } from "./nav";
-import type { DocId, Span } from "./protocol/generated";
+import type { DocId, SaveMode, Span } from "./protocol/generated";
 import { DEFAULT_TAB, useRouter, type Router } from "./route";
 
 export function App() {
@@ -276,8 +277,8 @@ function DocView({ doc, router, layout }: { doc: DocId; router: Router; layout: 
   const [validation, setValidation] = useJob(doc);
   const [inventoryJob, setInventoryJob] = useJob(doc);
   const [inventoryError, setInventoryError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const openSave = useCallback(() => setSaving(true), []);
+  const [saving, setSaving] = useState<{ mode: SaveMode | null } | null>(null);
+  const openSave = useCallback((mode?: SaveMode) => setSaving({ mode: mode ?? null }), []);
   // Jobs ran on the document before it changed: their results no longer apply.
   useEffect(
     () =>
@@ -429,11 +430,22 @@ function DocView({ doc, router, layout }: { doc: DocId; router: Router; layout: 
                 </ActionIcon>
               </Tooltip>
               <Breadcrumbs />
+              <Button
+                size="compact-xs"
+                variant={t.kind === "macros" ? "light" : "subtle"}
+                color="gray"
+                ml="auto"
+                onClick={() => nav.open({ kind: "macros", stem: t.kind === "macros" ? t.stem : null })}
+              >
+                Macros
+              </Button>
               <EditControls />
             </Group>
             <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
               {t.kind === "document" ? (
                 <DocumentPanel />
+              ) : t.kind === "macros" ? (
+                <MacroPanel stem={t.stem} />
               ) : t.kind === "page" ? (
                 <PageView key={t.index} index={t.index} />
               ) : t.kind === "content" ? (
@@ -462,7 +474,7 @@ function DocView({ doc, router, layout }: { doc: DocId; router: Router; layout: 
             </>
           )}
         </div>
-        <SaveDialog doc={doc} opened={saving} onClose={() => setSaving(false)} />
+        <SaveDialog doc={doc} opened={saving !== null} mode={saving?.mode ?? null} onClose={() => setSaving(null)} />
         </EditProvider>
       </NavContext.Provider>
     </DocContext.Provider>
@@ -473,7 +485,7 @@ function DocView({ doc, router, layout }: { doc: DocId; router: Router; layout: 
 function EditControls() {
   const { status, undo, redo, openSave } = useEdit();
   return (
-    <Group gap={4} ml="auto" wrap="nowrap">
+    <Group gap={4} wrap="nowrap">
       <Tooltip label={status.undo ? `Undo ${status.undo} (Ctrl/⌘+Z)` : "Nothing to undo"}>
         <ActionIcon variant="subtle" disabled={!status.undo} onClick={undo} aria-label="Undo">
           <UndoIcon />
@@ -492,7 +504,7 @@ function EditControls() {
         </Tooltip>
       )}
       <Tooltip label="Save (Ctrl/⌘+S)">
-        <Button size="compact-xs" variant={status.dirty ? "filled" : "default"} onClick={openSave}>
+        <Button size="compact-xs" variant={status.dirty ? "filled" : "default"} onClick={() => openSave()}>
           Save…
         </Button>
       </Tooltip>

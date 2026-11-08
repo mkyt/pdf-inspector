@@ -149,6 +149,12 @@ impl PdfSession {
         )
     }
 
+    /// Like `dispatch`, on behalf of the holder of an edit group
+    /// (`Request::EditGroup`): its edits are allowed and join the group.
+    pub fn dispatch_in_group(&self, request: Request, group: u64) -> Result<Reply, PdfiError> {
+        reply(self.session.dispatch_in_group(request, group, &|| false))
+    }
+
     pub fn subscribe(&self, listener: Arc<dyn EventListener>) -> SubscriptionId {
         self.session
             .subscribe(move |ev| listener.on_event(ev.clone()))

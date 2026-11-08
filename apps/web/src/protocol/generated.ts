@@ -1,6 +1,6 @@
 // Generated from crates/pdfi-api by `UPDATE_TS=1 cargo test -p pdfi-api`. Do not edit.
 
-export const PROTOCOL_VERSION = 21;
+export const PROTOCOL_VERSION = 22;
 
 export type DocId = number;
 export type JobId = number;
@@ -1035,7 +1035,20 @@ eof: boolean,
  */
 stopped_at: string | null, errors: Array<string>, };
 
-export type JobKind = { "kind": "checkObjects", decode_streams: boolean, } | { "kind": "validate", root: ObjRef | null, } | { "kind": "inventory" } | { "kind": "fontUses", font: ObjRef, } | { "kind": "save", path: string | null, mode: SaveMode, };
+export type JobKind = { "kind": "checkObjects", decode_streams: boolean, } | { "kind": "validate", root: ObjRef | null, } | { "kind": "inventory" } | { "kind": "fontUses", font: ObjRef, } | { "kind": "save", path: string | null, mode: SaveMode, } | { "kind": "macro", 
+/**
+ * The name of a stored macro, or of `source` (shown in messages).
+ */
+name: string, 
+/**
+ * The code to run instead of the stored macro (an unsaved editor).
+ */
+source: string | null, 
+/**
+ * The raw parameters as a JSON object: JSON values, `bytes` as
+ * `{"$bytes": base64}`, `pdf` as `{"$doc": id}`.
+ */
+params: string, };
 
 export type JobState = "running" | "completed" | "cancelled" | "failed";
 
@@ -1054,7 +1067,67 @@ scanned: number, pages: number,
 /**
  * Text-showing operations.
  */
-uses: number, } | { "kind": "save" } & SaveResult;
+uses: number, } | { "kind": "save" } & SaveResult | { "kind": "macro" } & MacroResult;
+
+export type MacroResult = { 
+/**
+ * The default export's return value as JSON (`null` for none).
+ */
+value: string, 
+/**
+ * For a value that is a list of objects: their keys in the order the
+ * macro wrote them (the columns of a table).
+ */
+columns: Array<string> | null, 
+/**
+ * Files written with `ctx.emit` (read with `JobOutput`).
+ */
+emitted: Array<EmittedFile>, 
+/**
+ * Log lines were dropped (after `MAX_MACRO_LOG` of them).
+ */
+log_truncated: boolean, 
+/**
+ * `meta.edits`: the macro means to change the document.
+ */
+edits: boolean, 
+/**
+ * How the macro asks to be saved (`meta.save`).
+ */
+save: SaveMode, };
+
+export type EmittedFile = { name: string, mime: string | null, size: number, };
+
+export type LogLevel = "info" | "warn" | "error";
+
+export type MacroInfo = { 
+/**
+ * `meta.name` (the file name without `.js` when it cannot be read).
+ */
+name: string, 
+/**
+ * The file name without `.js`.
+ */
+stem: string, 
+/**
+ * Where it is (`bundled:<file>` for a bundled macro).
+ */
+file: string, bundled: boolean, 
+/**
+ * Its `meta` with the defaults filled in, as JSON (`None` when the
+ * macro cannot be evaluated).
+ */
+meta: string | null, 
+/**
+ * Why it cannot be evaluated, or what is wrong with its `meta`.
+ */
+error: string | null, 
+/**
+ * Hidden by a macro of the same name found before it.
+ */
+shadowed: boolean, };
+
+export type GroupAction = { "type": "begin", label: string, } | { "type": "commit", group: number, } | { "type": "abort", group: number, };
 
 export type InventoryStats = { objects: number, 
 /**
@@ -1147,7 +1220,12 @@ path: string | null, bytes: number, objects: number, warnings: Array<string>, };
 
 export type ChangeReason = "edit" | "undo" | "redo" | "saved";
 
-export type ClientMessage = { id: number, request: Request, };
+export type ClientMessage = { id: number, request: Request, 
+/**
+ * On behalf of the holder of this edit group (`EditGroup`): its edits
+ * are allowed and join the group.
+ */
+group?: number, };
 
 export type Request = { "op": "hello", protocol: number, } | { "op": "listDir", path: string | null, } | { "op": "open", source: OpenSource, password: string | null, 
 /**
@@ -1173,11 +1251,11 @@ fit: boolean, text: SvgText, } | { "op": "rawBytes", doc: number, offset: number
 /**
  * Decrypt and apply filters; otherwise the bytes as stored.
  */
-decoded: boolean, offset: number, len: number, } | { "op": "decodeImage", doc: number, id: ObjRef, reduce: number, } | { "op": "startJob", doc: number, job: JobKind, } | { "op": "jobStatus", job: number, } | { "op": "cancelJob", job: number, } | { "op": "jobDiagnostics", job: number, range: Range, } | { "op": "nodeSyntax", doc: number, path: NodePath, } | { "op": "keys", doc: number, path: NodePath, } | { "op": "script", doc: number, path: NodePath, } | { "op": "apply", doc: number, 
+decoded: boolean, offset: number, len: number, } | { "op": "decodeImage", doc: number, id: ObjRef, reduce: number, } | { "op": "startJob", doc: number, job: JobKind, } | { "op": "jobStatus", job: number, } | { "op": "cancelJob", job: number, } | { "op": "jobOutput", job: number, index: number, offset: number, len: number, } | { "op": "jobDiagnostics", job: number, range: Range, } | { "op": "nodeSyntax", doc: number, path: NodePath, } | { "op": "keys", doc: number, path: NodePath, } | { "op": "script", doc: number, path: NodePath, } | { "op": "apply", doc: number, 
 /**
  * What `Undo` will say it reverts.
  */
-label: string, commands: Array<EditCommand>, } | { "op": "undo", doc: number, } | { "op": "redo", doc: number, } | { "op": "cancel", request: number, } | { "op": "batch", requests: Array<Request>, };
+label: string, commands: Array<EditCommand>, } | { "op": "undo", doc: number, } | { "op": "redo", doc: number, } | { "op": "editGroup", doc: number, action: GroupAction, } | { "op": "macros" } | { "op": "macroSource", name: string, } | { "op": "saveMacro", name: string, code: string, } | { "op": "deleteMacro", name: string, } | { "op": "cancel", request: number, } | { "op": "batch", requests: Array<Request>, };
 
 export type Response = { "ok": ResponseBody } | { "err": ApiError };
 
@@ -1218,7 +1296,11 @@ errors: Array<string>, } | { "type": "keys",
 /**
  * `None` when no type is known (and `keys` is empty).
  */
-type_name: string | null, keys: Array<TypeKey>, } | { "type": "applied" } & ApplyResult | { "type": "saved", summary: DocSummary, result: SaveResult, } | { "type": "edit" } & EditStatus | { "type": "batch", responses: Array<Response>, } | { "type": "empty" };
+type_name: string | null, keys: Array<TypeKey>, } | { "type": "applied" } & ApplyResult | { "type": "saved", summary: DocSummary, result: SaveResult, } | { "type": "edit" } & EditStatus | { "type": "group", group: number, } | { "type": "macros", items: Array<MacroInfo>, 
+/**
+ * Where `SaveMacro` writes (`None`: macros cannot be saved).
+ */
+dir: string | null, } | { "type": "macroSource", info: MacroInfo, code: string, } | { "type": "macro" } & MacroInfo | { "type": "batch", responses: Array<Response>, } | { "type": "empty" };
 
 export type HelloInfo = { protocol: number, backend: string, version: string, 
 /**
@@ -1232,7 +1314,11 @@ export type ApiError = { code: ErrorCode, message: string, };
 
 export type ServerMessage = { "kind": "response", id: number, response: Response, } | { "kind": "event", event: Event, };
 
-export type Event = { "type": "docOpened", info: DocInfo, } | { "type": "docClosed", doc: number, } | { "type": "jobProgress", job: number, doc: number, done: number, total: number, } | { "type": "jobDone", info: JobInfo, } | { "type": "docChanged", doc: number, reason: ChangeReason, 
+export type Event = { "type": "docOpened", info: DocInfo, } | { "type": "docClosed", doc: number, } | { "type": "jobProgress", job: number, doc: number, done: number, total: number, 
+/**
+ * What is being done (macros' `ctx.progress`).
+ */
+label?: string, } | { "type": "macroLog", job: number, level: LogLevel, text: string, } | { "type": "jobDone", info: JobInfo, } | { "type": "docChanged", doc: number, reason: ChangeReason, 
 /**
  * The document as reopened (`Saved`).
  */

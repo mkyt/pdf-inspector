@@ -171,6 +171,13 @@ impl Library {
             let m = s.meta()?;
             return Ok((s, m));
         }
+        self.find(what)
+    }
+
+    /// A macro by name only (never a path): a file `<name>.js` of a user
+    /// directory, one whose `meta.name` is `name`, then a bundled macro.
+    pub fn find(&self, what: &str) -> Result<(MacroSource, Meta), MacroError> {
+        check_name(what)?;
         for d in &self.dirs {
             let p = d.join(format!("{what}.js"));
             if p.is_file() {
@@ -198,6 +205,76 @@ impl Library {
         }
         Err(MacroError::NotFound(format!(
             "no macro {what:?} (see `pdfi macro list`)"
+        )))
+    }
+}
+
+/// A name that is a file name of its own: letters, digits, `.`, `_`, `-`,
+/// not starting with `.`.
+pub fn check_name(name: &str) -> Result<(), MacroError> {
+    let ok = !name.is_empty()
+        && name.len() <= 200
+        && !name.starts_with('.')
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'));
+    if ok {
+        Ok(())
+    } else {
+        Err(MacroError::Invalid(format!(
+            "{name:?} is not a macro name (letters, digits, '.', '_' and '-')"
+        )))
+    }
+}
+
+impl Library {
+    /// The directory [`Library::save`] writes into: the first one.
+    pub fn save_dir(&self) -> Option<&Path> {
+        self.dirs.first().map(PathBuf::as_path)
+    }
+
+    /// Write `<stem>.js` into the first directory (made if missing),
+    /// replacing it; returns the stored macro.
+    pub fn save(&self, stem: &str, code: &str) -> Result<Listed, MacroError> {
+        let stem = stem.strip_suffix(".js").unwrap_or(stem);
+        check_name(stem)?;
+        let dir = self
+            .save_dir()
+            .ok_or_else(|| MacroError::Host("there is no macro directory to save into".into()))?;
+        std::fs::create_dir_all(dir)?;
+        let path = dir.join(format!("{stem}.js"));
+        let tmp = dir.join(format!(".{stem}.js.pdfi-tmp"));
+        std::fs::write(&tmp, code)?;
+        std::fs::rename(&tmp, &path)?;
+        let source = MacroSource::read(&path)?;
+        let meta = source.meta();
+        let mut l = Listed {
+            source,
+            meta,
+            shadowed: false,
+        };
+        let name = l.name().to_string();
+        l.shadowed = self
+            .list()
+            .iter()
+            .take_while(|o| o.source.origin != l.source.origin)
+            .any(|o| o.name() == name);
+        Ok(l)
+    }
+
+    /// Remove `<stem>.js` from the first user directory that has it.
+    pub fn delete(&self, stem: &str) -> Result<(), MacroError> {
+        let stem = stem.strip_suffix(".js").unwrap_or(stem);
+        check_name(stem)?;
+        for d in &self.dirs {
+            let p = d.join(format!("{stem}.js"));
+            if p.is_file() {
+                std::fs::remove_file(&p)?;
+                return Ok(());
+            }
+        }
+        Err(MacroError::NotFound(format!(
+            "no macro file {stem}.js in the macro directories"
         )))
     }
 }

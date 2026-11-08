@@ -21,26 +21,38 @@ declare global {
 const PDF_TYPES = [{ description: "PDF document", accept: { "application/pdf": [".pdf"] } }];
 
 /** Save the document: an incremental update or a full rewrite, over the file or to another one. */
-export function SaveDialog({ doc, opened, onClose }: { doc: DocId; opened: boolean; onClose: () => void }) {
+export function SaveDialog({
+  doc,
+  opened,
+  mode,
+  onClose,
+}: {
+  doc: DocId;
+  opened: boolean;
+  /** Chosen at first (a macro's `meta.save`). */
+  mode?: SaveMode | null;
+  onClose: () => void;
+}) {
   return (
     <Modal opened={opened} onClose={onClose} title="Save" size="lg">
-      {opened && <Form doc={doc} onClose={onClose} />}
+      {opened && <Form doc={doc} initial={mode ?? null} onClose={onClose} />}
     </Modal>
   );
 }
 
-function Form({ doc, onClose }: { doc: DocId; onClose: () => void }) {
+function Form({ doc, initial, onClose }: { doc: DocId; initial: SaveMode | null; onClose: () => void }) {
   const backend = useBackend();
   const qc = useQueryClient();
   const { summary } = useDoc();
   const { status, report } = useEdit();
   const browser = backend.saveFile !== undefined;
   const incremental = status.no_incremental === null;
-  const [full, setFull] = useState(!incremental);
-  const [xrefStream, setXrefStream] = useState(true);
-  const [objectStreams, setObjectStreams] = useState(true);
-  const [compress, setCompress] = useState(true);
-  const [removeUnused, setRemoveUnused] = useState(false);
+  const asked = initial?.kind === "full" ? initial : null;
+  const [full, setFull] = useState(!incremental || asked !== null);
+  const [xrefStream, setXrefStream] = useState(asked?.xref_stream ?? true);
+  const [objectStreams, setObjectStreams] = useState(asked?.object_streams ?? true);
+  const [compress, setCompress] = useState(asked?.compress ?? true);
+  const [removeUnused, setRemoveUnused] = useState(asked?.remove_unused ?? false);
   const [path, setPath] = useState(summary.info.path ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

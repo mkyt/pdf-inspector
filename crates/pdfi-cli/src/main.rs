@@ -393,6 +393,7 @@ fn main() -> Result<()> {
                     roots: root,
                     port,
                     dev_origins: dev_origin,
+                    macros: None,
                 },
                 !no_open,
             )

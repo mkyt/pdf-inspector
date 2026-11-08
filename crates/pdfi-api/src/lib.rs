@@ -14,6 +14,7 @@ pub mod dto;
 mod edit;
 mod font;
 pub mod job;
+pub mod macros;
 mod model;
 pub mod protocol;
 mod session;
@@ -22,6 +23,7 @@ mod ts;
 
 pub use dto::*;
 pub use job::{Executor, QueueExecutor, Task, ThreadExecutor};
+pub use macros::{MAX_MACRO_LOG, MacroHost, MacroOutput, MacroReporter, MacroRun};
 pub use protocol::*;
 pub use session::{GroupId, MAX_CHUNK, MAX_PAGE, SaveStream, Session, SubscriptionId};
 pub use source::{NoFilesystem, Opened, SaveTarget, SourceProvider};

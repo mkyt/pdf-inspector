@@ -34,6 +34,8 @@ export function SchemaPanel() {
         return <PageType index={target.index} />;
       case "font":
         return <TypeView root={{ kind: "object", id: target.id }} title={objText(target.id)} />;
+      case "macros":
+        return <CatalogType />;
     }
   }
   const { node, path } = selection;
