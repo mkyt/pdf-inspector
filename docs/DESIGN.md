@@ -15,6 +15,7 @@
 > - v2.10: M10 実装で確定した事項を §4.1 / §4.7 / §4.8 / §4.9 / §5.3 に追記（スナップショットとしての編集レイヤ、コマンドとトランザクション、undo / redo、ページ操作、Info と XMP の同期、チャンク単位の書き出し、保存ジョブと Worker からの保存、プロトコル v13）
 > - v2.12: M4（macOS）の着手で確定した事項を §4.10 に追記（単一の型付き dispatch、DTO の UniFFI 対応、スレッド、保存と undo の経路）
 > - v2.11: M11 実装で確定した事項を §4.5 / §4.8 / §6 / §8 に追記（命令列の差分適用と元バイトの再利用、ストリームの割り当て、折りたたみのブロック、プロトコル v14、命令列エディタの表とテキストモード、CodeMirror 6）
+> - v2.13: PDFium バックエンドを取りやめ（自作レンダラで足り、複雑さに見合わない）。M13 はレンダリング回帰テストだけにし、確定した形を §7 に追記
 
 ## 1. ゴール
 
@@ -30,7 +31,7 @@
 
 | 項目 | 決定 |
 |---|---|
-| レンダラ | **自作レンダラ**と **PDFium** を切り替え可能。Web は自作のみ（wasm） |
+| レンダラ | **自作レンダラ**のみ（v2.13 で PDFium との切り替えを取りやめ） |
 | 初期の編集範囲 | オブジェクト / ストリーム直接編集、content stream の命令列編集、ページ操作、メタ情報 |
 | 電子署名 | 構造表示のみ。検証は不要。保存時に署名を壊す操作は警告 |
 | マクロ | future plan（既存言語を優先して選定）。v1 には含めない |
@@ -38,7 +39,7 @@
 | ライセンス | 未定。**商用利用を妨げない依存のみ**を採用（§8） |
 | 大規模ファイル | ローカル実行で数百 MB / 数千ページをサポート。API はすべて遅延・範囲指定（§5） |
 | 対象ブラウザ | **Chromium 系**（Chrome / Edge 等）。Safari・Firefox は対象外 |
-| Web | **2 モード両対応**: ① ブラウザ完結（Worker 内の wasm、インストール不要）② ローカルサーバー（`pdfi serve`、native の速度・並列性・PDFium・直接保存）。同一の React + Mantine UI |
+| Web | **2 モード両対応**: ① ブラウザ完結（Worker 内の wasm、インストール不要）② ローカルサーバー（`pdfi serve`、native の速度・並列性・直接保存）。同一の React + Mantine UI |
 
 ### 非ゴール（v1）
 - WYSIWYG なテキスト / 図形編集（命令列編集で代替）
@@ -64,7 +65,7 @@
 │ pdfi-api : Session / Handle / Request・Response・Event / Job / EditCommand │
 ├──────────────────────────────────────────────────────────────────────────┤
 │ pdfi-edit    : EditCommand, Transaction, undo/redo, writer         │
-│ pdfi-render  : Renderer trait ── raster(自作) │ pdfium(native only) │
+│ pdfi-render  : raster(自作)                                         │
 │ pdfi-content : CS 解析・命令列モデル・インタプリタ・display list      │
 │ pdfi-font / pdfi-image : フォント・画像デコード                      │
 │ pdfi-model   : pages, resources, metadata, outline, annots, ...    │
@@ -93,7 +94,7 @@ crates/
   pdfi-font/      フォント解析（TrueType / CFF / Type1 / Type3 / CMap / ToUnicode）とグリフアウトライン
   pdfi-image/     画像デコード（JPEG / JPX / JBIG2 / CCITT / raw）、色空間変換
   pdfi-content/   content stream の命令列モデル、validation、インタプリタ、display list
-  pdfi-render/    Renderer trait, raster バックエンド（自作）, pdfium バックエンド（feature）
+  pdfi-render/    raster バックエンド（自作）
   pdfi-edit/      EditCommand, Transaction, undo/redo, 保存（incremental / full）
   pdfi-api/       ファサード + プロトコル。Session, Request/Response/Event, DTO, Job, EditCommand
   pdfi-ffi/       UniFFI バインディング（Swift。将来 C#）
@@ -285,8 +286,7 @@ pub struct RenderRequest { scale: f32, clip: Option<Rect>, until_op: Option<usiz
 
 - **raster バックエンド（自作）**: display list → 2D ラスタライザ。ラスタライザは `tiny-skia`（BSD-3）と `vello_cpu`（Apache-2.0/MIT）を評価して採用。wasm / native 共通
   - 段階的に対応: path・塗り・線・クリップ・画像 → テキスト（埋め込み / 代替フォント）→ shading・pattern → 透明度グループ・soft mask・blend mode → 特殊色空間（Separation / DeviceN / overprint は近似）
-- **pdfium バックエンド（native only, cargo feature）**: `pdfium-render` 経由。動的ロードで PDFium バイナリを同梱。リファレンス表示 / 自作レンダラとの**差分比較ビュー**にも使う
-  - PDFium には編集後のドキュメントを渡す必要があるため、Overlay を含めたバイト列をストリーミング出力して渡す（大きいファイルでは incremental 形式の一時ファイルで高速化）
+- **pdfium バックエンド**: v2.13 で取りやめ（自作レンダラで足り、バイナリの同梱・編集後のバイト列の受け渡し・2 つの描画の食い違いの扱いに見合わない）。描画の正しさはレンダリング回帰テスト（§7）で守る
 - **タイルレンダリング**: `clip` 指定で表示中の領域だけ描画。サムネイルは低倍率で別キャッシュ。古いリクエストは `CancelToken` でキャンセル
 
 ### 4.7 pdfi-edit — 編集と保存
@@ -396,7 +396,7 @@ doc.save(SaveOptions, sink: Box<dyn ByteSink>) -> JobId
 - **ファイルの開き方**: ブラウザからはパスを渡せないため、CLI 引数 / サーバー側ファイルブラウザ（ユーザーが起動時に許可したルート配下のみ）/ 最近使ったファイル。巨大ファイルのアップロードはしない
 - **保存**: サーバー側で直接パスに書き出し（上書き・別名保存）。上書き時は一時ファイル → atomic rename
 - **セッション**: ドキュメント状態（Overlay, undo 履歴）はサーバーが保持。ブラウザのリロード・再接続後も継続。明示的に閉じるかアイドルタイムアウトで解放
-- **並列性**: ジョブ・タイル描画を `rayon` で並列実行。PDFium バックエンドも選択可能
+- **並列性**: ジョブ・タイル描画を `rayon` で並列実行
   - M10: 保存はジョブ（`JobKind::Save`）。`SourceProvider::create` が書き出し先（`SaveTarget`）を作り、同じディレクトリの一時ファイル（`.<名前>.<乱数>.pdfi-tmp`）に書いてから `rename` で置き換え、開き直して文書を差し替える。書けるのは開けるのと同じ範囲（既存のファイルなら許可されたファイル、新しいファイルなら許可ルート配下の既存のディレクトリ）。開いている元のファイルは置き換え後も読める（unix では古い inode を読み続ける）
   - M8: 接続ごとのリクエストは 1 本のスレッドで順に処理し、`Render` / `HitTest` だけ rayon のプールに回す（応答は ID で対応づくので順不同でよい）。`Cancel` は未着手なら破棄、実行中の描画は数百命令ごとの確認で止まる（`ErrorCode::Cancelled`）
 - **セキュリティ**（必須要件）
@@ -482,7 +482,7 @@ public actor DocumentSession {
 - **ドキュメント管理は `NSDocument`**: SwiftUI の `FileDocument` / `ReferenceFileDocument` は `FileWrapper` 経由で内容を読むため、数百 MB の PDF には不向き。`NSDocument.read(from: URL, ofType:)` で URL を受け取り、Rust に渡して mmap させる。保存は `write(to:ofType:)` で受けた一時 URL へ Rust がストリーミング出力し、置き換えは NSDocument に任せる（undo は Rust 側の履歴を `NSUndoManager` と連携）
 - **UI は AppKit の土台（NSDocument / NSWindowController）に SwiftUI の画面を `NSHostingView` で載せる**構成
 - **App Sandbox**: パネル・ブックマークで得た URL は Swift 側で security-scoped access を開始してから Rust にパスを渡し、mmap している間は維持する
-- **ビルド・配布**: `aarch64-apple-darwin` / `x86_64-apple-darwin` をビルド → `lipo` → `xcodebuild -create-xcframework` → SwiftPM の `binaryTarget` + 生成 Swift ソースでパッケージ化。PDFium は dylib としてアプリに同梱（M13）
+- **ビルド・配布**: `aarch64-apple-darwin` / `x86_64-apple-darwin` をビルド → `lipo` → `xcodebuild -create-xcframework` → SwiftPM の `binaryTarget` + 生成 Swift ソースでパッケージ化
 - **並列処理**: `rayon` のスレッドプールは Rust 側で保持。Swift 側で並列化しない
 - **最低バージョン**: 最新の macOS を前提とする（デプロイメントターゲットは開発開始時点の最新メジャー）。Observation (`@Observable`)、最新の SwiftUI API を制約なく使う
 
@@ -506,7 +506,7 @@ public actor DocumentSession {
 |---|---|---|
 | 想定用途 | インストールなしでさっと見る、中小規模の PDF | 数百 MB / 数千ページ、全体 validation、重い編集 |
 | 性能 | native の 1.5〜2 倍程度遅い、単一スレッド | native、マルチスレッド |
-| レンダラ | 自作のみ | 自作 / PDFium |
+| レンダラ | 自作 | 自作（タイルを並列に描く） |
 | 保存 | File System Access API | パスへ直接 |
 | 状態の永続性 | タブ単位 | サーバープロセス単位（リロード耐性あり） |
 
@@ -571,7 +571,11 @@ UI は同じものを使い、起動経路（静的ホスティング or `pdfi s
 - 単体テスト（各層）、**round-trip テスト**（parse → write → parse で等価、未変更なら byte 一致）
 - **命令列 round-trip**（ops → serialize → parse で一致、未変更 op は byte 一致）
 - **cargo-fuzz**: lexer / parser / xref / filters / content stream / フォント / 画像
-- レンダリングの回帰テスト: 自作 vs PDFium の画像差分（しきい値付き）をコーパスで実行
+- **レンダリングの回帰テスト**（M13）: 描画を基準の PNG と比べる（`crates/pdfi-render/tests/regression.rs`）
+  - フィクスチャ（`render` / `paint` / `fonts` / `content` / `model` / `annots`）の全ページを 1 px/pt で描き、`tests/render/<名前>-p<ページ>.png` と比べる。注釈のあるページは注釈の層（`Layer::Annots`）も `-annots` として透明な下地のまま比べる。比べるのは乗算済みの RGBA
+  - しきい値: どれかのチャンネルが 3 を超えて違う画素を「違う」とし、違う画素は全体の 0.1 % まで、32 を超えて違う画素は 4 個まで許す（CPU による SIMD の丸めや縁のアンチエイリアスは通し、小さいグリフ 1 つ（6×7 px）の変化は落とす）。合わないときは描画と差分の画像（基準を薄く、違う画素を赤く）を `target/render-regression/` に書く。基準の無いページ・無くなったページも失敗
+  - 基準の更新は `UPDATE_RENDER=1 cargo test -p pdfi-render --test regression`（`make render-baselines`）。まだ合っている基準は書き換えないので、git の差分が変わったページだけになる。描画を変えたら差分を目で確かめてから基準をコミットする
+  - コーパス: `PDFI_RENDER_CORPUS=<dir>` で `<dir>` 以下の PDF（各ファイルの先頭 `PDFI_RENDER_PAGES` ページ、既定 5）も比べる。基準は `<dir>/.render-baseline/<相対パス>/p<ページ>.png` に置き（リポジトリには入れない）、基準の無いファイルは飛ばす。ファイルごとに並列
 - 大規模ファイルのベンチマーク: 起動時間、ページ i の表示時間、ピークメモリ（CI では合成した巨大 PDF を使用）
 - **プロトコル適合テスト**: 同一のテストシナリオを Rust 直呼び / wasm（Node or headless browser）/ サーバー（WebSocket）/ UniFFI（Swift の XCTest）の 4 経路で実行し、結果が一致することを確認
   - シナリオは `tests/conformance/scenario.json`、期待結果は `tests/conformance/expected.json`（Rust 直呼びの結果。`UPDATE_CONFORMANCE=1 cargo test -p pdfi-api --test conformance` で再生成）。各経路はこれと比較する: `pdfi-api/tests/conformance.rs`、`pdfi-server/tests/server.rs`（WebSocket）、`apps/web/scripts/conformance.ts`（Node で wasm + Worker の `Host`）。Swift は M4
@@ -601,7 +605,6 @@ UI は同じものを使い、起動経路（静的ホスティング or `pdfi s
 | 定義済み CMap | Adobe cmap-resources / mapping-resources-pdf（TeX Live adobemapping） | BSD-3 | M12 の後で採用（`crates/pdfi-font/assets/LICENSE_CMAPS`） |
 | 標準 14 の幅・グリフ名 | Adobe Core14 AFM、Adobe Glyph List | 再配布可 / BSD-3 | M9 で表に生成して内蔵 |
 | ラスタライザ | `tiny-skia` / `vello_cpu` | BSD-3 / Apache/MIT | M8 で tiny-skia を採用 |
-| PDFium | `pdfium-render` + PDFium バイナリ | MIT/Apache + BSD-3/Apache | PDFium 内の FreeType は FTL（表示義務あり） |
 | 暗号 | RustCrypto（`aes`, `cbc`, `md-5`, `sha2`, `rc4`） | MIT/Apache | |
 | XMP | `quick-xml` | MIT | |
 | スキーマ | Arlington PDF Model | Apache-2.0 | |
@@ -631,7 +634,7 @@ UI は同じものを使い、起動経路（静的ホスティング or `pdfi s
 | **M10** | pdfi-edit: EditCommand、undo/redo、incremental / full 保存（ストリーミング。server はパスへ直接、wasm は File System Access API）、オブジェクト・ストリーム編集、ページ操作、メタ情報 | 編集して保存 |
 | **M11** | 命令列エディタ（構造編集 + テキストモード）、命令列シリアライズ | content stream を命令列として編集 |
 | **M12** | 自作レンダラ (3): shading、pattern、透明度、soft mask、blend、ICC / Separation / DeviceN、JPX / JBIG2 / CCITT | 描画の網羅性 |
-| **M13** | pdfium バックエンド（server / macOS）、自作との差分比較ビュー、レンダリング回帰テスト | レンダラ切替 |
+| **M13** | レンダリング回帰テスト（v2.13 で PDFium バックエンドと差分比較ビューは取りやめ） | 描画の変化が CI で分かる |
 
 ※ M10 は M7 と並行着手可能（依存は M1/M6 のみ）。M11 は M7 + M10 に依存。M3 は M2 直後に置き、wasm 制約を早期に検証する。
 

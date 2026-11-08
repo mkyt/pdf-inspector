@@ -21,5 +21,9 @@ pdfi-syntax = { version = "0.1.0", path = "../pdfi-syntax" }
 tiny-skia = { version = "0.12.0", default-features = false, features = ["std", "simd"] }
 zune-jpeg = { version = "0.5.15", default-features = false, features = ["std"] }
 
+[dev-dependencies]
+# PNG files for the baselines of tests/regression.rs.
+tiny-skia = { version = "0.12.0", default-features = false, features = ["std", "simd", "png-format"] }
+
 [lints]
 workspace = true

@@ -8,7 +8,7 @@
 
 .DEFAULT_GOAL := help
 .PHONY: help setup setup-rust setup-web all cli web wasm web-dev core core-debug \
-	macos macos-open fixtures test test-web test-macos lint fmt deny check clean
+	macos macos-open fixtures test render-baselines test-web test-macos lint fmt deny check clean
 
 WEB := apps/web
 MACOS := apps/macos
@@ -74,6 +74,9 @@ fixtures: ## Regenerate tests/fixtures (python3 + fontTools, qpdf)
 
 test: ## Rust tests
 	cargo test --workspace
+
+render-baselines: ## Rewrite tests/render after a rendering change (check `git diff` first)
+	UPDATE_RENDER=1 cargo test -p pdfi-render --test regression
 
 test-web: web ## Conformance scenario through the wasm build
 	cd $(WEB) && npm run test:conformance

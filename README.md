@@ -110,7 +110,9 @@ UPDATE_CONFORMANCE=1 cargo test -p pdfi-api --test conformance   # 適合テス�
 (cd apps/web && npm run build:wasm && npm run test:conformance)  # 同じシナリオを wasm で実行
 cargo test -p pdfi-ffi                    # 同じシナリオを FFI（macOS の経路）で実行
 swift test --package-path apps/macos/PdfInspectorKit             # Swift から（先に apps/macos/scripts/build-core.sh）
-tests/fixtures/make.sh                    # フィクスチャ再生成（python3 + fontTools, qpdf が必要）
+UPDATE_RENDER=1 cargo test -p pdfi-render --test regression   # 描画の基準画像（tests/render）を再生成（git diff で確かめてから）
+PDFI_RENDER_CORPUS=~/pdfs cargo test --release -p pdfi-render --test regression corpus   # 手元のコーパスも描画を比べる（基準は ~/pdfs/.render-baseline）
+tests/fixtures/make.sh                    # フィクスチャ再生成（python3 + fontTools, qpdf が必要）（変えたら描画の基準画像も再生成）
 scripts/make-large-pdf.py big.pdf --pages 3000 --image-kib 100   # 大きな合成 PDF（約 300 MB）
 scripts/corpus-check.sh <dir> [--decode]  # 手元の PDF 群で qpdf とページ数を突き合わせ
 ```
