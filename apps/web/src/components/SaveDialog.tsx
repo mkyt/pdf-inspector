@@ -87,11 +87,31 @@ function Form({ doc, onClose }: { doc: DocId; onClose: () => void }) {
     }
   };
 
-  const saveAs = async () => {
-    if (!window.showSaveFilePicker) {
-      setError("This browser cannot write files (it needs the File System Access API: Chrome or Edge).");
-      return;
+  // No File System Access API (Safari, Firefox): written in memory, then downloaded.
+  const saveDownload = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.saveFile(backend, doc, mode, { download: summary.info.name });
+      if (r.file) {
+        const url = URL.createObjectURL(r.file);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = r.file.name;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      }
+      setResult({ ...r.result, path: null });
+      void qc.invalidateQueries({ queryKey: ["docs"] });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
     }
+  };
+
+  const saveAs = async () => {
+    if (!window.showSaveFilePicker) return saveDownload();
     let handle: FileSystemFileHandle;
     try {
       handle = await window.showSaveFilePicker({ suggestedName: summary.info.name, types: PDF_TYPES });
@@ -119,7 +139,7 @@ function Form({ doc, onClose }: { doc: DocId; onClose: () => void }) {
         <Alert color="teal" p={8}>
           <Text size="xs">
             Wrote {bytesText(result.bytes)} ({result.objects.toLocaleString()} objects)
-            {result.path && ` to ${result.path}`}. The document was reopened from the saved file; the undo history starts
+            {result.path ? ` to ${result.path}` : " and downloaded it"}. The document was reopened from the saved file; the undo history starts
             over.
           </Text>
         </Alert>
@@ -237,7 +257,7 @@ function Form({ doc, onClose }: { doc: DocId; onClose: () => void }) {
               </Button>
             )}
             <Button size="xs" loading={busy} onClick={() => void saveAs()}>
-              Save as…
+              {window.showSaveFilePicker ? "Save as…" : "Download"}
             </Button>
           </>
         ) : (

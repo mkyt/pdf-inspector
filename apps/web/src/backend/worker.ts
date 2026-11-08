@@ -75,7 +75,7 @@ export class WorkerBackend implements Backend {
     const p = this.pending.get(msg.id);
     if (!p) return;
     this.pending.delete(msg.id);
-    if ("ok" in msg.response) p.resolve({ body: msg.response.ok, blobs: out.blobs });
+    if ("ok" in msg.response) p.resolve({ body: msg.response.ok, blobs: out.blobs, file: out.file });
     else p.reject(new ApiFailure(msg.response.err.code, msg.response.err.message));
   }
 
@@ -111,7 +111,7 @@ export class WorkerBackend implements Backend {
     return this.post((id) => ({ kind: "open", id, file, name: file.name, password, recover }));
   }
 
-  async saveFile(doc: DocId, mode: SaveMode, handle: FileSystemFileHandle): Promise<Reply> {
+  async saveFile(doc: DocId, mode: SaveMode, handle: FileSystemFileHandle | { download: string }): Promise<Reply> {
     await this.ready;
     return this.post((id) => ({ kind: "save", id, doc, mode, handle: handle as unknown as SaveHandle }));
   }

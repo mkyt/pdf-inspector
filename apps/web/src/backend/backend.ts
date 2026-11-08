@@ -4,6 +4,8 @@ import type { DocId, Event, Request, ResponseBody, SaveMode } from "../protocol/
 export interface Reply {
   body: ResponseBody;
   blobs: Uint8Array[];
+  /** A save without a file handle: the written file, to download. */
+  file?: File;
 }
 
 export type ConnectionState = "connecting" | "open" | "closed";
@@ -22,9 +24,10 @@ export interface Backend {
   /**
    * Write a document with its edits to a file the user picked, then reopen
    * it from there (browser mode; the server saves with a `save` job).
-   * Answers `saved`.
+   * Answers `saved`. With `{ download }` instead of a handle (no File System
+   * Access API) the file is written in memory and comes back as `Reply.file`.
    */
-  saveFile?(doc: DocId, mode: SaveMode, handle: FileSystemFileHandle): Promise<Reply>;
+  saveFile?(doc: DocId, mode: SaveMode, handle: FileSystemFileHandle | { download: string }): Promise<Reply>;
 }
 
 export class ApiFailure extends Error {

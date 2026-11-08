@@ -12,7 +12,7 @@ export type Inbound =
   /** Answered like `Request::Open`; files cannot travel inside JSON. */
   | { kind: "open"; id: RequestId; file: Blob; name: string; password: string | null; recover: boolean }
   /** Write `doc` to the file, then reopen it from there; answered `saved`. */
-  | { kind: "save"; id: RequestId; doc: DocId; mode: SaveMode; handle: SaveHandle };
+  | { kind: "save"; id: RequestId; doc: DocId; mode: SaveMode; handle: SaveHandle | { download: string } };
 
 /** What saving needs of a `FileSystemFileHandle`. */
 export interface SaveHandle {
@@ -24,8 +24,30 @@ export interface SaveHandle {
   getFile(): Promise<File>;
 }
 
-/** Worker → main thread: a JSON `ServerMessage` plus the binary parts of a response. */
-export type Outbound = { text: string; blobs: Uint8Array[] } | { fatal: string };
+/**
+ * Worker → main thread: a JSON `ServerMessage` plus the binary parts of a
+ * response; `file` is a save written in memory, for the page to download.
+ */
+export type Outbound = { text: string; blobs: Uint8Array[]; file?: File } | { fatal: string };
+
+/** Without the File System Access API: collect the bytes into a `File`. */
+function memoryHandle(name: string): SaveHandle {
+  let file: File | null = null;
+  return {
+    createWritable: async () => {
+      const parts: Uint8Array[] = [];
+      return {
+        write: async (data) => void parts.push(data.slice()),
+        close: async () => void (file = new File(parts as BlobPart[], name, { type: "application/pdf" })),
+        abort: async () => void (parts.length = 0),
+      };
+    },
+    getFile: async () => {
+      if (!file) throw new Error("nothing was written");
+      return file;
+    },
+  };
+}
 
 export interface HostOptions {
   session: Pick<
@@ -124,8 +146,10 @@ export class Host {
   /** Stream the document into the file chunk by chunk, then reopen it from the file. */
   private async save(m: Extract<Inbound, { kind: "save" }>) {
     const { session } = this.opts;
+    const download = "download" in m.handle;
+    const handle = "download" in m.handle ? memoryHandle(m.handle.download) : m.handle;
     try {
-      const out = await m.handle.createWritable();
+      const out = await handle.createWritable();
       let result: SaveResult;
       let id: number | null = null;
       try {
@@ -143,7 +167,7 @@ export class Host {
         await out.abort().catch(() => {});
         throw e;
       }
-      const file = await m.handle.getFile();
+      const file = await handle.getFile();
       const reply = session.reload(m.id, m.doc, this.opts.source(file), file.name);
       const msg = JSON.parse(reply.message) as ServerMessage;
       reply.free();
@@ -152,7 +176,7 @@ export class Host {
         msg.response = { ok: { type: "saved", summary, result: { ...result, path: file.name } } };
       }
       this.flushEvents();
-      this.send(msg);
+      this.opts.post({ text: JSON.stringify(msg), blobs: [], file: download ? file : undefined });
     } catch (e) {
       this.flushEvents();
       const message = e instanceof Error ? e.message : String(e);
