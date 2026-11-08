@@ -4,7 +4,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 9, backend speaks 18"
+        "message": "client speaks protocol 9, backend speaks 19"
       }
     }
   },
@@ -13,7 +13,7 @@
     "response": {
       "err": {
         "code": "versionMismatch",
-        "message": "client speaks protocol 999, backend speaks 18"
+        "message": "client speaks protocol 999, backend speaks 19"
       }
     }
   },
@@ -5208,6 +5208,15 @@
       "err": {
         "code": "notFound",
         "message": "no such node"
+      }
+    }
+  },
+  {
+    "blobs": [],
+    "response": {
+      "err": {
+        "code": "badRequest",
+        "message": "not a script: neither a string, a stream nor an action with /JS"
       }
     }
   },

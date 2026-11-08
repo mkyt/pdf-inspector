@@ -10,7 +10,7 @@ use ts_rs::TS;
 use crate::dto::*;
 
 /// Bumped on every incompatible change; checked by `Hello`.
-pub const PROTOCOL_VERSION: u32 = 18;
+pub const PROTOCOL_VERSION: u32 = 19;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[cfg_attr(feature = "ffi", derive(uniffi::Record))]
@@ -306,6 +306,12 @@ pub enum Request {
         doc: DocId,
         path: NodePath,
     },
+    /// The text of a script: the /JS of the JavaScript action at `path`,
+    /// or the string or stream there (references followed).
+    Script {
+        doc: DocId,
+        path: NodePath,
+    },
     /// Apply edits as one undoable step: all of them or none.
     Apply {
         doc: DocId,
@@ -404,6 +410,17 @@ pub enum ResponseBody {
         text: String,
         /// Longer than what is returned: not editable as text.
         truncated: bool,
+    },
+    Script {
+        /// Decoded as a text string (UTF-16BE or UTF-8 with a BOM, else
+        /// PDFDocEncoding), the stream's data decoded first.
+        text: String,
+        /// Longer than what is returned.
+        truncated: bool,
+        /// The stream holding the script, when it is one.
+        stream: Option<ObjRef>,
+        /// Decoding errors: the text stops where they happened.
+        errors: Vec<String>,
     },
     Keys {
         /// `None` when no type is known (and `keys` is empty).

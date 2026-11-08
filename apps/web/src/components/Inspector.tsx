@@ -10,6 +10,7 @@ import { severityColor } from "./DiagnosticsPanel";
 import { ImagePreview } from "./ImagePreview";
 import { IssueList } from "./Issues";
 import { Referrers } from "./Referrers";
+import { ScriptView } from "./ScriptView";
 import { StreamPanel } from "./StreamPanel";
 import { NodeChildren, TreeEditContext } from "./Tree";
 import { ValueEditor, type ValueEdit } from "./ValueEditor";
@@ -153,25 +154,41 @@ function ObjectInspector({ id, onEdit }: { id: ObjRef; onEdit: (e: ValueEdit) =>
       <Referrers id={o.id} />
       {o.stream && <ImagePreview id={o.id} info={o.stream} />}
       {o.stream && <ContentLink id={o.id} />}
-      <Tabs defaultValue="structure" keepMounted={false}>
-        <Tabs.List>
-          <Tabs.Tab value="structure">Structure</Tabs.Tab>
-          {o.stream && <Tabs.Tab value="stream">Stream data</Tabs.Tab>}
-          <Tabs.Tab value="source">Source</Tabs.Tab>
-        </Tabs.List>
-        <Tabs.Panel value="structure" pt="xs">
-          <Structure o={o} />
-        </Tabs.Panel>
-        {o.stream && (
-          <Tabs.Panel value="stream" pt="xs">
-            <StreamPanel id={o.id} info={o.stream} />
-          </Tabs.Panel>
-        )}
-        <Tabs.Panel value="source" pt="xs">
-          <Source o={o} />
-        </Tabs.Panel>
-      </Tabs>
+      <ObjectTabs o={o} />
     </Stack>
+  );
+}
+
+/** Structure, stream data, source; the script first for a JavaScript action. */
+function ObjectTabs({ o }: { o: ObjectView }) {
+  const s = useSchema({ kind: "object", id: o.id });
+  if (s.isPending) return null;
+  const script = s.data?.type_name === "ActionECMAScript";
+  return (
+    <Tabs defaultValue={script ? "script" : "structure"} keepMounted={false}>
+      <Tabs.List>
+        {script && <Tabs.Tab value="script">JavaScript</Tabs.Tab>}
+        <Tabs.Tab value="structure">Structure</Tabs.Tab>
+        {o.stream && <Tabs.Tab value="stream">Stream data</Tabs.Tab>}
+        <Tabs.Tab value="source">Source</Tabs.Tab>
+      </Tabs.List>
+      {script && (
+        <Tabs.Panel value="script" pt="xs">
+          <ScriptView path={{ root: { kind: "object", id: o.id }, path: [] }} />
+        </Tabs.Panel>
+      )}
+      <Tabs.Panel value="structure" pt="xs">
+        <Structure o={o} />
+      </Tabs.Panel>
+      {o.stream && (
+        <Tabs.Panel value="stream" pt="xs">
+          <StreamPanel id={o.id} info={o.stream} />
+        </Tabs.Panel>
+      )}
+      <Tabs.Panel value="source" pt="xs">
+        <Source o={o} />
+      </Tabs.Panel>
+    </Tabs>
   );
 }
 

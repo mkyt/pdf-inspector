@@ -1266,3 +1266,71 @@ fn edit_operations_of_a_content() {
     let blank = content_summary(&s, doc, ContentRef::Page { index: 0 });
     assert_eq!((blank.ops, blank.errors), (3, 0));
 }
+
+#[test]
+fn script_of_actions_strings_and_streams() {
+    let (s, _) = session();
+    let doc = open(&s, "model.pdf", None).info.doc;
+    let add = |value: &str, data: Option<&str>| {
+        apply(
+            &s,
+            doc,
+            vec![EditCommand::AddObject {
+                value: value.into(),
+                data: data.map(|t| StreamPayload::Text { text: t.into() }),
+            }],
+        )
+        .created[0]
+    };
+    let script = |root: ObjRef, path: Vec<u32>| {
+        s.dispatch(Request::Script {
+            doc,
+            path: NodePath {
+                root: NodeRoot::Object { id: root },
+                path,
+            },
+        })
+    };
+    let text_of = |r: Reply| match ok(r).0 {
+        ResponseBody::Script {
+            text,
+            truncated,
+            stream,
+            errors,
+        } => {
+            assert!(!truncated && errors.is_empty(), "{errors:?}");
+            (text, stream)
+        }
+        b => panic!("{b:?}"),
+    };
+
+    // A string, from the action and from its /JS entry.
+    let a = add("<< /S /JavaScript /JS (app.alert\\(\"hi\"\\);) >>", None);
+    assert_eq!(
+        text_of(script(a, vec![])),
+        ("app.alert(\"hi\");".into(), None)
+    );
+    assert_eq!(text_of(script(a, vec![1])).0, "app.alert(\"hi\");");
+
+    // A stream through a reference, in an array of actions.
+    let js = add("<< >>", Some("var x = 1;\n// done\n"));
+    let list = add(
+        &format!(
+            "[ << /S /JavaScript /JS {} {} R >> ]",
+            js.num, js.generation
+        ),
+        None,
+    );
+    assert_eq!(
+        text_of(script(list, vec![0])),
+        ("var x = 1;\n// done\n".into(), Some(js))
+    );
+    assert_eq!(text_of(script(js, vec![])).1, Some(js));
+
+    // UTF-16BE with a BOM.
+    let u = add("<< /S /JavaScript /JS <FEFF00E9> >>", None);
+    assert_eq!(text_of(script(u, vec![])).0, "é");
+
+    let r = script(list, vec![]);
+    assert!(matches!(r.response, Response::Err(e) if e.code == ErrorCode::BadRequest));
+}

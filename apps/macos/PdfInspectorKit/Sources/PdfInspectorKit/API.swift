@@ -8,6 +8,16 @@ public struct Bytes: Sendable {
 
 /// Typed wrappers over the protocol, one per request (like
 /// `apps/web/src/api.ts`).
+/// A script's text (`Backend.script`).
+public struct ScriptText: Sendable {
+    public let text: String
+    /// Longer than what is returned.
+    public let truncated: Bool
+    /// The stream holding it, when it is one.
+    public let stream: ObjRef?
+    public let errors: [String]
+}
+
 extension Backend {
     private func call<T>(
         _ request: Request, _ pick: (ResponseBody) -> T?
@@ -374,6 +384,16 @@ extension Backend {
     {
         try await call(.keys(doc: doc, path: path)) {
             if case .keys(let typeName, let keys) = $0 { (typeName, keys) } else { nil }
+        }
+    }
+
+    /// The text of the script at `path`: a JavaScript action's /JS, or a
+    /// string or stream.
+    public func script(_ doc: DocId, path: NodePath) async throws -> ScriptText {
+        try await call(.script(doc: doc, path: path)) {
+            if case .script(let text, let truncated, let stream, let errors) = $0 {
+                ScriptText(text: text, truncated: truncated, stream: stream, errors: errors)
+            } else { nil }
         }
     }
 

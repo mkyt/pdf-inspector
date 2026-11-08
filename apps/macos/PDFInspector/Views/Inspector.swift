@@ -65,7 +65,9 @@ private struct ObjectInspector: View {
     @State private var error: String?
     @State private var tab: Tab = .structure
 
-    enum Tab: Hashable { case structure, stream, source }
+    enum Tab: Hashable { case script, structure, stream, source }
+
+    private var isScript: Bool { schema?.typeName == "ActionECMAScript" }
 
     var body: some View {
         let _ = Perf.tick("ObjectInspector")
@@ -88,6 +90,9 @@ private struct ObjectInspector: View {
                 object = nil
             }
             schema = try? await model.backend.schema(model.doc, root: .object(id: id))
+            // A JavaScript action opens on its script.
+            if isScript && tab == .structure { tab = .script }
+            if !isScript && tab == .script { tab = .structure }
         }
     }
 
@@ -96,6 +101,7 @@ private struct ObjectInspector: View {
             header(o)
                 .padding(10)
             Picker("View", selection: $tab) {
+                if isScript { Text("JavaScript").tag(Tab.script) }
                 Text("Structure").tag(Tab.structure)
                 if o.stream != nil { Text("Stream data").tag(Tab.stream) }
                 Text("Source").tag(Tab.source)
@@ -107,6 +113,8 @@ private struct ObjectInspector: View {
             .padding(.bottom, 6)
             Divider()
             switch tab {
+            case .script:
+                ScriptView(model: model, path: NodePath(root: .object(id: o.id), path: []))
             case .structure:
                 structure(o)
             case .stream:

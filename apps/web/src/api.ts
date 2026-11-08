@@ -83,6 +83,14 @@ async function call<T extends ResponseBody["type"]>(
   return { body: r.body as Body<T>, blobs: r.blobs };
 }
 
+export interface ScriptText {
+  text: string;
+  truncated: boolean;
+  /** The stream holding it, when it is one. */
+  stream: ObjRef | null;
+  errors: string[];
+}
+
 export interface Bytes {
   info: BytesInfo;
   data: Uint8Array;
@@ -263,21 +271,26 @@ export const api = {
     const r = (await call(b, "keys", { op: "keys", doc, path })).body;
     return { type_name: r.type_name, keys: r.keys };
   },
+  /** The text of the script at `path`: a JavaScript action's /JS, or a string or stream. */
+  script: async (b: Backend, doc: DocId, path: NodePath): Promise<ScriptText> => {
+    const { text, truncated, stream, errors } = (await call(b, "script", { op: "script", doc, path })).body;
+    return { text, truncated, stream, errors };
+  },
   apply: async (b: Backend, doc: DocId, label: string, commands: EditCommand[]): Promise<ApplyResult> =>
     (await call(b, "applied", { op: "apply", doc, label, commands })).body,
   undo: async (b: Backend, doc: DocId): Promise<EditStatus> => (await call(b, "edit", { op: "undo", doc })).body,
   redo: async (b: Backend, doc: DocId): Promise<EditStatus> => (await call(b, "edit", { op: "redo", doc })).body,
-  /** Browser mode: write to a file the user picked. */
+  /** Browser mode: write to a file the user picked, or (`{ download }`) to a file to download. */
   saveFile: async (
     b: Backend,
     doc: DocId,
     mode: SaveMode,
-    handle: FileSystemFileHandle,
-  ): Promise<{ summary: DocSummary; result: SaveResult }> => {
+    handle: FileSystemFileHandle | { download: string },
+  ): Promise<{ summary: DocSummary; result: SaveResult; file?: File }> => {
     if (!b.saveFile) throw new Error("this backend saves to paths, not files");
     const r = await b.saveFile(doc, mode, handle);
     if (r.body.type !== "saved") throw new Error(`expected saved, got ${r.body.type}`);
-    return { summary: r.body.summary, result: r.body.result };
+    return { summary: r.body.summary, result: r.body.result, file: r.file };
   },
   startJob: async (b: Backend, doc: DocId, job: JobKind): Promise<JobInfo> =>
     (await call(b, "job", { op: "startJob", doc, job })).body,

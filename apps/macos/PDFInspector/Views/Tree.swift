@@ -82,6 +82,7 @@ struct NodeRow: View {
     let depth: Int
     let label: String
     @State private var open = false
+    @State private var script = false
     @Environment(\.editValue) private var editValue
     @Environment(\.inspectorDocument) private var document
 
@@ -127,6 +128,9 @@ struct NodeRow: View {
                 if let t = schema?.valueType {
                     Text(t).foregroundStyle(.teal)
                 }
+                if isScript {
+                    LinkButton("JavaScript") { script = true }
+                }
                 Spacer(minLength: 4)
                 if let schema, let w = schema.issues.worst {
                     Circle()
@@ -150,11 +154,32 @@ struct NodeRow: View {
             }
             .help(node.span.map { "bytes \($0.text)" } ?? "")
             .contextMenu { menu }
+            .sheet(isPresented: $script) {
+                VStack(alignment: .leading, spacing: 0) {
+                    ScriptView(model: model, path: NodePath(root: parent.root, path: parent.path + [node.index]))
+                    HStack {
+                        Text(here).font(.caption).monospaced().foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Done") { script = false }.keyboardShortcut(.defaultAction)
+                    }
+                    .padding(8)
+                }
+                .frame(minWidth: 640, idealWidth: 820, minHeight: 420, idealHeight: 620)
+            }
             if open && expandable {
                 // Following a reference starts a new location: the referenced object.
                 let childLabel = if case .ref = v { "" } else { here }
                 NodeChildren(model: model, path: childPath, depth: depth + 1, label: childLabel)
             }
+        }
+    }
+
+    /// The /JS of an action: a string, or a reference to a stream.
+    private var isScript: Bool {
+        guard node.key == "JS" else { return false }
+        switch node.value {
+        case .string, .ref, .stream: return true
+        default: return false
         }
     }
 

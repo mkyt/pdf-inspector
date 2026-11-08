@@ -1,4 +1,4 @@
-import { ActionIcon, Anchor, Button, Loader, Menu, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { ActionIcon, Anchor, Button, Loader, Menu, Modal, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { createContext, useContext, useState } from "react";
 import { api, useBackend } from "../api";
@@ -8,6 +8,7 @@ import { useNav } from "../nav";
 import type { NodePath, NodeView } from "../protocol/generated";
 import { severityColor } from "./DiagnosticsPanel";
 import { worst } from "./Issues";
+import { ScriptView } from "./ScriptView";
 import classes from "./Tree.module.css";
 import type { ValueEdit } from "./ValueEditor";
 
@@ -64,6 +65,7 @@ export function NodeChildren({ path, depth, label = "" }: { path: NodePath; dept
 function NodeRow({ parent, node, depth, label }: { parent: NodePath; node: NodeView; depth: number; label: string }) {
   const nav = useNav();
   const [open, setOpen] = useState(false);
+  const [script, setScript] = useState(false);
   const v = node.value;
   const expandable = depth < MAX_DEPTH && (hasChildren(v) || v.type === "ref");
   const childPath: NodePath =
@@ -118,6 +120,11 @@ function NodeRow({ parent, node, depth, label }: { parent: NodePath; node: NodeV
           )}
           {schema?.value_type && <span className={classes.schemaType}>{schema.value_type}</span>}
         </UnstyledButton>
+        {isScript(node) && (
+          <Button size="compact-xs" variant="subtle" onClick={() => setScript(true)}>
+            JavaScript
+          </Button>
+        )}
         <RowMenu parent={parent} node={node} here={here} />
         {issue && schema && (
           <Tooltip
@@ -131,8 +138,19 @@ function NodeRow({ parent, node, depth, label }: { parent: NodePath; node: NodeV
         )}
       </div>
       {open && expandable && <NodeChildren path={childPath} depth={depth + 1} label={childLabel} />}
+      {script && (
+        <Modal opened onClose={() => setScript(false)} title={here} size="xl">
+          <ScriptView path={{ root: parent.root, path: [...parent.path, node.index] }} height="70vh" />
+        </Modal>
+      )}
     </>
   );
+}
+
+/** The /JS of an action: a string, or a reference to a stream. */
+function isScript(node: NodeView): boolean {
+  const v = node.value;
+  return node.key === "JS" && (v.type === "string" || v.type === "ref" || v.type === "stream");
 }
 
 /** Edits of one entry: its value, what it holds, removing it. */

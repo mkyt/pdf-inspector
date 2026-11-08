@@ -725,6 +725,7 @@ impl Session {
             }
             Request::NodeSyntax { doc, path } => node_syntax(&*self.doc(doc)?, &path),
             Request::Keys { doc, path } => keys(&*self.doc(doc)?, &path),
+            Request::Script { doc, path } => script(&*self.doc(doc)?, &path),
             Request::Apply {
                 doc,
                 label,
@@ -1148,6 +1149,86 @@ fn type_keys(ck: &schema::Checker, t: schema::Ty, c: Option<Container>) -> Vec<T
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// Most bytes of a script `Script` decodes.
+const MAX_SCRIPT: usize = 4 << 20;
+
+fn script(d: &Doc, path: &NodePath) -> Result<ResponseBody, ApiError> {
+    let not_found = || ApiError::new(ErrorCode::NotFound, "no such node");
+    let mut id = None;
+    let mut cur = match &path.root {
+        NodeRoot::Trailer => Object::Dict(d.file.trailer().clone()),
+        NodeRoot::Object { id: i } => {
+            id = Some((*i).into());
+            d.file.get((*i).into())?.node.obj.clone()
+        }
+    };
+    for &i in &path.path {
+        let i = i as usize;
+        let next = match &cur {
+            Object::Dict(x) | Object::Stream(syn::Stream { dict: x, .. }) => {
+                x.get_index(i).map(|(_, v)| v.obj.clone())
+            }
+            Object::Array(a) => a.get(i).map(|v| v.obj.clone()),
+            _ => None,
+        }
+        .ok_or_else(not_found)?;
+        id = None;
+        cur = next;
+    }
+    // Follow references, and from an action to its /JS.
+    for _ in 0..34 {
+        cur = match cur {
+            Object::Ref(r) => {
+                let o = d.file.get(r)?;
+                id = Some(o.id);
+                o.node.obj.clone()
+            }
+            Object::Dict(x) if x.get_key("JS").is_some() => {
+                id = None;
+                x.get_key("JS").cloned().unwrap_or(Object::Null)
+            }
+            _ => break,
+        };
+    }
+    let mut errors = Vec::new();
+    let (bytes, truncated, stream) = match &cur {
+        Object::String(s) => {
+            let n = s.bytes.len().min(MAX_SCRIPT);
+            (s.bytes[..n].to_vec(), n < s.bytes.len(), None)
+        }
+        Object::Stream(s) => {
+            let sid = id.ok_or_else(|| ApiError::new(ErrorCode::BadRequest, "direct stream"))?;
+            let (mut r, chain) = d.file.decoded_reader(sid, s);
+            if let Some(f) = &chain.stopped_at {
+                errors.push(format!("/{} is not decoded", convert::name_text(f)));
+            }
+            let mut data = Vec::new();
+            if let Err(e) = (&mut r).take(MAX_SCRIPT as u64 + 1).read_to_end(&mut data) {
+                errors.push(e.to_string());
+            }
+            errors.extend(r.errors().iter().cloned());
+            let truncated = data.len() > MAX_SCRIPT;
+            data.truncate(MAX_SCRIPT);
+            (data, truncated, Some(sid.into()))
+        }
+        _ => {
+            return Err(ApiError::new(
+                ErrorCode::BadRequest,
+                "not a script: neither a string, a stream nor an action with /JS",
+            ));
+        }
+    };
+    if d.file.security().is_some_and(|s| !s.is_authenticated()) {
+        errors.push("file is encrypted and no valid password was given".into());
+    }
+    Ok(ResponseBody::Script {
+        text: convert::text_of(&bytes),
+        truncated,
+        stream,
+        errors,
+    })
 }
 
 /// Longest text `NodeSyntax` returns.

@@ -480,7 +480,8 @@ function hover(resources: () => ResourceItem[]) {
 
 // ------------------------------------------------------------------- setup
 
-const theme = EditorView.theme({
+/** The editor's look, shared by the script view. */
+export const theme = EditorView.theme({
   "&": { fontSize: "12px", height: "100%", backgroundColor: "var(--mantine-color-body)", color: "var(--mantine-color-text)" },
   "&.cm-focused": { outline: "none" },
   ".cm-scroller": { fontFamily: "var(--mantine-font-family-monospace)", lineHeight: "1.5" },
