@@ -16,6 +16,8 @@
 > - v2.12: M4（macOS）の着手で確定した事項を §4.10 に追記（単一の型付き dispatch、DTO の UniFFI 対応、スレッド、保存と undo の経路）
 > - v2.11: M11 実装で確定した事項を §4.5 / §4.8 / §6 / §8 に追記（命令列の差分適用と元バイトの再利用、ストリームの割り当て、折りたたみのブロック、プロトコル v14、命令列エディタの表とテキストモード、CodeMirror 6）
 > - v2.13: PDFium バックエンドを取りやめ（自作レンダラで足り、複雑さに見合わない）。M13 はレンダリング回帰テストだけにし、確定した形を §7 に追記
+> - v2.14: マクロの設計を確定し、§10 から §4.11 に移した（データのそばで実行: native は QuickJS、Web はマクロ専用の Worker でブラウザの JS。公開 API は prelude で版を付ける。パラメータは宣言したものだけ。CLI の一括処理。安全のための隔離はしない。ドキュメントは `pdfi.d.ts` を唯一の出どころにする）。M14〜M17 を追加
+> - v2.15: macOS アプリの App Sandbox をやめた（§4.10）。マクロのディレクトリは CLI と共有する（§4.11）
 
 ## 1. ゴール
 
@@ -481,10 +483,174 @@ public actor DocumentSession {
 #### macOS 固有の設計判断
 - **ドキュメント管理は `NSDocument`**: SwiftUI の `FileDocument` / `ReferenceFileDocument` は `FileWrapper` 経由で内容を読むため、数百 MB の PDF には不向き。`NSDocument.read(from: URL, ofType:)` で URL を受け取り、Rust に渡して mmap させる。保存は `write(to:ofType:)` で受けた一時 URL へ Rust がストリーミング出力し、置き換えは NSDocument に任せる（undo は Rust 側の履歴を `NSUndoManager` と連携）
 - **UI は AppKit の土台（NSDocument / NSWindowController）に SwiftUI の画面を `NSHostingView` で載せる**構成
-- **App Sandbox**: パネル・ブックマークで得た URL は Swift 側で security-scoped access を開始してから Rust にパスを渡し、mmap している間は維持する
+- **App Sandbox は使わない**（v2.15）: ローカルで使うアプリで App Store では配布しないため。パスはそのまま Rust に渡し、security-scoped access もブックマークも使わない。CLI と同じ場所（マクロのディレクトリなど）を読み書きできる
 - **ビルド・配布**: `aarch64-apple-darwin` / `x86_64-apple-darwin` をビルド → `lipo` → `xcodebuild -create-xcframework` → SwiftPM の `binaryTarget` + 生成 Swift ソースでパッケージ化
 - **並列処理**: `rayon` のスレッドプールは Rust 側で保持。Swift 側で並列化しない
 - **最低バージョン**: 最新の macOS を前提とする（デプロイメントターゲットは開発開始時点の最新メジャー）。Observation (`@Observable`)、最新の SwiftUI API を制約なく使う
+
+### 4.11 pdfi-macro — マクロ（JavaScript）
+
+ユーザーが書く JavaScript で、情報の抽出（フォント一覧・メタデータ）や定型の編集（目次の流し込み、見開き・綴じ方向、トンボや透かしの除去、CropBox の詰め、owner password の除去など）を行う。よく使うものは保存しておき、CLI と GUI から呼び出す。CLI では複数のファイルにまとめて実行する。
+
+#### 実行する場所と処理系
+
+「文書を持つ `Session` のそばで動かす」で統一する。サーバーモードでもブラウザでは動かさない（命令列を読むたびに WebSocket を往復することになるため）。
+
+| 構成 | 処理系 | 実行する場所 |
+|---|---|---|
+| CLI（`pdfi macro run`） | QuickJS（`rquickjs`） | 同じプロセス。ファイルごとに `Session` の文書と処理系の実行環境を 1 つずつ |
+| サーバー（`pdfi serve`） | QuickJS | サーバー。`JobKind::Macro` として専用のスレッドで |
+| macOS | QuickJS | アプリのプロセス。`pdfi-ffi` 経由で `JobKind::Macro`（wasm を使わないので CLI・サーバーと同じ実装） |
+| Web（ブラウザ完結） | ブラウザの JS | **マクロ専用の Worker**。文書を持つ Worker（`WasmSession`）とは `MessageChannel` でつなぐ |
+
+- QuickJS は native でだけビルドする（wasm32 向けに C をビルドする必要は無い）。下位 crate は wasm32 でビルドできる、という原則（§2）は変わらない。`pdfi-macro` は native 専用の crate で、`pdfi-api` の上に置く
+- Web でマクロを専用の Worker で動かすのは、暴走したマクロ（ホスト関数を呼ばない無限ループなど）を `terminate()` で止めても、文書を持つ Worker と未保存の編集が残るようにするため。マクロの実行中も描画などの要求は止まらない
+- 処理系の違いは ECMAScript 本体（ES2023 の範囲）だけ。ホスト API はどちらでも同じ prelude（後述）で提供し、同梱のマクロを両方の経路で実行して結果を突き合わせる（§7 の適合テストと同じ形）
+- TypeScript は v1 では扱わない（pure JS のみ）。ただし型定義（`pdfi.d.ts`）は配布する。エディタでの補完と `// @ts-check` に使う
+
+#### 層の構成
+
+```
+マクロ（ユーザーの .js）
+  └─ prelude.js     … 公開 API（doc / page / content / pdf 値 / ctx）。JS で書き、すべての処理系で共通
+       └─ __host    … 内部用の小さなホスト関数群（下記）。処理系ごとに実装する
+            ├─ native: pdfi-macro（Rust）→ Session の Rust API
+            └─ Web:    macro Worker（TS）→ MessagePort → WasmSession.dispatch
+```
+
+- **スクリプトとの互換性を約束するのは prelude だけ**（`meta.api` で版を指定）。プロトコルは今後も変わるので、その変化は prelude の中で吸収する。生のプロトコルを使う逃げ道（`doc.raw.dispatch`）はあるが、互換性は約束しない
+- prelude のソースは 1 つ（`crates/pdfi-macro/js/prelude.js`）。native は `include_str!` で組み込み、Web は Vite でそのファイルを取り込む
+- `__host`（内部用。マクロからは直接使わない）: `dispatch(request) → Promise<{ body, parts: Uint8Array[] }>`、`waitJob(id) → Promise<JobStatus>`（native はイベントを待つ。Web は文書を持つ Worker 側でステップを回す）、`log(level, text)`、`progress(done, total, label)`、`emit(name, bytes, mime)`、`cancelled() → bool`
+- **API はすべて async**。ホスト関数は Promise を返し、処理系はジョブのキューを 1 つずつ実行するたびに、キャンセルと実行時間を確かめる。Web ではホスト関数の呼び出しそのものが Worker 間の非同期なメッセージになる
+
+#### スクリプトの形
+
+1 ファイルの ES module で、`import` は使えない（v1）。
+
+```js
+// @ts-check
+/// <reference path="pdfi.d.ts" />
+export const meta = {
+  api: 1,
+  name: "set-reading",                 // 呼び出しに使う名前（ファイル名から付けてもよい）
+  title: "見開き・綴じ方向",
+  description: "PageLayout と ViewerPreferences/Direction を設定する",
+  edits: true,                         // 文書を変えるか（false なら CLI で -o は要らない）
+  save: "incremental",                 // 保存方法の希望: "incremental" | "full" | { full オプション }
+  params: {
+    layout:    { type: "enum", values: ["SinglePage", "OneColumn", "TwoPageLeft", "TwoPageRight"], default: "TwoPageRight" },
+    direction: { type: "enum", values: ["L2R", "R2L"], default: "R2L" },
+  },
+};
+
+/** @param {pdfi.Doc} doc @param {{layout: string, direction: string}} params @param {pdfi.Context} ctx */
+export default async function (doc, params, ctx) {
+  await doc.catalog.set("PageLayout", pdf.name(params.layout));
+  await doc.catalog.dict("ViewerPreferences", { create: true }).set("Direction", pdf.name(params.direction));
+  return { layout: params.layout, direction: params.direction };
+}
+```
+
+- `meta` はモジュールを評価して読む。トップレベルでは文書の API を使えない（一覧を作るときに文書無しで評価するため）
+- **パラメータは宣言したものだけ**。実行の途中で対話的に入力を求める手段は設けない（CLI の一括処理と挙動を揃えるため）。型: `string` / `number` / `integer` / `boolean` / `enum` / `pages`（`"1-3,8"` を 1 始まりで書き、0 始まりの番号の配列で受け取る）/ `json`（JSON ファイルか、その場で書いた値）/ `text`・`bytes`（ファイルの中身）/ `pdf`（別の文書。読み取り専用で開いた `Doc` を受け取る。ページの挿入に使う）。`default` / `optional` / `description` を付けられる。検証と既定値の補完は実行前にホストが行う
+- 番号の数え方: API のページ番号は 0 始まり（プロトコルと同じ）。人が書くもの（`pages` パラメータ、CLI）だけを 1 始まりにする
+
+#### 公開 API（prelude）の概略
+
+詳細は `pdfi.d.ts`（下記「ドキュメント」）で定め、ここでは形だけを示す。
+
+- **PDF の値**: 読み取ると、数・真偽値・null・配列は JS の値に、名前は `Name`、文字列は `PdfString`（`.text` は復号済みのテキスト、`.bytes` はバイト列）、参照は `Ref`、辞書とストリームは遅延して読むハンドル `Node` になる。書き込みでは JS の値・プレーンなオブジェクト（辞書）・`pdf.name()` / `pdf.str()` / `pdf.ref()` / `pdf.raw("<< … >>")` を受け付ける。JS の文字列は PDF のテキスト文字列として書き、名前にするには `pdf.name()` で明示する。キーには `"PageLayout"` と `"/PageLayout"` のどちらも使える
+- **`Node`**: `get(key)`、`dict(key, {create})`、`set(key, value)`、`remove(key)`、`keys()`、`entries()`、`ref`、ストリームなら `data({decoded})`・`setData()`
+- **`Doc`**: `pageCount`、`page(i)`、`pages(range?)`（async iterator。範囲取得は中で行う）、`catalog`、`trailer`、`object(ref)`、`info()` / `setInfo(fields, {syncXmp})`、`xmp()`、`encryption`、`outline()` / `setOutline(items)`、`pageLabels()` / `setPageLabels(ranges)`、`fonts()` / `images()`（インベントリジョブを中で実行して待つ）、`deletePages` / `movePages` / `rotatePages` / `insertBlankPage` / `insertPages(from: Doc, …)`、`apply(commands, label?)`（`EditCommand` をそのまま使う低水準の手段）、`raw.dispatch(request)`
+- **`Page`**: `index`、`ref`、`node`、`boxes()`（継承を解決した Media / Crop / Bleed / Trim / Art とその出所）、`setBox(name, rect)`、`rotate`、`label`、`resources()`、`annotations()`、`content`
+- **`Content`**: `count()`、`ops(range?)`（`OpView` の async iterator）、`bounds()`（描画範囲）、`text(range?)`、**`find(query)`**、`remove(ranges)`、`replace(range, text)`、`insert(before, text)`
+- **`ctx`**: `log` / `warn`（`console.*` も同じ所へ）、`progress(done, total, label?)`、`cancelled`、`emit(name, data, mime?)`（ファイルを出力する）、`input`（ファイル名などの情報。パスは渡さない）、`host`（`"cli" | "server" | "macos" | "web"`）
+- 提供するのは ECMAScript の組み込みと `console`、`TextEncoder` / `TextDecoder`。ファイル・ネットワーク・タイマー・`import` の API は用意しないが、**これはサンドボックスではない**（ローカルで動かす前提なので、安全のための隔離はしない）。入力ファイルはパラメータ（`json` / `text` / `bytes` / `pdf`）で受け取ることで、CLI と GUI で同じ書き方にする。Web の macro Worker でブラウザの API（`fetch` など）が見えても塞がない
+
+#### 命令列の検索と除去（native）
+
+全ページの `OpView` を JS に渡すと数千万件になり得るので、候補を絞る処理は native で行う。新しいリクエスト `ContentFind { content, query, range }` を足し、JS のコールバックは絞り込んだ後の結果にだけ使う。
+
+```js
+const hits = await page.content.find({
+  operators: ["re", "f"],                       // 演算子
+  markedContent: { tag: ["Artifact"], properties: { Subtype: "Watermark" } },
+  ocg: (name) => /watermark/i.test(name),        // prelude で OCG の名前を参照に解決してから native に渡す
+  colorSpace: { separation: "All" },             // レジストレーションカラー
+  bbox: { outside: (await page.boxes()).trim },  // inside / outside / intersects
+  text: "CONFIDENTIAL",
+  unit: "element",                               // "op" | "element" | "block"
+});
+await page.content.remove(hits);
+```
+
+- 結果の単位（`unit`）は、命令 1 つ（`op`）、**描画要素**（`element`。パスの構築から描画演算子・クリップまで、`BT…ET` の中のテキスト表示命令、`Do`、`sh`、インライン画像）、それを囲む `q…Q` / `BDC…EMC` のブロック（`block`）のいずれか。描画演算子だけを消すと、残ったパスの構築が次のパスにつながってしまうので、既定は `element`
+- 戻り値は命令の範囲の列（重なりはまとめる）。`remove` は `EditOps` の `Replace { text: "" }` にする
+- フォーム XObject の中は検索するが、v1 で消せるのはページの命令列の中だけ（`Do` 単位）。フォームは複数のページから共有されることがあるため
+
+#### 編集・保存とその単位
+
+- `apply` やその他の編集はその場で反映し、後の読み取りには反映後の内容が見える。**マクロ 1 回の実行を 1 つの undo 単位**（ラベルは `meta.title`）にまとめる。例外・キャンセル・制限超過のときは、実行前の状態に戻す
+  - `pdfi-edit` の履歴に `begin_group(label)` / `commit_group()` / `abort_group()` を足す。プロトコルでは `EditGroup { doc, action: begin | commit | abort }`（Web の macro Worker が使う。native は Rust から直接呼ぶ）
+  - 実行中は、その文書への他の編集（UI からの `Apply` / `Undo` / `Redo`）を `ErrorCode::Busy` で断る。読み取りはできる
+- マクロ自身は保存しない。`meta.save` は保存方法の希望で、実際の保存はホストが行う（GUI は実行後にその方法を初期値にして保存を勧め、CLI は `--save` で上書きできる）。暗号化されたファイルは今までどおり full rewrite になる。owner password の除去は「空の user password で開いて full rewrite で保存」で実現できる（`meta.save: "full"`）
+- 新しい `EditCommand`: `SetOutline { items }`（しおりの木を丸ごと置き換える。`/First` / `/Last` / `/Next` / `/Prev` / `/Parent` / `/Count` は native で組み立てる）、`SetPageLabels { ranges }`。いずれも UI からも使える
+
+#### 出力
+
+| 種類 | GUI（Web / macOS） | CLI |
+|---|---|---|
+| 編集 | 未保存の編集として残る（undo できる） | `-o` / `--out-dir` / `--in-place` に保存する。`meta.edits` が true なのにどれも無ければエラー（`--dry-run` は保存しない） |
+| 返り値（JSON にできる値） | フラットなオブジェクトの配列なら表、それ以外は JSON の木。コピー・JSON / CSV の書き出し | stdout に JSON（`--format` で json・jsonl・table を選ぶ） |
+| ログ・進捗 | ログ欄・進捗バー | stderr（`--quiet`） |
+| `ctx.emit` のファイル | 一覧からダウンロード・保存 | `--out-dir`（無ければ `--emit-dir`）に書く。一括処理ではファイル名の前に入力ファイルの名前を付ける |
+
+- native では、返り値・ログ・出力ファイルは `JobResult::Macro { value, emitted, log_truncated }` と、`Event::MacroLog` / `JobProgress` として返す。Web の macro Worker も同じ形で UI に返すので、UI の側は実行環境を区別しない
+
+#### CLI
+
+```sh
+pdfi macro list [--json]                       # 同梱 + ユーザーのディレクトリ（名前・題名・説明・edits）
+pdfi macro show <name>                         # meta とパラメータの説明
+pdfi macro new <name>                          # ひな形をユーザーのディレクトリに書く
+pdfi macro types -o pdfi.d.ts                  # 型定義を書き出す（エディタでの補完用）
+pdfi macro run <name|file.js> <in.pdf>... \
+    [--param k=v]... [--param k=@file] [--params p.json] \
+    [-o out.pdf | --out-dir DIR | --in-place] [--save incremental|full] [--dry-run] \
+    [--password P] [--jobs N] [--keep-going] [--timeout SEC] [--format json|jsonl|table]
+```
+
+- **一括処理**: 入力ファイルを複数受け取る（ディレクトリや glob の展開はシェルに任せ、`-` で stdin から 1 行 1 パスを読む）。ファイルごとに別の文書と別の処理系の実行環境で動かし、`--jobs N` で並列にする。`-o` はファイルが 1 つのときだけ使え、複数なら `--out-dir`（同じファイル名で書く）か `--in-place`。結果は 1 ファイル 1 件の `{ file, ok, value, error, saved, emitted }`（jsonl では 1 行ずつ）
+- 失敗したファイルは保存しない（undo 単位が戻るので、中途半端な状態で書かれることは無い）。既定では最初の失敗で止まり、`--keep-going` で残りを続ける。失敗が 1 つでもあれば終了コードは 1
+- 名前の解決順: パス（`/` か `.js` を含むもの）→ ユーザーのディレクトリ → 同梱のマクロ
+
+#### 保存場所と呼び出し
+
+- **同梱のマクロ**（バイナリに内蔵。そのまま例にもなる）: `fonts`（使われているフォントの一覧）、`metadata`（Info / XMP / カタログの宣言）、`set-reading`（見開き・綴じ方向）、`outline-from-json`、`page-labels`、`crop-to-content`（描画範囲に余白を足した CropBox）、`remove-marks`（トンボ・透かし。条件をパラメータで選ぶ）、`remove-owner-password`
+- **ユーザーのディレクトリ**: 1 マクロ 1 ファイル（`*.js`）。CLI とサーバーは `$PDFI_MACRO_PATH`（`:` 区切りで複数）か、既定の場所（macOS は `~/Library/Application Support/pdf-inspector/macros`、それ以外は `$XDG_CONFIG_HOME/pdf-inspector/macros`）を使う
+- **macOS アプリ**は App Sandbox を使わない（§4.10）ので、CLI と同じディレクトリ（`$PDFI_MACRO_PATH` か既定の場所）をそのまま使い、マクロを共有する。設定でディレクトリを足せる
+- **サーバーモード**: サーバーが自分のディレクトリを読み書きする（`Macros` / `MacroSource { name }` / `SaveMacro` / `DeleteMacro`）。**ブラウザ完結モード**: IndexedDB に保存し、`.js` として読み込み・書き出しができる
+- **GUI**: Macros メニュー（macOS）・コマンドパレットとマクロのパネル（Web / macOS 共通の構成）。一覧 → `meta.params` から作るフォーム → 実行（進捗・キャンセル）→ 結果・ログ・出力ファイル。編集は CodeMirror（Web）で、`pdfi.d.ts` を使った補完は後から足す
+- ディレクトリの走査と `meta` の読み取り、パラメータの検証は `pdfi-macro` の `Library` が行い、CLI・サーバー・FFI がそれを使う。Web はそれと同じ処理を TS で持つ（パラメータの検証は prelude 側で共有する）
+
+#### 停止とキャンセル
+
+安全のための制限（メモリの上限など）は設けない。止める手段だけを持つ。
+
+- QuickJS: interrupt handler でキャンセル（GUI のボタン、CLI の Ctrl-C）と、CLI の `--timeout`（一括処理で 1 ファイルが終わらないとき用。既定は無制限）を確かめる。Web: キャンセルされたら macro Worker を `terminate()` する
+- PDF の中の JavaScript（`/JS`）は今後も実行しない。UI と文書では「マクロ」と呼び、PDF の JavaScript アクションの表示とは呼び名を分ける
+
+#### ドキュメント（マクロを開発できるように）
+
+マクロのインタフェースは公開 API として扱い、次のドキュメントを実装と同時に書く。API を変える PR では、ドキュメントの更新も必須とする。
+
+- **`crates/pdfi-macro/js/pdfi.d.ts`**: 公開 API の型と TSDoc（引数・戻り値・単位・0 始まりか 1 始まりか・投げる例外・例）。**型と API 説明の唯一の出どころ**。`pdfi macro types` で書き出し、Web の macro パネルの補完にも使う
+- **`docs/macros/`**: 
+  - `README.md`: 入門（最初のマクロ、CLI と GUI での実行、一括処理、保存場所）
+  - `guide.md`: スクリプトの形・`meta` とパラメータの型・PDF の値の表し方・編集と undo 単位・保存・出力・制限・処理系の違い・プロトコルとの関係
+  - `api.md`: `pdfi.d.ts` から生成するリファレンス（TypeDoc + typedoc-plugin-markdown。生成物はリポジトリに入れ、差分を CI で検出する。ts-rs の `generated.ts` と同じ扱い）
+  - `cookbook.md`: よくある処理の例（同梱のマクロの解説を兼ねる）
+- **CI での検査**: `tsc --checkJs --noEmit` で prelude と同梱のマクロを `pdfi.d.ts` に照らして検査する。ドキュメント中の ```` ```js macro ```` のコードブロックは取り出してテスト用の PDF に対して実行する（例が古くならないように）。同梱のマクロは native と wasm の両方の経路で実行し、結果を期待値と比べる
 
 ## 5. 大規模ファイル対応（3000 ページ / 数百 MB）
 
@@ -635,23 +801,17 @@ UI は同じものを使い、起動経路（静的ホスティング or `pdfi s
 | **M11** | 命令列エディタ（構造編集 + テキストモード）、命令列シリアライズ | content stream を命令列として編集 |
 | **M12** | 自作レンダラ (3): shading、pattern、透明度、soft mask、blend、ICC / Separation / DeviceN、JPX / JBIG2 / CCITT | 描画の網羅性 |
 | **M13** | レンダリング回帰テスト（v2.13 で PDFium バックエンドと差分比較ビューは取りやめ） | 描画の変化が CI で分かる |
+| **M14** | マクロ (1): pdfi-macro（rquickjs、`__host`、キャンセル）、prelude（値・Node・Doc・Page・Content の読み取り、ページ操作・Info・`apply`）、`meta` とパラメータ、編集のグループ（undo 単位・失敗時に戻す）、出力、`pdfi macro list / show / new / types / run`（一括処理・並列）、同梱のマクロ（fonts・metadata・set-reading・crop-to-content・remove-owner-password）、`pdfi.d.ts` と `docs/macros/` | CLI でマクロを書いて複数ファイルに実行できる |
+| **M15** | マクロ (2): `ContentFind`（描画要素・ブロック単位）と `remove`、`SetOutline` / `SetPageLabels`、同梱のマクロ（remove-marks・outline-from-json・page-labels）と cookbook | トンボ・透かしの除去、JSON からの目次 |
+| **M16** | マクロ (3) Web: macro Worker（MessageChannel・terminate）、`EditGroup`、サーバーの `JobKind::Macro` とマクロの保存場所の要求、マクロのパネル（一覧・フォーム・結果・ログ・出力ファイル・CodeMirror）、IndexedDB、適合テストに同梱のマクロを追加 | ブラウザ完結・サーバーの両モードでマクロ |
+| **M17** | マクロ (4) macOS: pdfi-ffi から `JobKind::Macro`、Macros メニューとパネル、CLI と共有するマクロのディレクトリ | macOS でマクロ |
 
-※ M10 は M7 と並行着手可能（依存は M1/M6 のみ）。M11 は M7 + M10 に依存。M3 は M2 直後に置き、wasm 制約を早期に検証する。
+※ M10 は M7 と並行着手可能（依存は M1/M6 のみ）。M14 は M11 に依存し、M15〜M17 は M14 の後で（M16 と M17 は互いに独立）。M11 は M7 + M10 に依存。M3 は M2 直後に置き、wasm 制約を早期に検証する。
 
 ## 10. Future plan
 
 ### マクロ
-- 方針: **既存言語**を採用し、スクリプトは `pdfi-api` の query と `EditCommand` だけにアクセス（ファイル I/O なし）。UI 操作の記録 → スクリプト生成も `EditCommand` から機械的に可能
-- 埋め込み方式の候補
-
-| 方式 | 言語 | 長所 | 短所 |
-|---|---|---|---|
-| backend に純 Rust 処理系を埋め込み | JavaScript（Boa, MIT） / Rhai（MIT/Apache） | 全プラットフォームで同一挙動、wasm 可 | Boa は速度・互換性、Rhai は独自言語 |
-| backend に C 製処理系を埋め込み | JavaScript（QuickJS / `rquickjs`, MIT）/ Lua（MIT） | 成熟・高速 | wasm ビルドが手間 |
-| フロント側のホスト JS 処理系で実行 | JavaScript（ブラウザ / macOS は JavaScriptCore） | 追加の処理系不要、Web は最速 | プラットフォームごとにバインディングが必要、Windows で別途必要 |
-
-- 現時点の第一候補: **JavaScript**（言語として既存・型定義を TS で提供できる）。処理系は M13 以降に Boa と QuickJS を比較評価して決定
-- プロトコル化により、**Web UI 上のマクロはブラウザの JS 処理系で実行し `Backend` 経由で操作**する方式も、両モード共通で取れる（サーバーモードでもスクリプトはブラウザ側で動く）
+- v2.14 で確定し §4.11 に移した。v1 の後: TypeScript で書く（型を取り除く処理を足す）、マクロ同士の `import`、UI 操作を `EditCommand` から記録してスクリプトにする、フォーム XObject の中の命令の除去
 
 ### Windows
 - ネイティブ（WinUI 3 + C#）。バインディングは UniFFI の C# 生成（`uniffi-bindgen-cs`）を第一候補。pdfi-api の DTO 設計は C# からも使える形（ジェネリクスに依存しない）を維持する
